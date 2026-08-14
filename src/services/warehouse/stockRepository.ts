@@ -39,7 +39,7 @@ function client(){ if(!supabase) throw new CoreRepositoryError('Supabase no est√
 function cleanTerm(value:string){ return value.trim().replace(/[%_]/g,''); }
 
 export async function searchStockProducts(companyId:number, search=''):Promise<StockProduct[]> {
-  const c=client(); let q=c.from('product').select('id,code,commercial_description,technical_description,stock_enabled,allow_negative_stock,include_stock_by_color,stock_minimum').eq('company_id',companyId).is('deleted_at',null).eq('active',true).order('code').limit(30);
+  const c=client(); let q=c.from('product').select('id,code,commercial_description,technical_description,stock_enabled,allow_negative_stock,include_stock_by_color,stock_minimum').eq('company_id',companyId).is('deleted_at',null).eq('active',true).eq('stock_enabled',true).order('code').limit(30);
   const term=cleanTerm(search); if(term) q=q.or(`code.ilike.%${term}%,commercial_description.ilike.%${term}%,technical_description.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message); return (data??[]) as StockProduct[];
 }
@@ -50,8 +50,12 @@ export async function listStockCharacteristics(productId:number):Promise<StockCh
 }
 
 export async function listStockBalances(companyId:number, warehouseId?:number, search=''):Promise<StockBalance[]> {
-  const c=client(); let q=c.from('warehouse_stock').select('id,warehouse_id,product_id,characteristic_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_characteristic(code,description)').eq('warehouse.company_id',companyId).order('updated_at',{ascending:false});
-  if(warehouseId) q=q.eq('warehouse_id',warehouseId);
+  const c=client();
+  const {data:warehouseRows,error:warehouseError}=await c.from('warehouse').select('id').eq('company_id',companyId).is('deleted_at',null);
+  if(warehouseError) throw new CoreRepositoryError(warehouseError.message);
+  const warehouseIds=(warehouseRows??[]).map((w:{id:number})=>w.id).filter(Boolean);
+  if(warehouseIds.length===0)return [];
+  let q=c.from('warehouse_stock').select('id,warehouse_id,product_id,characteristic_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_characteristic(code,description)').in('warehouse_id',warehouseId?[warehouseId]:warehouseIds).order('updated_at',{ascending:false});
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
   const rows=(data??[]) as unknown as StockBalance[];
   const term=cleanTerm(search).toLowerCase();
