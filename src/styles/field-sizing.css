@@ -1,0 +1,20 @@
+/* ONIN field-sizing standard.
+   Prefer semantic classes in new forms: field-xs (90px), field-sm (140px),
+   field-md (220px), field-lg (360px), field-xl (520px), field-wide (100%).
+   When a class is not specified, infer a sensible width from the control type.
+*/
+.form-grid input[type="number"]{width:min(170px,100%)}
+.form-grid label:has(input[type="number"]){justify-items:start}
+.form-grid label:has(input[type="number"])>input{max-width:170px}
+.form-grid label:has(select){justify-items:start}
+.form-grid label:has(select)>select{max-width:360px}
+.form-grid label:has(input[type="text"]){justify-items:start}
+.form-grid label:has(input[type="text"])>input{max-width:420px}
+.form-grid input.field-xs,.form-grid select.field-xs,.form-grid textarea.field-xs{width:min(90px,100%)!important;max-width:90px!important}
+.form-grid input.field-sm,.form-grid select.field-sm,.form-grid textarea.field-sm{width:min(140px,100%)!important;max-width:140px!important}
+.form-grid input.field-md,.form-grid select.field-md,.form-grid textarea.field-md{width:min(220px,100%)!important;max-width:220px!important}
+.form-grid input.field-lg,.form-grid select.field-lg,.form-grid textarea.field-lg{width:min(360px,100%)!important;max-width:360px!important}
+.form-grid input.field-xl,.form-grid select.field-xl,.form-grid textarea.field-xl{width:min(520px,100%)!important;max-width:520px!important}
+.form-grid input.field-wide,.form-grid select.field-wide,.form-grid textarea.field-wide{width:100%!important;max-width:none!important}
+.form-grid label.wide>input,.form-grid label.wide>select,.form-grid label.wide>textarea,.form-grid .wide>input,.form-grid .wide>select,.form-grid .wide>textarea{width:100%;max-width:none}
+@media(max-width:760px){.form-grid input[type="number"],.form-grid label:has(input[type="number"])>input,.form-grid label:has(input[type="text"])>input,.form-grid label:has(select)>select{width:100%;max-width:100%}}
