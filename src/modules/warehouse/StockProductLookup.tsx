@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { searchStockProducts, type StockProduct } from '../../services/warehouse/stockRepository';
+import { listStockCharacteristics, searchStockProducts, type StockCharacteristic, type StockProduct } from '../../services/warehouse/stockRepository';
 
 export function StockProductLookup({companyId,value,onChange}:{companyId:number;value:StockProduct|null;onChange:(product:StockProduct|null)=>void}){
   const [term,setTerm]=useState(value?.code??'');
@@ -18,7 +18,7 @@ export function StockProductLookup({companyId,value,onChange}:{companyId:number;
 }
 
 export function CharacteristicSelect({productId,value,onChange}:{productId:number;value:number|null;onChange:(id:number|null)=>void}){
-  const [rows,setRows]=useState<import('../../services/warehouse/stockRepository').StockCharacteristic[]>([]);
-  useEffect(()=>{let active=true; import('../../services/warehouse/stockRepository').then(m=>m.listStockCharacteristics(productId)).then(r=>{if(active)setRows(r)}).catch(()=>{if(active)setRows([])});return()=>{active=false}},[productId]);
+  const [rows,setRows]=useState<StockCharacteristic[]>([]);
+  useEffect(()=>{let active=true; listStockCharacteristics(productId).then(r=>{if(active)setRows(r)}).catch(()=>{if(active)setRows([])});return()=>{active=false}},[productId]);
   return <label><span>Característica / color</span><select value={value??''} onChange={e=>onChange(e.target.value?Number(e.target.value):null)}><option value="">Sin característica</option>{rows.map(c=><option key={c.id} value={c.id}>{c.code}{c.description?` · ${c.description}`:''}</option>)}</select></label>;
 }
