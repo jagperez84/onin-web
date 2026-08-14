@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3 } from 'lucide-react';
+import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3, ArrowRightLeft, CalendarClock } from 'lucide-react';
 
 export type NavItem = { label:string; to:string; icon?:ReactNode };
 export type NavSection = { label:string; items:NavItem[] };
@@ -19,6 +19,8 @@ export const navSections: NavSection[] = [
     {label:'Almacenes',to:'/almacen/almacenes',icon:<Warehouse size={16}/>},
     {label:'Existencias',to:'/almacen/existencias',icon:<Package size={16}/>},
     {label:'Movimientos',to:'/almacen/movimientos',icon:<ReceiptText size={16}/>},
+    {label:'Transferencias',to:'/almacen/transferencias',icon:<ArrowRightLeft size={16}/>},
+    {label:'Reservas',to:'/almacen/reservas',icon:<CalendarClock size={16}/>},
   ]},
   { label:'Gestión', items:[
     {label:'Mediciones',to:'/gestion/mediciones',icon:<Ruler size={16}/>},
