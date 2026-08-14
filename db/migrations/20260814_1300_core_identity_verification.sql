@@ -1,0 +1,5 @@
+-- ONIN Foundation v3
+-- Verification-only migration note.
+-- Existing Core IDs are PostgreSQL identity columns (BY DEFAULT).
+-- No DDL change is required for ID autogeneration.
+-- This migration intentionally contains no DDL.
