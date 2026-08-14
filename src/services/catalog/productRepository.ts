@@ -14,8 +14,12 @@ export type Product = {
   iva_percent:number|null; default_supplier_party_id:number|null; include_measurements_in_stock:boolean; include_stock_by_color:boolean;
   scaled:boolean; scaled_by_characteristic:boolean; deleted_at:string|null; deleted_by:string|null;
 };
-export type ProductForm = Omit<Product,'id'|'company_id'|'created_at'|'updated_at'>;
+export type ProductForm = Omit<Product,'id'|'company_id'>;
 export type ProductListRow = Product & { family:ProductCatalogRef|null; productType:ProductTypeRef|null; unit:ProductCatalogRef|null; supplier:ProductSupplierRef|null };
+export type ProductCharacteristic = {
+  id:number; product_id:number; code:string; description:string|null; upc:number|null; ptc:number|null; pvp:number|null;
+  price_increment:number; stock_minimum:number; active:boolean; scaled:boolean; deleted_at:string|null; deleted_by:string|null;
+};
 
 function client(){ if(!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase; }
 
@@ -75,4 +79,28 @@ export async function markProductForDeletion(companyId:number,id:number):Promise
 }
 export async function restoreProduct(companyId:number,id:number):Promise<void>{
   const c=client(); const {error}=await c.from('product').update({active:true,deleted_at:null,deleted_by:null}).eq('company_id',companyId).eq('id',id).not('deleted_at','is',null); if(error) throw new CoreRepositoryError(error.message);
+}
+
+export async function listProductCharacteristics(productId:number,status:ProductStatus='active'):Promise<ProductCharacteristic[]>{
+  const c=client(); let q=c.from('product_characteristic').select('id,product_id,code,description,upc,ptc,pvp,price_increment,stock_minimum,active,scaled,deleted_at,deleted_by').eq('product_id',productId).order('code');
+  if(status==='active')q=q.eq('active',true).is('deleted_at',null);
+  if(status==='inactive')q=q.eq('active',false).is('deleted_at',null);
+  if(status==='deleted')q=q.not('deleted_at','is',null);
+  const {data,error}=await q;if(error)throw new CoreRepositoryError(error.message);return(data??[]) as ProductCharacteristic[];
+}
+
+export async function createProductCharacteristic(productId:number,input:Omit<ProductCharacteristic,'id'|'product_id'|'deleted_at'|'deleted_by'>):Promise<number>{
+  const c=client();const {data,error}=await c.from('product_characteristic').insert({product_id:productId,...input,deleted_at:null,deleted_by:null}).select('id').single();if(error)throw new CoreRepositoryError(error.message);return Number(data.id);
+}
+
+export async function updateProductCharacteristic(id:number,input:Partial<Omit<ProductCharacteristic,'id'|'product_id'>>):Promise<void>{
+  const c=client();const {error}=await c.from('product_characteristic').update(input).eq('id',id).is('deleted_at',null);if(error)throw new CoreRepositoryError(error.message);
+}
+
+export async function markProductCharacteristicForDeletion(id:number):Promise<void>{
+  const c=client();const {data:user}=await c.auth.getUser();const {error}=await c.from('product_characteristic').update({active:false,deleted_at:new Date().toISOString(),deleted_by:user.user?.id??null}).eq('id',id).is('deleted_at',null);if(error)throw new CoreRepositoryError(error.message);
+}
+
+export async function restoreProductCharacteristic(id:number):Promise<void>{
+  const c=client();const {error}=await c.from('product_characteristic').update({active:true,deleted_at:null,deleted_by:null}).eq('id',id).not('deleted_at','is',null);if(error)throw new CoreRepositoryError(error.message);
 }
