@@ -9,7 +9,7 @@ export type ProductScaleInput = Omit<ProductScaleRow,'id'|'product_id'|'characte
 type SupplierRefRow = { id:number; legal_name:string|null; trade_name:string|null };
 type CharacteristicCodeRow = { id:number; code:string; description?:string|null };
 
-afunction client(){if(!supabase)throw new CoreRepositoryError('Supabase no está configurado.');return supabase;}
+function client(){if(!supabase)throw new CoreRepositoryError('Supabase no está configurado.');return supabase;}
 
 export async function listProductSuppliers(productId:number):Promise<ProductSupplierRow[]>{
  const c=client();
