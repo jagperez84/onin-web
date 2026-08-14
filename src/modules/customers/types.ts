@@ -1,7 +1,7 @@
 import type { Address, Contact, CustomerSummary, Party } from '../../domain/core/types';
 
 export type CustomerDetails = {
-  customer: { id:number; party_id:number };
+  customer: { id:number; party_id:number; deleted_at:string|null; deleted_by?:number|null };
   party: Party;
   addresses: Address[];
   contacts: Contact[];
