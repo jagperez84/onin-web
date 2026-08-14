@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { searchAddress, type AddressLookupResult } from '../../services/address/openStreetMap';
 import type { AddressForm } from './types';
+import { getLocality } from './addressUtils';
 
 export function AddressLookup({ value, onChange }: { value: AddressForm; onChange: (v: AddressForm) => void }) {
   const [query, setQuery] = useState('');
@@ -9,28 +10,29 @@ export function AddressLookup({ value, onChange }: { value: AddressForm; onChang
   const [error, setError] = useState('');
 
   async function lookup() {
-    if (query.trim().length < 4) {
+    const term = query.trim();
+    if (term.length < 4) {
       setResults([]);
       setError('Introduce al menos 4 caracteres para buscar una dirección.');
       return;
     }
     setSearching(true); setError('');
-    try { setResults(await searchAddress(query)); }
-    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo buscar la dirección.'); }
-    finally { setSearching(false); }
+    try {
+      setResults(await searchAddress(term));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo buscar la dirección.');
+    } finally {
+      setSearching(false);
+    }
   }
 
   function apply(r: AddressLookupResult) {
     const a = r.address ?? {};
-    const fallbackCity = a.town ?? a.village ?? a.municipality ?? a.city ?? a.county ?? '';
-    const city = a.city && a.state && a.city.trim().toLowerCase() === a.state.trim().toLowerCase()
-      ? (a.town ?? a.village ?? a.municipality ?? a.county ?? '')
-      : fallbackCity;
     onChange({
       ...value,
       street: [a.road, a.house_number].filter(Boolean).join(' '),
       postal_code: a.postcode ?? '',
-      city,
+      city: getLocality(a),
       region: a.state ?? '',
       country_code: (a.country_code ?? value.country_code ?? 'ES').toUpperCase(),
     });
