@@ -1,0 +1,35 @@
+import { useEffect, useState } from 'react';
+import { Edit3, Plus, Save, Trash2, Undo2 } from 'lucide-react';
+import { getActiveCompanies } from '../../services/core/coreRepository';
+import { createProductCharacteristic, listProductCharacteristics, markProductCharacteristicForDeletion, restoreProductCharacteristic, updateProductCharacteristic, type ProductCharacteristic, type ProductStatus } from '../../services/catalog/productRepository';
+
+type Props={productId:number; readOnly:boolean; onError:(message:string)=>void};
+
+const emptyForm={code:'',description:'',upc:null as number|null,ptc:null as number|null,pvp:null as number|null,price_increment:0,stock_minimum:0,active:true,scaled:false};
+
+export function ProductCharacteristicsPanel({productId,readOnly,onError}:Props){
+  const [companyId,setCompanyId]=useState<number|null>(null);
+  const [rows,setRows]=useState<ProductCharacteristic[]>([]);
+  const [status,setStatus]=useState<ProductStatus>('active');
+  const [editing,setEditing]=useState<number|null>(null);
+  const [form,setForm]=useState({...emptyForm});
+  const [saving,setSaving]=useState(false);
+
+  useEffect(()=>{getActiveCompanies().then(cs=>setCompanyId(cs[0]?.id??null)).catch(e=>onError(e instanceof Error?e.message:'No se pudo obtener la empresa activa.'));},[onError]);
+  useEffect(()=>{if(companyId)load();},[companyId,productId,status]);
+
+  async function load(){try{const data=await listProductCharacteristics(productId,status);setRows(data);}catch(e){onError(e instanceof Error?e.message:'No se pudieron cargar las características.')}}
+  function startNew(){setEditing(0);setForm({...emptyForm});}
+  function edit(row:ProductCharacteristic){setEditing(row.id);setForm({code:row.code,description:row.description??'',upc:row.upc,ptc:row.ptc,pvp:row.pvp,price_increment:row.price_increment,stock_minimum:row.stock_minimum,active:row.active,scaled:row.scaled});}
+  function cancel(){setEditing(null);setForm({...emptyForm});}
+  async function save(){if(!form.code.trim()||!form.description.trim()){onError('Código y descripción son obligatorios.');return}setSaving(true);try{const payload={...form,code:form.code.trim(),description:form.description.trim()};if(editing===0) await createProductCharacteristic(productId,payload);else if(editing!==null) await updateProductCharacteristic(editing,payload);cancel();await load();}catch(e){onError(e instanceof Error?e.message:'No se pudo guardar la característica.')}finally{setSaving(false)}}
+  async function mark(row:ProductCharacteristic){if(!window.confirm(`¿Marcar la característica ${row.code} para borrado? No se eliminará físicamente y podrá recuperarse.`))return;try{await markProductCharacteristicForDeletion(row.id);await load();}catch(e){onError(e instanceof Error?e.message:'No se pudo marcar para borrado.')}}
+  async function restore(row:ProductCharacteristic){try{await restoreProductCharacteristic(row.id);await load();}catch(e){onError(e instanceof Error?e.message:'No se pudo recuperar la característica.')}}
+
+  return <section className="panel product-characteristics-panel">
+    <div className="panel-head"><div><h2>Características / colores</h2><p>Variantes del artículo. Cada característica puede tener sus propios valores comerciales y de stock.</p></div>{!readOnly&&<button type="button" className="primary-button compact" onClick={startNew}><Plus size={15}/> Añadir característica</button>}</div>
+    {!readOnly&&editing!==null&&<div className="characteristic-inline-editor"><div className="form-grid"><label>Código *<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/></label><label>Descripción *<input value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label><label>UPC<input type="number" step="0.01" value={form.upc??''} onChange={e=>setForm({...form,upc:e.target.value===''?null:Number(e.target.value)})}/></label><label>PTC<input type="number" step="0.01" value={form.ptc??''} onChange={e=>setForm({...form,ptc:e.target.value===''?null:Number(e.target.value)})}/></label><label>PVP<input type="number" step="0.01" value={form.pvp??''} onChange={e=>setForm({...form,pvp:e.target.value===''?null:Number(e.target.value)})}/></label><label>Incremento de precio<input type="number" step="0.01" value={form.price_increment} onChange={e=>setForm({...form,price_increment:Number(e.target.value)})}/></label><label>Stock mínimo<input type="number" min="0" step="1" value={form.stock_minimum} onChange={e=>setForm({...form,stock_minimum:Number(e.target.value)})}/></label><label>Estado<select value={form.active?'1':'0'} onChange={e=>setForm({...form,active:e.target.value==='1'})}><option value="1">Activo</option><option value="0">Inactivo</option></select></label><label className="check-card"><input type="checkbox" checked={form.scaled} onChange={e=>setForm({...form,scaled:e.target.checked})}/><span><strong>Escalado</strong></span></label></div><div className="actions"><button type="button" className="secondary-button" onClick={cancel}>Cancelar</button><button type="button" className="primary-button" disabled={saving} onClick={save}><Save size={15}/>{saving?'Guardando…':'Guardar'}</button></div></div>}
+    <div className="table-panel product-table"><table><thead><tr><th>Código</th><th>Descripción</th><th>UPC</th><th>PTC</th><th>PVP</th><th>Estado</th><th></th></tr></thead><tbody>{rows.length===0?<tr><td colSpan={7}><div className="empty-state">No hay características definidas para este artículo.</div></td></tr>:rows.map(row=>{const deleted=!!row.deleted_at;return <tr key={row.id}><td>{row.code}</td><td>{row.description||'—'}</td><td>{row.upc??'—'}</td><td>{row.ptc??'—'}</td><td>{row.pvp==null?'—':Number(row.pvp).toFixed(2)+' €'}</td><td><span className={`status ${deleted||!row.active?'inactive':'active'}`}>{deleted?'Marcada para borrado':row.active?'Activa':'Inactiva'}</span></td><td><div className="item-actions">{!readOnly&&!deleted&&<button className="icon-action" title="Editar" onClick={()=>edit(row)}><Edit3 size={15}/></button>}{deleted?<button className="icon-action" title="Recuperar" onClick={()=>restore(row)}><Undo2 size={15}/></button>:!readOnly&&<button className="icon-action danger" title="Marcar para borrado" onClick={()=>mark(row)}><Trash2 size={15}/></button>}</div></td></tr>})}</tbody></table></div>
+    <div className="product-characteristics-filter"><select value={status} onChange={e=>setStatus(e.target.value as ProductStatus)} aria-label="Estado de las características"><option value="active">Activas</option><option value="inactive">Inactivas</option><option value="deleted">Marcadas para borrado</option><option value="all">Todas</option></select><span className="result-count">{rows.length} registros</span></div>
+  </section>;
+}
