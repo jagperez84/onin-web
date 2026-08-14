@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { searchAddress, type AddressLookupResult } from '../../services/address/openStreetMap';
 import type { AddressForm } from './types';
-import { getLocality } from './addressUtils';
+import { getLocality, getProvince } from './addressUtils';
 import './customer-address.css';
 
 export function AddressLookup({ value, onChange }: { value: AddressForm; onChange: (v: AddressForm) => void }) {
@@ -34,7 +34,7 @@ export function AddressLookup({ value, onChange }: { value: AddressForm; onChang
       street: [a.road, a.house_number].filter(Boolean).join(' '),
       postal_code: a.postcode ?? '',
       city: getLocality(a),
-      region: a.state ?? '',
+      region: getProvince(a),
       country_code: (a.country_code ?? value.country_code ?? 'ES').toUpperCase(),
     });
     setResults([]);
