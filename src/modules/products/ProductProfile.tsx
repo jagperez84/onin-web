@@ -1,4 +1,5 @@
-import { useCallback, useParams } from 'react-router-dom';
+import { useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { ProductV2 } from './ProductV2';
 import { ProductCharacteristicsPanel } from './ProductCharacteristicsPanel';
 
