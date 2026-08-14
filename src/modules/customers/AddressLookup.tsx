@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { searchAddress, type AddressLookupResult } from '../../services/address/openStreetMap';
 import type { AddressForm } from './types';
 import { getLocality } from './addressUtils';
+import './customer-address.css';
 
 export function AddressLookup({ value, onChange }: { value: AddressForm; onChange: (v: AddressForm) => void }) {
   const [query, setQuery] = useState('');
