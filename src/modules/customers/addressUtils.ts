@@ -33,10 +33,25 @@ export function getLocality(address: {
   village?: string;
   municipality?: string;
   county?: string;
+  state_district?: string;
   state?: string;
 }): string {
   const state = (address.state ?? '').trim().toLowerCase();
-  const candidates = [address.city, address.town, address.village, address.municipality, address.county];
+  const candidates = [address.city, address.town, address.village, address.municipality, address.county, address.state_district];
+  return candidates.find(value => {
+    const normalized = (value ?? '').trim();
+    return normalized && normalized.toLowerCase() !== state;
+  })?.trim() ?? '';
+}
+
+export function getProvince(address: {
+  province?: string;
+  county?: string;
+  state_district?: string;
+  state?: string;
+}): string {
+  const state = (address.state ?? '').trim().toLowerCase();
+  const candidates = [address.province, address.county, address.state_district];
   return candidates.find(value => {
     const normalized = (value ?? '').trim();
     return normalized && normalized.toLowerCase() !== state;
