@@ -17,7 +17,30 @@ export type CustomerForm = {
   notes: string;
 };
 
-export type AddressForm = Omit<Address, 'id'|'party_id'>;
-export type ContactForm = Omit<Contact, 'id'|'party_id'>;
+/**
+ * Form models are deliberately non-nullable. Database Address/Contact rows
+ * may contain null values, but the UI normalizes them to empty strings before
+ * they enter these forms.
+ */
+export type AddressForm = {
+  address_type: string;
+  street: string;
+  postal_code: string;
+  city: string;
+  region: string;
+  country_code: string;
+};
+
+export type ContactForm = {
+  first_name: string;
+  last_name: string;
+  job_title: string;
+  department: string;
+  phone: string;
+  mobile: string;
+  email: string;
+  notes: string;
+  active: boolean;
+};
 
 export type CustomerListResult = { rows: CustomerSummary[]; total: number };
