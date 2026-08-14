@@ -9,7 +9,11 @@ export function AddressLookup({ value, onChange }: { value: AddressForm; onChang
   const [error, setError] = useState('');
 
   async function lookup() {
-    if (!query.trim()) return;
+    if (query.trim().length < 4) {
+      setResults([]);
+      setError('Introduce al menos 4 caracteres para buscar una dirección.');
+      return;
+    }
     setSearching(true); setError('');
     try { setResults(await searchAddress(query)); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo buscar la dirección.'); }
@@ -18,15 +22,20 @@ export function AddressLookup({ value, onChange }: { value: AddressForm; onChang
 
   function apply(r: AddressLookupResult) {
     const a = r.address ?? {};
+    const fallbackCity = a.town ?? a.village ?? a.municipality ?? a.city ?? a.county ?? '';
+    const city = a.city && a.state && a.city.trim().toLowerCase() === a.state.trim().toLowerCase()
+      ? (a.town ?? a.village ?? a.municipality ?? a.county ?? '')
+      : fallbackCity;
     onChange({
       ...value,
       street: [a.road, a.house_number].filter(Boolean).join(' '),
       postal_code: a.postcode ?? '',
-      city: a.city ?? a.town ?? a.village ?? a.municipality ?? '',
+      city,
       region: a.state ?? '',
       country_code: (a.country_code ?? value.country_code ?? 'ES').toUpperCase(),
     });
     setResults([]);
+    setQuery(r.display_name);
   }
 
   return <div className="wide address-lookup">
@@ -36,7 +45,7 @@ export function AddressLookup({ value, onChange }: { value: AddressForm; onChang
       <button type="button" className="secondary-button" onClick={lookup} disabled={searching}>{searching ? 'Buscando…' : 'Buscar'}</button>
     </div>
     {error && <div className="inline-error">{error}</div>}
-    {results.length > 0 && <div className="lookup-results">
+    {results.length > 0 && <div className="lookup-results" role="listbox" aria-label="Resultados de dirección">
       {results.map((r, i) => <button type="button" key={`${r.lat}-${r.lon}-${i}`} onClick={() => apply(r)}>{r.display_name}</button>)}
       <small>Datos © OpenStreetMap contributors</small>
     </div>}
