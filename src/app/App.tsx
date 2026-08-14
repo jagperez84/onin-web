@@ -11,6 +11,7 @@ import { ProductCatalogV1 } from '../modules/catalog/ProductCatalogV1';
 import { ProductV2 } from '../modules/products/ProductV2';
 import { ProductCharacteristics } from '../modules/products/ProductCharacteristics';
 import { ProductProfile } from '../modules/products/ProductProfile';
+import { WarehouseList, WarehouseDetail } from '../modules/warehouse/WarehouseList';
 import { LoginPage } from '../components/ui/LoginPage';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { useAuth } from '../auth/AuthContext';
@@ -18,7 +19,7 @@ import { useAuth } from '../auth/AuthContext';
 function Shell(){
   const location=useLocation(); const { user, signOut } = useAuth(); const [mobileOpen,setMobileOpen]=useState(false);
   const current=useMemo(()=>navSections.flatMap(s=>s.items).find(i=>location.pathname===i.to),[location.pathname]);
-  const title=current?.label ?? (location.pathname.startsWith('/ventas/articulos')?'Artículos':'Inicio');
+  const title=current?.label ?? (location.pathname.startsWith('/ventas/articulos')?'Artículos':location.pathname.startsWith('/almacen/almacenes')?'Almacenes':'Inicio');
   async function logout(){ await signOut(); }
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen?'is-open':''}`} aria-label="Navegación principal">
@@ -28,7 +29,7 @@ function Shell(){
       <div className="sidebar-footer"><div className="sidebar-user" title={user?.email ?? ''}>{user?.email ?? 'Usuario autenticado'}</div><button className="logout" onClick={logout}><LogOut size={16}/>Cerrar sesión</button></div>
     </aside>
     <div className="workspace"><header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(v=>!v)} aria-label="Abrir menú"><Menu size={20}/></button><div className="crumb"><NavLink to="/">Inicio</NavLink><span>/</span><strong>{title}</strong></div><div className="topbar-spacer"/><div className="global-search"><Search size={16}/><input placeholder="Buscar..." aria-label="Buscar en ONIN"/></div><button className="avatar" title={user?.email ?? 'Usuario'}>{(user?.email?.[0] ?? 'U').toUpperCase()}</button></header>
-      <main className="content"><Routes><Route path="/" element={<HomeView/>}/>{navSections.flatMap(s=>s.items).map(i=><Route key={i.to} path={i.to} element={i.to==='/ventas/clientes'?<CustomerList/>:i.to==='/ventas/articulos'?<ProductV2/>:<PagePlaceholder title={i.label} />}/>)}<Route path="/ventas/clientes/nuevo" element={<CustomerCreate/>}/><Route path="/ventas/clientes/:id" element={<CustomerDetail/>}/><Route path="/ventas/articulos/nuevo" element={<ProductV2/>}/><Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics/>}/><Route path="/ventas/articulos/:id" element={<ProductProfile/>}/><Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Routes></main>
+      <main className="content"><Routes><Route path="/" element={<HomeView/>}/>{navSections.flatMap(s=>s.items).map(i=><Route key={i.to} path={i.to} element={i.to==='/ventas/clientes'?<CustomerList/>:i.to==='/ventas/articulos'?<ProductV2/>:i.to==='/almacen/almacenes'?<WarehouseList/>:<PagePlaceholder title={i.label} />}/>)}<Route path="/ventas/clientes/nuevo" element={<CustomerCreate/>}/><Route path="/ventas/clientes/:id" element={<CustomerDetail/>}/><Route path="/ventas/articulos/nuevo" element={<ProductV2/>}/><Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics/>}/><Route path="/ventas/articulos/:id" element={<ProductProfile/>}/><Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1/>}/><Route path="/almacen/almacenes/nuevo" element={<WarehouseDetail/>}/><Route path="/almacen/almacenes/:id" element={<WarehouseDetail/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Routes></main>
     </div>{mobileOpen && <button className="scrim" onClick={()=>setMobileOpen(false)} aria-label="Cerrar menú"/>}
   </div>
 }
