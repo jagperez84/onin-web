@@ -6,7 +6,10 @@ export type ProductScaleRow = { id:number; product_id:number; dimension_1:number
 export type ProductSupplierInput = Omit<ProductSupplierRow,'id'|'product_id'|'supplier_name'|'characteristic_code'|'deleted_at'|'deleted_by'>;
 export type ProductScaleInput = Omit<ProductScaleRow,'id'|'product_id'|'characteristic_code'|'characteristic_description'|'deleted_at'|'deleted_by'>;
 
-function client(){if(!supabase)throw new CoreRepositoryError('Supabase no está configurado.');return supabase;}
+type SupplierRefRow = { id:number; legal_name:string|null; trade_name:string|null };
+type CharacteristicCodeRow = { id:number; code:string; description?:string|null };
+
+afunction client(){if(!supabase)throw new CoreRepositoryError('Supabase no está configurado.');return supabase;}
 
 export async function listProductSuppliers(productId:number):Promise<ProductSupplierRow[]>{
  const c=client();
@@ -20,8 +23,10 @@ export async function listProductSuppliers(productId:number):Promise<ProductSupp
    chars.length?c.from('product_characteristic').select('id,code').in('id',chars):Promise.resolve({data:[],error:null} as any)
  ]);
  if(sup.error)throw new CoreRepositoryError(sup.error.message); if(chr.error)throw new CoreRepositoryError(chr.error.message);
- const names=new Map((sup.data??[]).map((x:{id:number;legal_name:string|null;trade_name:string|null})=>[x.id,x.trade_name||x.legal_name||`Proveedor ${x.id}`]));
- const codes=new Map((chr.data??[]).map((x:{id:number;code:string})=>[x.id,x.code]));
+ const supplierData=(sup.data??[]) as SupplierRefRow[];
+ const characteristicData=(chr.data??[]) as CharacteristicCodeRow[];
+ const names=new Map(supplierData.map(x=>[x.id,x.trade_name||x.legal_name||`Proveedor ${x.id}`] as const));
+ const codes=new Map(characteristicData.map(x=>[x.id,x.code] as const));
  return rows.map(r=>({...r,supplier_name:names.get(r.supplier_party_id)??`Proveedor ${r.supplier_party_id}`,characteristic_code:r.characteristic_id?codes.get(r.characteristic_id)??null:null}));
 }
 
@@ -32,7 +37,8 @@ export async function listProductScales(productId:number):Promise<ProductScaleRo
  const ids=[...new Set(rows.map(r=>r.characteristic_id).filter((v):v is number=>v!==null))];
  const chr=ids.length?await c.from('product_characteristic').select('id,code,description').in('id',ids):{data:[],error:null} as any;
  if(chr.error)throw new CoreRepositoryError(chr.error.message);
- const map=new Map((chr.data??[]).map((x:{id:number;code:string;description:string|null})=>[x.id,x]));
+ const characteristicData=(chr.data??[]) as CharacteristicCodeRow[];
+ const map=new Map(characteristicData.map(x=>[x.id,x] as const));
  return rows.map(r=>({...r,characteristic_code:r.characteristic_id?map.get(r.characteristic_id)?.code??null:null,characteristic_description:r.characteristic_id?map.get(r.characteristic_id)?.description??null:null}));
 }
 
