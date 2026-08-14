@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { ReactNode } from 'react';
 import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3 } from 'lucide-react';
 
 export type NavItem = { label:string; to:string; icon?:ReactNode };
