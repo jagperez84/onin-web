@@ -16,6 +16,7 @@ export type Party = {
   email: string | null;
   phone: string | null;
   active: boolean;
+  notes: string | null;
 };
 
 export type Customer = { id: number; party_id: number };
