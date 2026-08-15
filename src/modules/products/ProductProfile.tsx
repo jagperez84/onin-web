@@ -1,12 +1,27 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ProductV2 } from './ProductV2';
 import { ProductCharacteristicsPanel } from './ProductCharacteristicsPanel';
 import { ProductCommercialPanel } from './ProductCommercialPanel';
 
+function detectEditing(): boolean {
+  return !!document.querySelector('.product-save-actions');
+}
+
 export function ProductProfile(){
   const { id }=useParams<{id:string}>();
   const onError=useCallback((message:string)=>{window.dispatchEvent(new CustomEvent('onin-product-error',{detail:message}));},[]);
+  const [editing,setEditing]=useState(false);
+
+  useEffect(()=>{
+    const update=()=>setEditing(detectEditing());
+    update();
+    const observer=new MutationObserver(update);
+    observer.observe(document.body,{childList:true,subtree:true});
+    window.addEventListener('resize',update);
+    return()=>{observer.disconnect();window.removeEventListener('resize',update);};
+  },[]);
+
   if(!id || id==='nuevo') return <ProductV2/>;
   return <div className="product-profile-shell">
     <nav className="product-profile-section-nav" aria-label="Navegación rápida del artículo">
@@ -18,8 +33,8 @@ export function ProductProfile(){
     </nav>
     <div className="product-profile-content">
       <ProductV2/>
-      <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={false} onError={onError}/></div>
-      <div className="product-profile-section-wrap"><ProductCommercialPanel productId={Number(id)} onError={onError}/></div>
+      <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={editing} onError={onError}/></div>
+      <div className="product-profile-section-wrap"><ProductCommercialPanel productId={Number(id)} editable={!editing} onError={onError}/></div>
     </div>
   </div>;
 }
