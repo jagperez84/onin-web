@@ -36,6 +36,13 @@ function setupProductTargets() {
   });
 }
 
+function bindCustomerTargets(nav: HTMLElement) {
+  nav.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((link) => {
+    const raw = link.getAttribute('href')?.slice(1);
+    if (raw) link.dataset.sectionTarget = raw;
+  });
+}
+
 function updateActive(nav: HTMLElement) {
   const links = Array.from(nav.querySelectorAll<HTMLAnchorElement>('a[data-section-target]'));
   if (!links.length) return;
@@ -59,6 +66,8 @@ function updateActive(nav: HTMLElement) {
 function setupNav(nav: HTMLElement) {
   if (nav.dataset.bound === '1') return;
   nav.dataset.bound = '1';
+
+  if (nav.classList.contains('customer-section-nav')) bindCustomerTargets(nav);
 
   if (nav.classList.contains('product-profile-section-nav')) {
     setupProductTargets();
@@ -96,9 +105,9 @@ function setupNav(nav: HTMLElement) {
 export function SectionNavBehavior() {
   useEffect(() => {
     const scan = () => {
-      document.querySelectorAll<HTMLElement>('.customer-section-nav, .product-profile-section-nav').forEach(setupNav);
-      document.querySelectorAll<HTMLElement>('.product-profile-section-nav').forEach((nav) => {
-        setupProductTargets();
+      document.querySelectorAll<HTMLElement>('.customer-section-nav, .product-profile-section-nav').forEach((nav) => {
+        setupNav(nav);
+        if (nav.classList.contains('product-profile-section-nav')) setupProductTargets();
         updateActive(nav);
       });
     };
