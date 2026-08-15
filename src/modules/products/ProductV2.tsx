@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Edit3, Package, Plus, RotateCcw, Save, Search, Trash2, Undo2 } from 'lucide-react';
 import { getActiveCompanies } from '../../services/core/coreRepository';
@@ -6,6 +6,7 @@ import { createProduct, getProduct, getProductReferences, listProducts, markProd
 import './product.css';
 
 type ReferenceData=Awaited<ReturnType<typeof getProductReferences>>;
+type ProductV2Props={onEditModeChange?:(editing:boolean)=>void};
 
 const emptyProduct=():ProductForm=>({
   code:'',technical_description:'',commercial_description:'',family_id:null,product_type_id:null,base_unit_id:null,
@@ -20,7 +21,7 @@ function ProductStatusBadge({product}:{product:Pick<Product,'active'|'deleted_at
   return <span className={`status ${deleted||!product.active?'inactive':'active'}`}>{deleted?'Marcado para borrado':product.active?'Activo':'Inactivo'}</span>;
 }
 
-export function ProductV2(){
+export function ProductV2({onEditModeChange}:ProductV2Props){
   const { id }=useParams<{id:string}>();
   const navigate=useNavigate();
   const isNew=id==='nuevo';
@@ -35,7 +36,7 @@ export function ProductV2(){
   useEffect(()=>{getActiveCompanies().then(cs=>setCompanyId(cs[0]?.id??null)).catch(e=>setError(e instanceof Error?e.message:'No se pudo obtener la empresa activa.'));},[]);
   useEffect(()=>{if(!companyId||id)return; loadList();},[companyId,status]);
   async function loadList(){if(!companyId)return;setLoading(true);setError('');try{const [r,ref]=await Promise.all([listProducts(companyId,search,status),getProductReferences(companyId)]);setRows(r);setRefs(ref);}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar el listado de artículos.')}finally{setLoading(false)}}
-  if(id) return <ProductEditor companyId={companyId} productId={isNew?null:Number(id)} error={error} setError={setError} refs={refs} onSaved={()=>navigate('/ventas/articulos')} />;
+  if(id) return <ProductEditor companyId={companyId} productId={isNew?null:Number(id)} error={error} setError={setError} refs={refs} onSaved={()=>navigate('/ventas/articulos')} onEditModeChange={onEditModeChange} />;
   return <div className="module-page product-page">
     <div className="page-head"><div><div className="eyebrow">VENTAS / ARTÍCULOS</div><h1>Listado de Artículos</h1><p>Consulta y gestión del maestro de artículos.</p></div><div className="product-head-actions"><Link className="secondary-button" to="/ventas/articulos/catalogos"><Package size={16}/> Catálogos</Link><Link className="primary-button" to="/ventas/articulos/nuevo"><Plus size={16}/> Nuevo artículo</Link></div></div>
     <div className="toolbar"><div className="search-box"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loadList()} placeholder="Buscar por código o descripción…" aria-label="Buscar artículo"/></div><select value={status} onChange={e=>setStatus(e.target.value as ProductStatus)} aria-label="Estado"><option value="active">Activos</option><option value="inactive">Inactivos</option><option value="deleted">Marcados para borrado</option><option value="all">Todos</option></select><button className="secondary-button" onClick={loadList}><RotateCcw size={15}/> Actualizar</button><span className="result-count">{rows.length} artículos</span></div>
@@ -44,7 +45,7 @@ export function ProductV2(){
   </div>;
 }
 
-function ProductEditor({companyId,productId,error,setError,refs:initialRefs,onSaved}:{companyId:number|null;productId:number|null;error:string;setError:(v:string)=>void;refs:ReferenceData|null;onSaved:()=>void}){
+function ProductEditor({companyId,productId,error,setError,refs:initialRefs,onSaved,onEditModeChange}:{companyId:number|null;productId:number|null;error:string;setError:(v:string)=>void;refs:ReferenceData|null;onSaved:()=>void;onEditModeChange?:(editing:boolean)=>void}){
   const navigate=useNavigate();
   const [product,setProduct]=useState<Product|null>(null);
   const [refs,setRefs]=useState<ReferenceData|null>(initialRefs);
@@ -54,6 +55,7 @@ function ProductEditor({companyId,productId,error,setError,refs:initialRefs,onSa
   const [saving,setSaving]=useState(false);
   const isDeleted=!!product?.deleted_at;
 
+  useEffect(()=>{onEditModeChange?.(editing);},[editing,onEditModeChange]);
   useEffect(()=>{if(companyId)load();},[companyId,productId]);
   async function load(){if(!companyId)return;setLoading(true);setError('');try{const referenceData=await getProductReferences(companyId);setRefs(referenceData);if(productId!==null){const d=await getProduct(companyId,productId);setProduct(d.product);setForm(toForm(d.product));setEditing(false)}}catch(e){setError(e instanceof Error?e.message:'No se pudo cargar el artículo.')}finally{setLoading(false)}}
   function toForm(p:Product):ProductForm{const {id,company_id,...rest}=p;return rest;}
