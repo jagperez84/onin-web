@@ -4,6 +4,7 @@ import { Menu, Search, Home, LogOut } from 'lucide-react';
 import { navSections } from './routes';
 import { PagePlaceholder } from '../components/ui/PagePlaceholder';
 import { CoreStatus } from './CoreStatus';
+import { SectionNavBehavior } from '../components/ui/SectionNavBehavior';
 import { CustomerList } from '../modules/customers/CustomerList';
 import { CustomerDetail } from '../modules/customers/CustomerDetail';
 import { CustomerCreate } from '../modules/customers/CustomerCreate';
@@ -26,6 +27,7 @@ function Shell(){
   const title=current?.label ?? (location.pathname.startsWith('/ventas/articulos')?'Artículos':location.pathname.startsWith('/almacen/')?'Almacén':'Inicio');
   async function logout(){ await signOut(); }
   return <div className="app-shell">
+    <SectionNavBehavior />
     <aside className={`sidebar ${mobileOpen?'is-open':''}`} aria-label="Navegación principal">
       <div className="brand">ONIN</div>
       <NavLink to="/" className="home-link" onClick={()=>setMobileOpen(false)}><Home size={16}/>Inicio</NavLink>
@@ -44,7 +46,7 @@ function Shell(){
           i.to==='/almacen/transferencias'?<StockTransfers/>:
           i.to==='/almacen/reservas'?<StockReservations/>:
           <PagePlaceholder title={i.label}/>
-        }/>)}
+        />)}
         <Route path="/ventas/clientes/nuevo" element={<CustomerCreate/>}/>
         <Route path="/ventas/clientes/:id" element={<CustomerDetail/>}/>
         <Route path="/ventas/articulos/nuevo" element={<ProductV2/>}/>
