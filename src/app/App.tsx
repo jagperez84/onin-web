@@ -46,7 +46,7 @@ function Shell(){
           i.to==='/almacen/transferencias'?<StockTransfers/>:
           i.to==='/almacen/reservas'?<StockReservations/>:
           <PagePlaceholder title={i.label}/>
-        />)}
+        } />)}
         <Route path="/ventas/clientes/nuevo" element={<CustomerCreate/>}/>
         <Route path="/ventas/clientes/:id" element={<CustomerDetail/>}/>
         <Route path="/ventas/articulos/nuevo" element={<ProductV2/>}/>
