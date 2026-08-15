@@ -16,6 +16,7 @@ import {
   type DiscountFamilyRow,
   type DiscountProductRow,
 } from '../../services/core/customerCommercialRepository';
+import './customerCommercial.css';
 
 type Ref = { id:number; code:string; name:string };
 
@@ -23,7 +24,7 @@ function EntitySearch({value,onChange,load,placeholder}:{value:Ref|null;onChange
   const [query,setQuery]=useState(value?`${value.code} · ${value.name}`:'');
   const [options,setOptions]=useState<Ref[]>([]); const [open,setOpen]=useState(false); const [loading,setLoading]=useState(false);
   useEffect(()=>{setQuery(value?`${value.code} · ${value.name}`:'')},[value]);
-  useEffect(()=>{let alive=true;const t=setTimeout(async()=>{if(!query.trim()||value&&query===`${value.code} · ${value.name}`){setOptions([]);return;}setLoading(true);try{const r=await load(query);if(alive)setOptions(r)}finally{if(alive)setLoading(false)}},200);return()=>{alive=false;clearTimeout(t)}},[query,value,load]);
+  useEffect(()=>{let alive=true;const t=setTimeout(async()=>{if(!query.trim()||value&&query===`${value.code} · ${value.name}`){setOptions([]);return;}setLoading(true);try{const r=await load(query);if(alive)setOptions(r)}catch{if(alive)setOptions([])}finally{if(alive)setLoading(false)}},200);return()=>{alive=false;clearTimeout(t)}},[query,value,load]);
   return <div className="entity-search"><input value={query} placeholder={placeholder} onFocus={()=>setOpen(true)} onChange={e=>{setQuery(e.target.value);setOpen(true);if(value)onChange(null)}} onBlur={()=>setTimeout(()=>setOpen(false),150)}/>{open&&(query.trim()||options.length>0)&&<div className="entity-search-results">{loading?<div className="entity-search-option muted">Buscando…</div>:options.length===0?<div className="entity-search-option muted">Sin resultados</div>:options.map(o=><button key={o.id} type="button" className="entity-search-option" onMouseDown={()=>{onChange(o);setQuery(`${o.code} · ${o.name}`);setOpen(false)}}><strong>{o.code}</strong><span>{o.name}</span></button>)}</div>}</div>;
 }
 
