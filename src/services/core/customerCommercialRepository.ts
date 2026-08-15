@@ -25,6 +25,13 @@ export type DiscountProductRow = {
 };
 
 type EntityRef = { id: number; code: string; name: string };
+type FamilyRelation = { code: string; name: string };
+type ProductRelation = {
+  code: string;
+  commercial_description: string | null;
+  technical_description: string | null;
+  product_family: FamilyRelation | null;
+};
 
 function client() {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
@@ -40,19 +47,31 @@ export async function listCustomerFamilyDiscounts(customerPartyId: number, inclu
   if (!includeDeleted) q = q.is('deleted_at', null);
   const { data, error } = await q;
   if (error) throw new CoreRepositoryError(error.message);
-  return ((data ?? []) as Array<{
-    id:number; customer_party_id:number; product_family_id:number; discount_percent:number; active:boolean; deleted_at:string|null;
-    product_family:{code:string;name:string};
-  }>).map(r => ({
-    id:r.id,
-    customer_party_id:r.customer_party_id,
-    product_family_id:r.product_family_id,
-    family_code:r.product_family.code,
-    family_name:r.product_family.name,
-    discount_percent:Number(r.discount_percent),
-    active:r.active,
-    deleted_at:r.deleted_at,
-  }));
+
+  type RawFamilyRow = {
+    id: number;
+    customer_party_id: number;
+    product_family_id: number;
+    discount_percent: number;
+    active: boolean;
+    deleted_at: string | null;
+    product_family: FamilyRelation | FamilyRelation[];
+  };
+
+  return ((data ?? []) as unknown as RawFamilyRow[]).map(r => {
+    const family = Array.isArray(r.product_family) ? r.product_family[0] : r.product_family;
+    if (!family) throw new CoreRepositoryError('La familia asociada al descuento no existe.');
+    return {
+      id: r.id,
+      customer_party_id: r.customer_party_id,
+      product_family_id: r.product_family_id,
+      family_code: family.code,
+      family_name: family.name,
+      discount_percent: Number(r.discount_percent),
+      active: r.active,
+      deleted_at: r.deleted_at,
+    };
+  });
 }
 
 export async function searchProductFamilies(companyId: number, search = ''): Promise<EntityRef[]> {
@@ -99,20 +118,32 @@ export async function listCustomerProductDiscounts(customerPartyId:number, inclu
   if (!includeDeleted) q = q.is('deleted_at', null);
   const { data, error } = await q;
   if (error) throw new CoreRepositoryError(error.message);
-  return ((data ?? []) as Array<{
-    id:number; customer_party_id:number; product_id:number; discount_percent:number; active:boolean; deleted_at:string|null;
-    product:{code:string;commercial_description:string|null;technical_description:string|null;product_family:{name:string}|null};
-  }>).map(r => ({
-    id:r.id,
-    customer_party_id:r.customer_party_id,
-    product_id:r.product_id,
-    product_code:r.product.code,
-    product_name:r.product.commercial_description || r.product.technical_description || '',
-    family_name:r.product.product_family?.name ?? null,
-    discount_percent:Number(r.discount_percent),
-    active:r.active,
-    deleted_at:r.deleted_at,
-  }));
+
+  type RawProductRow = {
+    id: number;
+    customer_party_id: number;
+    product_id: number;
+    discount_percent: number;
+    active: boolean;
+    deleted_at: string | null;
+    product: ProductRelation | ProductRelation[];
+  };
+
+  return ((data ?? []) as unknown as RawProductRow[]).map(r => {
+    const product = Array.isArray(r.product) ? r.product[0] : r.product;
+    if (!product) throw new CoreRepositoryError('El artículo asociado al descuento no existe.');
+    return {
+      id: r.id,
+      customer_party_id: r.customer_party_id,
+      product_id: r.product_id,
+      product_code: product.code,
+      product_name: product.commercial_description || product.technical_description || '',
+      family_name: product.product_family?.name ?? null,
+      discount_percent: Number(r.discount_percent),
+      active: r.active,
+      deleted_at: r.deleted_at,
+    };
+  });
 }
 
 export async function searchProductsForDiscount(companyId:number, search=''):Promise<EntityRef[]> {
