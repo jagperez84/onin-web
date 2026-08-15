@@ -33,8 +33,8 @@ export function ProductProfile(){
     </nav>
     <div className="product-profile-content">
       <ProductV2/>
-      <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={editing} onError={onError}/></div>
-      <div className="product-profile-section-wrap"><ProductCommercialPanel productId={Number(id)} editable={!editing} onError={onError}/></div>
+      <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={!editing} onError={onError}/></div>
+      <div className="product-profile-section-wrap"><ProductCommercialPanel productId={Number(id)} editable={editing} onError={onError}/></div>
     </div>
   </div>;
 }
