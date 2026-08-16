@@ -10,6 +10,7 @@ import { CustomerDetail } from '../modules/customers/CustomerDetail';
 import { CustomerCreate } from '../modules/customers/CustomerCreate';
 import { ProductCatalogV1 } from '../modules/catalog/ProductCatalogV1';
 import { ProductV2 } from '../modules/products/ProductV2';
+import { ProductDraftCreate } from '../modules/products/ProductDraftCreate';
 import { ProductCharacteristics } from '../modules/products/ProductCharacteristics';
 import { ProductProfile } from '../modules/products/ProductProfile';
 import { WarehouseList, WarehouseDetail } from '../modules/warehouse/WarehouseList';
@@ -49,7 +50,7 @@ function Shell(){
         } />)}
         <Route path="/ventas/clientes/nuevo" element={<CustomerCreate/>}/>
         <Route path="/ventas/clientes/:id" element={<CustomerDetail/>}/>
-        <Route path="/ventas/articulos/nuevo" element={<ProductV2/>}/>
+        <Route path="/ventas/articulos/nuevo" element={<ProductDraftCreate/>}/>
         <Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics/>}/>
         <Route path="/ventas/articulos/:id" element={<ProductProfile/>}/>
         <Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1/>}/>
