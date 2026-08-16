@@ -5,31 +5,97 @@ export type MeasurementStatus='PLANNED'|'ASSIGNED'|'IN_PROGRESS'|'COMPLETED'|'QU
 export type AssignedMode='UNASSIGNED'|'SELF'|'USER';
 
 export type MeasurementListRow={
-  id:number; code:string; reference:string|null; customer_id:number|null; customer_name_snapshot:string|null;
-  site_city:string|null; site_street:string|null; measurement_date:string|null; measurement_time:string|null;
-  assigned_mode:AssignedMode; assigned_user_id:string|null; status:MeasurementStatus;
+  id:number;
+  code:string;
+  reference:string|null;
+  customer_id:number|null;
+  customer_name_snapshot:string|null;
+  site_city:string|null;
+  site_street:string|null;
+  measurement_date:string|null;
+  measurement_time:string|null;
+  assigned_mode:AssignedMode;
+  assigned_user_id:string|null;
+  status:MeasurementStatus;
 };
 
 export type Measurement={
-  id:number; company_id:number; number:number; year:number; code:string; reference:string|null;
-  customer_id:number|null; customer_name_snapshot:string|null; customer_tax_id_snapshot:string|null;
-  customer_phone_snapshot:string|null; customer_mobile_snapshot:string|null; customer_email_snapshot:string|null;
-  site_street:string|null; site_postal_code:string|null; site_city:string|null; site_region:string|null; site_country_code:string;
-  site_latitude:number|null; site_longitude:number|null; contact_method:string|null; commercial_name:string|null;
-  assigned_user_id:string|null; assigned_mode:AssignedMode; status:MeasurementStatus; contact_date:string;
-  measurement_date:string|null; measurement_time:string|null; reference_note:string|null; observations:string|null;
-  deleted_at:string|null; created_at:string; created_by:string|null; updated_at:string; updated_by:string|null;
+  id:number;
+  company_id:number;
+  number:number;
+  year:number;
+  code:string;
+  reference:string|null;
+  customer_id:number|null;
+  customer_name_snapshot:string|null;
+  customer_tax_id_snapshot:string|null;
+  customer_phone_snapshot:string|null;
+  customer_mobile_snapshot:string|null;
+  customer_email_snapshot:string|null;
+  site_street:string|null;
+  site_postal_code:string|null;
+  site_city:string|null;
+  site_region:string|null;
+  site_country_code:string;
+  site_latitude:number|null;
+  site_longitude:number|null;
+  contact_method:string|null;
+  commercial_name:string|null;
+  assigned_user_id:string|null;
+  assigned_mode:AssignedMode;
+  status:MeasurementStatus;
+  contact_date:string;
+  measurement_date:string|null;
+  measurement_time:string|null;
+  reference_note:string|null;
+  observations:string|null;
+  deleted_at:string|null;
+  created_at:string;
+  created_by:string|null;
+  updated_at:string;
+  updated_by:string|null;
 };
 
-export type MeasurementActivity={id:number;measurement_id:number;event_type:string;message:string;created_at:string;created_by:string|null};
+export type MeasurementActivity={
+  id:number;
+  measurement_id:number;
+  event_type:string;
+  message:string;
+  created_at:string;
+  created_by:string|null;
+};
 
-export type MeasurementChanges = Partial<Pick<Measurement,
-  'reference'|'customer_id'|'customer_name_snapshot'|'customer_tax_id_snapshot'|'customer_phone_snapshot'|'customer_mobile_snapshot'|'customer_email_snapshot'|
-  'site_street'|'site_postal_code'|'site_city'|'site_region'|'site_country_code'|'site_latitude'|'site_longitude'|'contact_method'|'commercial_name'|
-  'assigned_user_id'|'assigned_mode'|'status'|'contact_date'|'measurement_date'|'measurement_time'|'reference_note'|'observations'
->>;
+export type MeasurementChanges={
+  reference?:string|null;
+  customer_id?:number|null;
+  customer_name_snapshot?:string|null;
+  customer_tax_id_snapshot?:string|null;
+  customer_phone_snapshot?:string|null;
+  customer_mobile_snapshot?:string|null;
+  customer_email_snapshot?:string|null;
+  site_street?:string|null;
+  site_postal_code?:string|null;
+  site_city?:string|null;
+  site_region?:string|null;
+  site_country_code?:string;
+  site_latitude?:number|null;
+  site_longitude?:number|null;
+  contact_method?:string|null;
+  commercial_name?:string|null;
+  assigned_user_id?:string|null;
+  assigned_mode?:AssignedMode;
+  status?:MeasurementStatus;
+  contact_date?:string;
+  measurement_date?:string|null;
+  measurement_time?:string|null;
+  reference_note?:string|null;
+  observations?:string|null;
+};
 
-function client(){if(!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase;}
+function client(){
+  if(!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+  return supabase;
+}
 
 export async function listMeasurements(search='',status:'active'|'planned'|'assigned'|'in_progress'|'completed'|'quoted'|'closed'|'cancelled'|'all'='active'):Promise<MeasurementListRow[]>{
   const c=client();
