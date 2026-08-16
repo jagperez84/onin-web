@@ -29,12 +29,15 @@ export function AddressLookup({ value, onChange }: { value: AddressForm; onChang
 
   function apply(r: AddressLookupResult) {
     const a = r.address ?? {};
+    const mappedStreet = [a.road, a.house_number].filter(Boolean).join(' ').trim();
+    const mappedCity = getLocality(a);
+    const mappedProvince = getProvince({ ...a, country_code: a.country_code });
     onChange({
       ...value,
-      street: [a.road, a.house_number].filter(Boolean).join(' '),
-      postal_code: a.postcode ?? '',
-      city: getLocality(a),
-      region: getProvince(a),
+      street: mappedStreet || value.street,
+      postal_code: a.postcode ?? value.postal_code,
+      city: mappedCity || value.city,
+      region: mappedProvince || value.region,
       country_code: (a.country_code ?? value.country_code ?? 'ES').toUpperCase(),
     });
     setResults([]);
