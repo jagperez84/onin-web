@@ -27,6 +27,7 @@ import { LoginPage } from '../components/ui/LoginPage';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { useAuth } from '../auth/AuthContext';
 import { listAssignedMeasurements, type AssignedMeasurementRow } from '../services/measurements/measurementRepository';
+import './home.css';
 
 const implementedRoutes = [
   '/ventas/clientes',
