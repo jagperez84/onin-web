@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { Menu, Search, Home, LogOut } from 'lucide-react';
+import { Menu, Search, Home, LogOut, Bell } from 'lucide-react';
 import { navSections } from './routes';
 import { PagePlaceholder } from '../components/ui/PagePlaceholder';
 import { CoreStatus } from './CoreStatus';
@@ -26,6 +26,7 @@ import { UserDetail } from '../modules/users/UserDetail';
 import { LoginPage } from '../components/ui/LoginPage';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { useAuth } from '../auth/AuthContext';
+import { listAssignedMeasurements, type AssignedMeasurementRow } from '../services/measurements/measurementRepository';
 
 const implementedRoutes = [
   '/ventas/clientes',
@@ -156,11 +157,25 @@ function Shell() {
 }
 
 function HomeView() {
+  const { user } = useAuth();
+  const [assigned, setAssigned] = useState<AssignedMeasurementRow[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) {
+      setAssigned([]);
+      return () => { active = false; };
+    }
+    void listAssignedMeasurements(user.id)
+      .then(rows => { if (active) setAssigned(rows); })
+      .catch(() => { if (active) setAssigned([]); });
+    return () => { active = false; };
+  }, [user?.id]);
+
   const cards = [
     ['Clientes', 'Gestión de clientes', '/ventas/clientes'],
     ['Artículos', 'Catálogo de productos', '/ventas/articulos'],
     ['Presupuestos', 'Gestor de presupuestos', '/ventas/presupuestos'],
-    ['Mediciones', 'Gestión de mediciones', '/gestion/mediciones'],
   ];
 
   return (
@@ -180,6 +195,32 @@ function HomeView() {
             <span className="metric-arrow">→</span>
           </NavLink>
         ))}
+        <div className={`metric-card metric-card-measurements ${assigned.length ? 'has-alert' : ''}`}>
+          <NavLink to="/gestion/mediciones" className="metric-card-main">
+            <span className="metric-title">Mediciones</span>
+            <span className="metric-desc">Gestión de mediciones</span>
+            <span className="metric-arrow">→</span>
+          </NavLink>
+          {assigned.length > 0 && (
+            <div className="measurement-notification" aria-label={`${assigned.length} mediciones recién asignadas`}>
+              <div className="measurement-notification-head">
+                <span className="measurement-notification-badge"><Bell size={13} /> {assigned.length} nueva{assigned.length === 1 ? '' : 's'}</span>
+                <span className="measurement-notification-label">Pendientes de revisión</span>
+              </div>
+              <div className="measurement-assignment-list">
+                {assigned.slice(0, 2).map(item => (
+                  <NavLink key={item.id} to={`/gestion/mediciones/${item.id}`} className="measurement-assignment-item">
+                    <span><strong>{item.code}</strong><small>{item.customer_name_snapshot || 'Cliente potencial'}{item.site_city ? ` · ${item.site_city}` : ''}</small></span>
+                    <span className="measurement-assignment-arrow">→</span>
+                  </NavLink>
+                ))}
+              </div>
+              {assigned.length > 2 && (
+                <NavLink to="/gestion/mediciones" className="measurement-assignment-more">Ver las {assigned.length} mediciones</NavLink>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       <CoreStatus />
       <div className="panel">
