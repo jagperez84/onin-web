@@ -19,6 +19,7 @@ import { StockMovements } from '../modules/warehouse/StockMovements';
 import { StockTransfers } from '../modules/warehouse/StockTransfers';
 import { StockReservations } from '../modules/warehouse/StockReservations';
 import { Measurements } from '../modules/measurements/Measurements';
+import { MeasurementCreate } from '../modules/measurements/MeasurementCreate';
 import { LoginPage } from '../components/ui/LoginPage';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { useAuth } from '../auth/AuthContext';
@@ -56,7 +57,7 @@ function Shell(){
         <Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics/>}/>
         <Route path="/ventas/articulos/:id" element={<ProductProfile/>}/>
         <Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1/>}/>
-        <Route path="/gestion/mediciones/nuevo" element={<Measurements/>}/>
+        <Route path="/gestion/mediciones/nuevo" element={<MeasurementCreate/>}/>
         <Route path="/gestion/mediciones/:id" element={<Measurements/>}/>
         <Route path="/almacen/almacenes/nuevo" element={<WarehouseDetail/>}/>
         <Route path="/almacen/almacenes/:id" element={<WarehouseDetail/>}/>
