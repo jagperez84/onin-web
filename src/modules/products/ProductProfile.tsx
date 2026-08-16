@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Save } from 'lucide-react';
 import { ProductV2 } from './ProductV2';
 import { ProductCharacteristicsPanel } from './ProductCharacteristicsPanel';
 import { ProductCommercialPanel } from './ProductCommercialPanel';
@@ -12,6 +13,11 @@ export function ProductProfile(){
   const [refreshKey,setRefreshKey]=useState(0);
 
   if(!id || id==='nuevo') return <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled}/>;
+
+  function saveProfile(){
+    const form=document.getElementById('product-profile-form') as HTMLFormElement|null;
+    form?.requestSubmit();
+  }
 
   return <div className="product-profile-shell">
     <nav className="product-profile-section-nav" aria-label="Navegación rápida del artículo">
@@ -26,5 +32,6 @@ export function ProductProfile(){
       <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={!editing} scaled={scaled} onSaved={()=>setRefreshKey(v=>v+1)} onError={onError}/></div>
       <div id="producto-precios" className="product-profile-section-wrap product-profile-anchor"><ProductCommercialPanel productId={Number(id)} editable={editing} scaled={scaled} refreshKey={refreshKey} onError={onError}/></div>
     </div>
+    {editing&&<div className="product-profile-save-actions"><button type="button" className="primary-button" onClick={saveProfile}><Save size={16}/> Guardar</button></div>}
   </div>;
 }
