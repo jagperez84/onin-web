@@ -2,7 +2,6 @@ import { FormEvent, useRef, useState } from 'react';
 import { ArrowLeft, CalendarDays, MapPin, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createMeasurement, type AssignedMode, type MeasurementStatus } from '../../services/measurements/measurementRepository';
-import { useAuth } from '../../auth/AuthContext';
 import { AddressLookup } from '../customers/AddressLookup';
 import type { AddressForm } from '../customers/types';
 import { MessageLog } from '../../components/ui/MessageLog';
@@ -16,31 +15,19 @@ function isValidSpanishPhone(value:string){const p=normalizePhone(value);if(!p)r
 function phoneError(label:string,value:string){return value.trim()&&!isValidSpanishPhone(value)?`${label} debe tener un formato telefónico válido.`:'';}
 
 export function MeasurementCreate(){
-  const navigate=useNavigate(); const {user}=useAuth(); const logRef=useRef<HTMLDivElement|null>(null);
+  const navigate=useNavigate(); const logRef=useRef<HTMLDivElement|null>(null);
   const [saving,setSaving]=useState(false); const [error,setError]=useState('');
   const [customer,setCustomer]=useState<CustomerOption|null>(null); const [address,setAddress]=useState<AddressForm>(emptyAddress);
   const [contact,setContact]=useState({name:'',phone:'',mobile:'',email:''});
   const [form,setForm]=useState({reference:'',contact_method:'',commercial_name:'',assigned_mode:'UNASSIGNED' as AssignedMode,contact_date:new Date().toISOString().slice(0,10),measurement_date:'',measurement_time:'',observations:''});
   function reportError(value:string){setError(value);requestAnimationFrame(()=>logRef.current?.focus());}
   function updateContact(key:keyof typeof contact,value:string){setContact(v=>({...v,[key]:value}));}
-  function selectCustomer(selection:CustomerOption|null){
-    setCustomer(selection);
-    if(!selection){setContact({name:'',phone:'',mobile:'',email:''});return;}
-    const p=selection.party;
-    setContact({name:p.trade_name||p.legal_name,phone:p.phone||'',mobile:'',email:p.email||''});
-  }
+  function selectCustomer(selection:CustomerOption|null){setCustomer(selection);if(!selection){setContact({name:'',phone:'',mobile:'',email:''});return;}const p=selection.party;setContact({name:p.trade_name||p.legal_name,phone:p.phone||'',mobile:'',email:p.email||''});}
   async function save(e:FormEvent){
-    e.preventDefault();
-    if(!contact.name.trim()){reportError('El nombre del contacto es obligatorio.');return}
-    if(!form.contact_date){reportError('La fecha de contacto es obligatoria.');return}
-    const phoneValidation=phoneError('El teléfono',contact.phone)||phoneError('El móvil',contact.mobile);
-    if(phoneValidation){reportError(phoneValidation);return}
+    e.preventDefault(); if(!contact.name.trim()){reportError('El nombre del contacto es obligatorio.');return;} if(!form.contact_date){reportError('La fecha de contacto es obligatoria.');return;}
+    const phoneValidation=phoneError('El teléfono',contact.phone)||phoneError('El móvil',contact.mobile); if(phoneValidation){reportError(phoneValidation);return;}
     setSaving(true);setError('');
-    try{
-      const id=await createMeasurement(null,{reference:form.reference||null,customer_id:customer?.id??null,customer_name_snapshot:contact.name.trim(),customer_tax_id_snapshot:null,customer_phone_snapshot:normalizePhone(contact.phone)||null,customer_mobile_snapshot:normalizePhone(contact.mobile)||null,customer_email_snapshot:contact.email.trim()||null,site_street:address.street||null,site_postal_code:address.postal_code||null,site_city:address.city||null,site_region:address.region||null,site_country_code:address.country_code||'ES',site_latitude:null,site_longitude:null,contact_method:form.contact_method||null,commercial_name:form.commercial_name||null,assigned_user_id:null,assigned_mode:form.assigned_mode,status:'PLANNED' as MeasurementStatus,contact_date:form.contact_date,measurement_date:form.measurement_date||null,measurement_time:form.measurement_time||null,reference_note:null,observations:form.observations||null});
-      navigate(`/gestion/mediciones/${id}`)
-    }catch(e){reportError(e instanceof Error?e.message:'No se pudo crear la medición.')}finally{setSaving(false)}
-  }
+    try{const id=await createMeasurement(null,{reference:form.reference||null,customer_id:customer?.id??null,customer_name_snapshot:contact.name.trim(),customer_tax_id_snapshot:null,customer_phone_snapshot:normalizePhone(contact.phone)||null,customer_mobile_snapshot:normalizePhone(contact.mobile)||null,customer_email_snapshot:contact.email.trim()||null,site_street:address.street||null,site_postal_code:address.postal_code||null,site_city:address.city||null,site_region:address.region||null,site_country_code:address.country_code||'ES',site_latitude:null,site_longitude:null,contact_method:form.contact_method||null,commercial_name:form.commercial_name||null,assigned_user_id:null,assigned_mode:form.assigned_mode,status:'PLANNED' as MeasurementStatus,contact_date:form.contact_date,measurement_date:form.measurement_date||null,measurement_time:form.measurement_time||null,reference_note:null,observations:form.observations||null});navigate(`/gestion/mediciones/${id}`)}catch(e){reportError(e instanceof Error?e.message:'No se pudo crear la medición.')}finally{setSaving(false)}}
   const hasCustomer=!!customer;
   return <div className="module-page measurement-detail-page"><div className="page-head"><div><div className="eyebrow">GESTIÓN / MEDICIONES / NUEVA</div><h1>Nueva medición</h1><p>Crea el expediente con número automático y conserva el contexto de la visita.</p></div></div>
     <MessageLog ref={logRef} error={error}/>
