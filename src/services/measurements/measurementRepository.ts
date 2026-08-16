@@ -1,0 +1,74 @@
+import { supabase } from '../../lib/supabase';
+import { CoreRepositoryError } from '../core/coreRepository';
+
+export type MeasurementStatus='PLANNED'|'ASSIGNED'|'IN_PROGRESS'|'COMPLETED'|'QUOTED'|'CLOSED'|'CANCELLED';
+export type AssignedMode='UNASSIGNED'|'SELF'|'USER';
+
+export type MeasurementListRow={
+  id:number; code:string; reference:string|null; customer_id:number|null; customer_name_snapshot:string|null;
+  site_city:string|null; site_street:string|null; measurement_date:string|null; measurement_time:string|null;
+  assigned_mode:AssignedMode; assigned_user_id:string|null; status:MeasurementStatus;
+};
+
+export type Measurement={
+  id:number; company_id:number; number:number; year:number; code:string; reference:string|null;
+  customer_id:number|null; customer_name_snapshot:string|null; customer_tax_id_snapshot:string|null;
+  customer_phone_snapshot:string|null; customer_mobile_snapshot:string|null; customer_email_snapshot:string|null;
+  site_street:string|null; site_postal_code:string|null; site_city:string|null; site_region:string|null; site_country_code:string;
+  site_latitude:number|null; site_longitude:number|null; contact_method:string|null; commercial_name:string|null;
+  assigned_user_id:string|null; assigned_mode:AssignedMode; status:MeasurementStatus; contact_date:string;
+  measurement_date:string|null; measurement_time:string|null; reference_note:string|null; observations:string|null;
+  deleted_at:string|null; created_at:string; created_by:string|null; updated_at:string; updated_by:string|null;
+};
+
+export type MeasurementActivity={id:number;measurement_id:number;event_type:string;message:string;created_at:string;created_by:string|null};
+
+function client(){if(!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase;}
+
+export async function listMeasurements(search='',status:'active'|'planned'|'assigned'|'in_progress'|'completed'|'quoted'|'closed'|'cancelled'|'all'='active'):Promise<MeasurementListRow[]>{
+  const c=client();
+  let q=c.from('measurement').select('id,code,reference,customer_id,customer_name_snapshot,site_city,site_street,measurement_date,measurement_time,assigned_mode,assigned_user_id,status').is('deleted_at',null).order('measurement_date',{ascending:true,nullsFirst:false}).order('id',{ascending:false});
+  if(status==='active') q=q.in('status',['PLANNED','ASSIGNED','IN_PROGRESS','COMPLETED']);
+  else if(status!=='all') q=q.eq('status',status.toUpperCase());
+  const term=search.trim().replace(/[%_]/g,'');
+  if(term) q=q.or(`code.ilike.%${term}%,reference.ilike.%${term}%,customer_name_snapshot.ilike.%${term}%,site_city.ilike.%${term}%`);
+  const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message); return (data??[]) as MeasurementListRow[];
+}
+
+export async function getMeasurement(id:number):Promise<{measurement:Measurement;activities:MeasurementActivity[]}>{
+  const c=client();
+  const [{data,error},{data:activities,error:ae}]=await Promise.all([
+    c.from('measurement').select('*').eq('id',id).single(),
+    c.from('measurement_activity').select('*').eq('measurement_id',id).order('created_at',{ascending:false})
+  ]);
+  if(error) throw new CoreRepositoryError(error.message); if(ae) throw new CoreRepositoryError(ae.message);
+  return {measurement:data as Measurement,activities:(activities??[]) as MeasurementActivity[]};
+}
+
+export async function createMeasurement(companyId:number,input:Omit<Measurement,'id'|'company_id'|'number'|'year'|'code'|'created_at'|'created_by'|'updated_at'|'updated_by'|'deleted_at'>):Promise<number>{
+  const c=client();
+  const {data,error}=await c.rpc('create_measurement',{
+    p_company_id:companyId,p_reference:input.reference,p_customer_id:input.customer_id,p_customer_name:input.customer_name_snapshot,
+    p_customer_tax_id:input.customer_tax_id_snapshot,p_customer_phone:input.customer_phone_snapshot,p_customer_mobile:input.customer_mobile_snapshot,
+    p_customer_email:input.customer_email_snapshot,p_site_street:input.site_street,p_site_postal_code:input.site_postal_code,p_site_city:input.site_city,
+    p_site_region:input.site_region,p_site_country_code:input.site_country_code,p_contact_method:input.contact_method,p_commercial_name:input.commercial_name,
+    p_assigned_user_id:input.assigned_user_id,p_assigned_mode:input.assigned_mode,p_status:input.status,p_contact_date:input.contact_date,
+    p_measurement_date:input.measurement_date,p_measurement_time:input.measurement_time,p_observations:input.observations
+  });
+  if(error) throw new CoreRepositoryError(error.message); return Number(data);
+}
+
+export async function updateMeasurement(id:number,changes:Partial<Pick<Measurement,'reference'|'customer_id'|'customer_name_snapshot'|'customer_tax_id_snapshot'|'customer_phone_snapshot'|'customer_mobile_snapshot'|'customer_email_snapshot'|'site_street'|'site_postal_code'|'site_city'|'site_region'|'site_country_code'|'site_latitude'|'site_longitude'|'contact_method'|'commercial_name'|'assigned_user_id'|'assigned_mode'|'status'|'contact_date'|'measurement_date'|'measurement_time'|'reference_note'|'observations'>>>,message?:string,eventType='UPDATED'):Promise<void>{
+  const c=client();
+  const {data:user}=await c.auth.getUser();
+  const {error}=await c.from('measurement').update({...changes,updated_by:user.user?.id??null,updated_at:new Date().toISOString()}).eq('id',id); if(error) throw new CoreRepositoryError(error.message);
+  if(message) await addMeasurementActivity(id,eventType,message);
+}
+
+export async function addMeasurementActivity(measurementId:number,eventType:string,message:string):Promise<void>{
+  const c=client(); const {data:user}=await c.auth.getUser();
+  const {error}=await c.from('measurement_activity').insert({measurement_id:measurementId,event_type:eventType,message,created_by:user.user?.id??null});
+  if(error) throw new CoreRepositoryError(error.message);
+}
+
+export async function markMeasurementCancelled(id:number):Promise<void>{await updateMeasurement(id,{status:'CANCELLED'},'Medición cancelada','CANCELLED');}
