@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3, ArrowRightLeft, CalendarClock } from 'lucide-react';
+import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3, ArrowRightLeft, CalendarClock, UserCog } from 'lucide-react';
 
 export type NavItem = { label:string; to:string; icon?:ReactNode };
 export type NavSection = { label:string; items:NavItem[] };
@@ -36,6 +36,9 @@ export const navSections: NavSection[] = [
     {label:'Hojas de trabajo',to:'/produccion/hojas',icon:<Factory size={16}/>},
     {label:'OTD',to:'/produccion/otd',icon:<Settings size={16}/>},
   ]},
-  { label:'Informes', items:[{label:'Informes',to:'/informes',icon:<BarChart3 size={16}/>} ]},
-  { label:'Configuración', items:[{label:'Configuración',to:'/configuracion',icon:<Settings size={16}/>} ]},
+  { label:'Informes', items:[{label:'Informes',to:'/informes',icon:<BarChart3 size={16}/>}]},
+  { label:'Configuración', items:[
+    {label:'Usuarios',to:'/configuracion/usuarios',icon:<UserCog size={16}/>},
+    {label:'Configuración',to:'/configuracion',icon:<Settings size={16}/>},
+  ]},
 ];
