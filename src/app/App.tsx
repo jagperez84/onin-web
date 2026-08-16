@@ -18,6 +18,7 @@ import { StockList } from '../modules/warehouse/StockList';
 import { StockMovements } from '../modules/warehouse/StockMovements';
 import { StockTransfers } from '../modules/warehouse/StockTransfers';
 import { StockReservations } from '../modules/warehouse/StockReservations';
+import { Measurements } from '../modules/measurements/Measurements';
 import { LoginPage } from '../components/ui/LoginPage';
 import { ProtectedRoute } from '../auth/ProtectedRoute';
 import { useAuth } from '../auth/AuthContext';
@@ -25,7 +26,7 @@ import { useAuth } from '../auth/AuthContext';
 function Shell(){
   const location=useLocation(); const { user, signOut } = useAuth(); const [mobileOpen,setMobileOpen]=useState(false);
   const current=useMemo(()=>navSections.flatMap(s=>s.items).find(i=>location.pathname===i.to),[location.pathname]);
-  const title=current?.label ?? (location.pathname.startsWith('/ventas/articulos')?'Artículos':location.pathname.startsWith('/almacen/')?'Almacén':'Inicio');
+  const title=current?.label ?? (location.pathname.startsWith('/ventas/articulos')?'Artículos':location.pathname.startsWith('/gestion/mediciones')?'Mediciones':location.pathname.startsWith('/almacen/')?'Almacén':'Inicio');
   async function logout(){ await signOut(); }
   return <div className="app-shell">
     <SectionNavBehavior />
@@ -41,19 +42,22 @@ function Shell(){
         {navSections.flatMap(s=>s.items).map(i=><Route key={i.to} path={i.to} element={
           i.to==='/ventas/clientes'?<CustomerList/>:
           i.to==='/ventas/articulos'?<ProductV2/>:
+          i.to==='/gestion/mediciones'?<Measurements/>:
           i.to==='/almacen/almacenes'?<WarehouseList/>:
           i.to==='/almacen/existencias'?<StockList/>:
           i.to==='/almacen/movimientos'?<StockMovements/>:
           i.to==='/almacen/transferencias'?<StockTransfers/>:
           i.to==='/almacen/reservas'?<StockReservations/>:
           <PagePlaceholder title={i.label}/>
-        } />)}
+        />)}
         <Route path="/ventas/clientes/nuevo" element={<CustomerCreate/>}/>
         <Route path="/ventas/clientes/:id" element={<CustomerDetail/>}/>
         <Route path="/ventas/articulos/nuevo" element={<ProductDraftCreate/>}/>
         <Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics/>}/>
         <Route path="/ventas/articulos/:id" element={<ProductProfile/>}/>
         <Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1/>}/>
+        <Route path="/gestion/mediciones/nuevo" element={<Measurements/>}/>
+        <Route path="/gestion/mediciones/:id" element={<Measurements/>}/>
         <Route path="/almacen/almacenes/nuevo" element={<WarehouseDetail/>}/>
         <Route path="/almacen/almacenes/:id" element={<WarehouseDetail/>}/>
         <Route path="/almacen/movimientos/nuevo" element={<StockMovements/>}/>
