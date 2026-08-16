@@ -19,6 +19,7 @@ export function MeasurementCreate(){
   const [customer,setCustomer]=useState<CustomerOption|null>(null); const [address,setAddress]=useState<AddressForm>(emptyAddress);
   const [contact,setContact]=useState({name:'',taxId:'',phone:'',mobile:'',email:''});
   const [form,setForm]=useState({reference:'',contact_method:'',commercial_name:'',assigned_mode:'UNASSIGNED' as AssignedMode,contact_date:new Date().toISOString().slice(0,10),measurement_date:'',measurement_time:'',observations:''});
+
   function reportError(value:string){setError(value);requestAnimationFrame(()=>logRef.current?.focus());}
   function updateContact(key:keyof typeof contact,value:string){setContact(v=>({...v,[key]:value}));}
   function selectCustomer(selection:CustomerOption|null){
@@ -27,15 +28,28 @@ export function MeasurementCreate(){
     const p=selection.party;
     setContact({name:p.trade_name||p.legal_name,taxId:p.tax_id||'',phone:p.phone||'',mobile:'',email:p.email||''});
   }
+  async function resolveCompanyId():Promise<number|null>{
+    if(companyId)return companyId;
+    try{
+      const companies=await getActiveCompanies();
+      const resolved=companies[0]?.id??null;
+      if(resolved)setCompanyId(resolved);
+      return resolved;
+    }catch(e){
+      reportError(e instanceof Error?e.message:'No se pudo obtener la empresa activa.');
+      return null;
+    }
+  }
   async function save(e:FormEvent){
     e.preventDefault();
-    if(!companyId){reportError('No hay una empresa activa configurada.');return}
+    const resolvedCompanyId=await resolveCompanyId();
+    if(!resolvedCompanyId){reportError('No hay una empresa activa configurada.');return}
     if(!contact.name.trim()){reportError('El nombre del contacto es obligatorio.');return}
     if(!form.contact_date){reportError('La fecha de contacto es obligatoria.');return}
     if(form.assigned_mode==='USER'){reportError('La asignación a un usuario concreto se habilitará con el maestro de usuarios de ONIN.');return}
     setSaving(true);setError('');
     try{
-      const id=await createMeasurement(companyId,{reference:form.reference||null,customer_id:customer?.id??null,customer_name_snapshot:contact.name.trim(),customer_tax_id_snapshot:contact.taxId.trim()||null,customer_phone_snapshot:contact.phone.trim()||null,customer_mobile_snapshot:contact.mobile.trim()||null,customer_email_snapshot:contact.email.trim()||null,site_street:address.street||null,site_postal_code:address.postal_code||null,site_city:address.city||null,site_region:address.region||null,site_country_code:address.country_code||'ES',site_latitude:null,site_longitude:null,contact_method:form.contact_method||null,commercial_name:form.commercial_name||null,assigned_user_id:form.assigned_mode==='SELF'?user?.id??null:null,assigned_mode:form.assigned_mode,status:'PLANNED' as MeasurementStatus,contact_date:form.contact_date,measurement_date:form.measurement_date||null,measurement_time:form.measurement_time||null,reference_note:null,observations:form.observations||null});
+      const id=await createMeasurement(resolvedCompanyId,{reference:form.reference||null,customer_id:customer?.id??null,customer_name_snapshot:contact.name.trim(),customer_tax_id_snapshot:contact.taxId.trim()||null,customer_phone_snapshot:contact.phone.trim()||null,customer_mobile_snapshot:contact.mobile.trim()||null,customer_email_snapshot:contact.email.trim()||null,site_street:address.street||null,site_postal_code:address.postal_code||null,site_city:address.city||null,site_region:address.region||null,site_country_code:address.country_code||'ES',site_latitude:null,site_longitude:null,contact_method:form.contact_method||null,commercial_name:form.commercial_name||null,assigned_user_id:form.assigned_mode==='SELF'?user?.id??null:null,assigned_mode:form.assigned_mode,status:'PLANNED' as MeasurementStatus,contact_date:form.contact_date,measurement_date:form.measurement_date||null,measurement_time:form.measurement_time||null,reference_note:null,observations:form.observations||null});
       navigate(`/gestion/mediciones/${id}`)
     }catch(e){reportError(e instanceof Error?e.message:'No se pudo crear la medición.')}finally{setSaving(false)}
   }
