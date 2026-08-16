@@ -19,6 +19,8 @@ export type MeasurementListRow={
   status:MeasurementStatus;
 };
 
+export type AssignedMeasurementRow=Pick<MeasurementListRow,'id'|'code'|'customer_name_snapshot'|'site_city'|'measurement_date'|'measurement_time'>;
+
 export type Measurement={
   id:number;
   company_id:number;
@@ -107,6 +109,21 @@ export async function listMeasurements(search='',status:'active'|'planned'|'assi
   const {data,error}=await q;
   if(error) throw new CoreRepositoryError(error.message);
   return (data??[]) as MeasurementListRow[];
+}
+
+export async function listAssignedMeasurements(authUserId:string):Promise<AssignedMeasurementRow[]>{
+  const c=client();
+  const {data,error}=await c.from('measurement')
+    .select('id,code,customer_name_snapshot,site_city,measurement_date,measurement_time')
+    .is('deleted_at',null)
+    .eq('assigned_user_id',authUserId)
+    .eq('assigned_mode','USER')
+    .eq('status','ASSIGNED')
+    .order('measurement_date',{ascending:true,nullsFirst:false})
+    .order('measurement_time',{ascending:true,nullsFirst:false})
+    .order('id',{ascending:false});
+  if(error) throw new CoreRepositoryError(error.message);
+  return (data??[]) as AssignedMeasurementRow[];
 }
 
 export async function getMeasurement(id:number):Promise<{measurement:Measurement;activities:MeasurementActivity[]}>{
