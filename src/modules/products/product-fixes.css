@@ -46,3 +46,10 @@
 .product-profile-save-actions .primary-button {
   min-width: 120px;
 }
+
+/* ProductProfile now uses the shared MessageLog; keep the legacy inline copy
+   in the DOM so the existing error observer can still capture it, but do not
+   render the same message a second time inside the article form. */
+.product-profile-shell .product-profile-content > .product-page > .inline-error {
+  display: none;
+}
