@@ -27,13 +27,6 @@ export function ProductProfile(){
       <a href="#producto-precios" data-section-label="Proveedores y precios" data-section-target="producto-precios">Proveedores y precios</a>
     </nav>}
 
-    {editing&&<div className="product-profile-save-actions">
-      <button type="button" className="primary-button" onClick={saveProfile}>
-        <Save size={16}/>
-        Guardar
-      </button>
-    </div>}
-
     <div className="product-profile-content">
       <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled}/>
       {!isNew&&<>
@@ -45,5 +38,12 @@ export function ProductProfile(){
         </div>
       </>}
     </div>
+
+    {editing&&<div className="product-profile-save-actions">
+      <button type="button" className="primary-button" onClick={saveProfile}>
+        <Save size={16}/>
+        Guardar
+      </button>
+    </div>}
   </div>;
 }
