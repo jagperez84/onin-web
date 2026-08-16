@@ -45,23 +45,47 @@ export function getLocality(address: {
   })?.trim() ?? '';
 }
 
+const SINGLE_PROVINCE_SPANISH_COMMUNITIES: Record<string, string> = {
+  'principado de asturias': 'Asturias',
+  'asturias': 'Asturias',
+  'cantabria': 'Cantabria',
+  'comunidad de madrid': 'Madrid',
+  'comunidad foral de navarra': 'Navarra',
+  'navarra': 'Navarra',
+  'la rioja': 'La Rioja',
+  'región de murcia': 'Murcia',
+  'region de murcia': 'Murcia',
+  'murcia': 'Murcia',
+  'illes balears': 'Illes Balears',
+  'islas baleares': 'Illes Balears',
+  'baleares': 'Illes Balears',
+};
+
+function normalizeProvince(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  return trimmed.replace(/^provincia de\s+/i, '').trim();
+}
+
 export function getProvince(address: {
   province?: string;
   state_district?: string;
+  county?: string;
   state?: string;
   country_code?: string;
 }): string {
   const country = (address.country_code ?? '').trim().toUpperCase();
-  const province = (address.province ?? '').trim();
-  const district = (address.state_district ?? '').trim();
-  const state = (address.state ?? '').trim();
+  const province = normalizeProvince(address.province ?? '');
+  const district = normalizeProvince(address.state_district ?? '');
+  const county = normalizeProvince(address.county ?? '');
+  const state = normalizeProvince(address.state ?? '');
 
   if (province) return province;
   if (district) return district;
-
-  // Nominatim may return the autonomous community as `state` without a
-  // separate province. Avoid exposing the autonomous community as the
-  // province where we can map the common Spanish exception directly.
-  if (country === 'ES' && state.toLowerCase() === 'comunidad de madrid') return 'Madrid';
+  if (country === 'ES') {
+    if (county) return county;
+    const mapped = SINGLE_PROVINCE_SPANISH_COMMUNITIES[state.toLowerCase()];
+    if (mapped) return mapped;
+  }
   return '';
 }
