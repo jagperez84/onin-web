@@ -15,7 +15,7 @@
 .measurement-detail-page .panel{border-radius:14px}
 .measurement-save-bar{position:sticky;bottom:12px;z-index:30;display:flex;justify-content:flex-end;gap:8px;padding-top:8px}
 .measurement-save-bar .primary-button{min-width:170px;box-shadow:0 8px 24px rgba(15,23,42,.14)}
-.next-action{width:100%;min-height:54px;border:0;border-radius:12px;background:var(--primary);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.next-action{width:100%;min-height:48px;border:0;border-radius:10px;background:var(--primary);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
 .full{width:100%;justify-content:center;margin-top:10px}
 .side-action{padding:14px;border:1px dashed var(--border);border-radius:10px}.side-action.muted,.side-placeholder{color:var(--muted);font-size:13px}
 .activity-list{display:grid;gap:14px}.activity-item{display:grid;grid-template-columns:12px 1fr;gap:10px;align-items:start}.activity-dot{width:9px;height:9px;border-radius:50%;background:var(--primary);margin-top:5px}
@@ -30,18 +30,10 @@
 .measurement-address-grid label:last-child{grid-column:1 / span 4}
 .contact-data-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .contact-data-grid .wide{grid-column:1 / -1}
-
-/* Medición: el CIF/NIF no es relevante en este expediente. */
-.measurement-detail-page .contact-data-grid label:nth-child(2){display:none}
-
-/* El bloque lateral debe ser una zona de acciones, no una explicación del flujo. */
+.measurement-detail-page .contact-data-grid:not(.create-contact-data-grid) label:nth-child(2){display:none}
 .measurement-next .panel-head p{display:none}
 .measurement-next .panel-head{margin-bottom:10px}
 .measurement-next{padding-bottom:14px}
-
-/* Medidas propias sigue existiendo en el modelo por compatibilidad histórica,
-   pero no se ofrece como opción de UI. */
 .measurement-detail-page select option[value="SELF"]{display:none}
-
 @media(max-width:1000px){.measurement-grid{grid-template-columns:1fr}.measurement-side{position:static}.measurement-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.measurement-address-wide{grid-column:1 / span 7}.measurement-address-grid label:nth-last-child(3){grid-column:8 / span 2}.measurement-address-grid label:nth-last-child(2){grid-column:10 / span 3}.measurement-address-grid label:last-child{grid-column:1 / span 5}}
 @media(max-width:700px){.measurement-summary{grid-template-columns:1fr 1fr;gap:8px}.measurement-summary>div{padding:12px;min-height:66px}.measurement-table{overflow:auto}.measurement-table table{min-width:820px}.measurement-detail-page .form-grid{grid-template-columns:1fr}.measurement-detail-page label.wide,.measurement-address-wide,.contact-data-grid .wide{grid-column:auto}.measurement-address-grid{grid-template-columns:1fr}.measurement-address-wide,.measurement-address-grid label:nth-last-child(3),.measurement-address-grid label:nth-last-child(2),.measurement-address-grid label:last-child{grid-column:auto}.measurement-save-bar{bottom:6px;flex-direction:column}.measurement-save-bar .primary-button,.measurement-save-bar .secondary-button{width:100%;min-width:0;justify-content:center}.measurement-status{white-space:nowrap}.measurement-customer-picker{grid-template-columns:1fr}.measurement-customer-picker .compact{width:100%;justify-content:center}}
