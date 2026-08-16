@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { getCustomerSummaries } from '../../services/core/customerRepository';
+import { listCustomers } from '../../services/core/customerRepository';
 
 type CustomerOption={id:number;party:{legal_name:string;trade_name:string|null;tax_id:string|null;code:string|null;phone:string|null;email:string|null}};
 
-export function CustomerMeasurementLookup({value,onChange,selectedLabel}:{value:number|null;onChange:(customer:CustomerOption)=>void;selectedLabel:string}){
+export function CustomerMeasurementLookup({value,onChange,selectedLabel}:{value:number|null;onChange:(customer:CustomerOption|null)=>void;selectedLabel:string}){
   const [open,setOpen]=useState(false); const [query,setQuery]=useState('');
   const [rows,setRows]=useState<CustomerOption[]>([]); const [loading,setLoading]=useState(false); const [error,setError]=useState('');
   useEffect(()=>{
     if(!open){setRows([]);return;}
     const timer=setTimeout(async()=>{
       setLoading(true);setError('');
-      try{setRows((await getCustomerSummaries(query,'active')) as CustomerOption[]);}
+      try{setRows((await listCustomers(query,'active')) as CustomerOption[]);}
       catch(e){setError(e instanceof Error?e.message:'No se pudieron cargar los clientes.');setRows([]);}
       finally{setLoading(false);}
     },180);
@@ -23,7 +23,7 @@ export function CustomerMeasurementLookup({value,onChange,selectedLabel}:{value:
       <button type="button" className="entity-lookup-trigger" onClick={()=>setOpen(true)} aria-haspopup="dialog" aria-expanded={open}>
         <span className={value===null?'entity-lookup-placeholder':''}>{value===null?'Seleccionar cliente…':selectedLabel}</span><Search size={16}/>
       </button>
-      {value!==null&&<button type="button" className="entity-lookup-clear" title="Quitar selección" onClick={()=>onChange({id:0,party:{legal_name:'',trade_name:null,tax_id:null,code:null,phone:null,email:null}} as CustomerOption)}><X size={14}/></button>}
+      {value!==null&&<button type="button" className="entity-lookup-clear" title="Quitar selección" onClick={()=>onChange(null)}><X size={14}/></button>}
     </div>
     {open&&<div className="entity-lookup-backdrop" role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}>
       <div className="entity-lookup-dialog" role="dialog" aria-modal="true" aria-label="Buscar cliente">
