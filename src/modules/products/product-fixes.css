@@ -12,3 +12,18 @@
 .product-page textarea:disabled {
   opacity: 1;
 }
+
+.product-page .link-button {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.product-page .link-button:hover {
+  text-decoration: underline;
+}
