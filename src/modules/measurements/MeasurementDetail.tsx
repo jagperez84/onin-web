@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { ArrowLeft, CalendarDays, CheckCircle2, Clock3, FileText, Ruler, User, XCircle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getCustomerById, getCustomerSummaries, getPartyById } from '../../services/core/coreRepository';
-import { createMeasurement, getCustomerSummaries as _getCustomerSummaries, getMeasurement, markMeasurementCancelled, updateMeasurement, type AssignedMode, type Measurement, type MeasurementActivity, type MeasurementStatus } from '../../services/measurements/measurementRepository';
+import { createMeasurement, getMeasurement, markMeasurementCancelled, updateMeasurement, type AssignedMode, type Measurement, type MeasurementActivity, type MeasurementStatus } from '../../services/measurements/measurementRepository';
 import { useAuth } from '../../auth/AuthContext';
 import { AddressLookup } from '../customers/AddressLookup';
 import type { AddressForm } from '../customers/types';
