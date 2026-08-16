@@ -51,8 +51,7 @@ export async function listProducts(companyId:number,search='',status:ProductStat
   if(status==='active') q=q.eq('active',true).is('deleted_at',null);
   if(status==='inactive') q=q.eq('active',false).is('deleted_at',null);
   if(status==='deleted') q=q.not('deleted_at','is',null);
-  // Internal drafts are never shown in the normal article lists.
-  q=q.not('code','like','__DRAFT__%');
+  q=q.not('usage_status','eq','DRAFT');
   const term=search.trim().replace(/[%_]/g,'');
   if(term) q=q.or(`code.ilike.%${term}%,technical_description.ilike.%${term}%,commercial_description.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
