@@ -1,0 +1,11 @@
+import { supabase } from '../../lib/supabase';
+import { CoreRepositoryError } from './coreRepository';
+
+export type UserRole='ADMIN'|'OFFICE'|'WORKSHOP'|'CONFECTION'|'INSTALLER';
+export type UserAccount={id:number;auth_user_id:string;company_id:number|null;username:string;display_name:string;email:string;role_code:UserRole;can_measure:boolean;active:boolean;created_at:string;updated_at:string};
+
+function client(){if(!supabase)throw new CoreRepositoryError('Supabase no está configurado.');return supabase;}
+export async function listUsers(search='',status:'active'|'inactive'|'all'='active'):Promise<UserAccount[]>{const c=client();let q=c.from('user_account').select('*').order('display_name');if(status==='active')q=q.eq('active',true);else if(status==='inactive')q=q.eq('active',false);const term=search.trim().replace(/[%_]/g,'');if(term)q=q.or(`username.ilike.%${term}%,display_name.ilike.%${term}%,email.ilike.%${term}%`);const {data,error}=await q;if(error)throw new CoreRepositoryError(error.message);return (data??[]) as UserAccount[];}
+export async function updateUserAccount(id:number,changes:Partial<Pick<UserAccount,'display_name'|'email'|'role_code'|'can_measure'|'active'>>):Promise<void>{const c=client();const {error}=await c.from('user_account').update({...changes,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw new CoreRepositoryError(error.message);}
+export async function listMeasurementUsers(companyId:number|null):Promise<Pick<UserAccount,'auth_user_id'|'username'|'display_name'|'role_code'|'can_measure'>[]>{const c=client();const {data,error}=await c.rpc('list_measurement_users',{p_company_id:companyId});if(error)throw new CoreRepositoryError(error.message);return (data??[]) as Pick<UserAccount,'auth_user_id'|'username'|'display_name'|'role_code'|'can_measure'>[];}
+export async function createUser(input:{username:string;display_name:string;email:string;password:string;role_code:UserRole;can_measure:boolean;company_id:number|null}):Promise<string>{const c=client();const {data,error}=await c.functions.invoke('admin-user-management',{body:{action:'create',...input}});if(error)throw new CoreRepositoryError(error.message);if(!data?.id)throw new CoreRepositoryError(data?.error||'No se pudo crear el usuario.');return String(data.id);}
