@@ -120,7 +120,7 @@ export async function getMeasurement(id:number):Promise<{measurement:Measurement
   return {measurement:data as Measurement,activities:(activities??[]) as MeasurementActivity[]};
 }
 
-export async function createMeasurement(companyId:number,input:Omit<Measurement,'id'|'company_id'|'number'|'year'|'code'|'created_at'|'created_by'|'updated_at'|'updated_by'|'deleted_at'>):Promise<number>{
+export async function createMeasurement(companyId:number|null,input:Omit<Measurement,'id'|'company_id'|'number'|'year'|'code'|'created_at'|'created_by'|'updated_at'|'updated_by'|'deleted_at'>):Promise<number>{
   const c=client();
   const {data,error}=await c.rpc('create_measurement',{
     p_company_id:companyId,
