@@ -1,0 +1,18 @@
+.metric-card-measurements{min-height:115px}
+.metric-card-measurements.has-alert{min-height:172px}
+.metric-card-main{position:relative;display:flex;flex-direction:column;gap:7px;min-height:79px;text-decoration:none}
+.metric-card-main .metric-arrow{bottom:0}
+.measurement-notification{margin-top:5px;border-top:1px solid var(--border);padding-top:10px}
+.measurement-notification-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.measurement-notification-badge{display:inline-flex;align-items:center;gap:5px;background:#fff1ef;color:var(--danger);border:1px solid #f1c8c4;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800}
+.measurement-notification-label{color:var(--muted);font-size:11px}
+.measurement-assignment-list{display:grid;gap:4px}
+.measurement-assignment-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 7px;border-radius:6px;text-decoration:none;color:var(--text)}
+.measurement-assignment-item:hover{background:#f4f8fb}
+.measurement-assignment-item span:first-child{min-width:0;display:grid;gap:2px}
+.measurement-assignment-item strong{font-size:12px;color:var(--primary)}
+.measurement-assignment-item small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.measurement-assignment-arrow{color:var(--primary);font-size:14px}
+.measurement-assignment-more{display:inline-block;margin-top:5px;color:var(--primary);font-size:11px;font-weight:750;text-decoration:none}
+.measurement-assignment-more:hover{text-decoration:underline}
+@media(max-width:760px){.metric-card-measurements.has-alert{min-height:0}.measurement-notification-head{align-items:flex-start;flex-direction:column}.measurement-assignment-item small{white-space:normal}}
