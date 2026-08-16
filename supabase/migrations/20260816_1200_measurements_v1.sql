@@ -95,7 +95,7 @@ declare
 begin
   if coalesce(trim(p_customer_name),'') = '' then raise exception 'El cliente es obligatorio'; end if;
   if p_contact_date is null then raise exception 'La fecha de contacto es obligatoria'; end if;
-  if p_assigned_mode in ('USER','SELF') and p_assigned_mode = 'USER' and p_assigned_user_id is null then raise exception 'Debe indicar el medidor asignado'; end if;
+  if p_assigned_mode = 'USER' and p_assigned_user_id is null then raise exception 'Debe indicar el medidor asignado'; end if;
 
   insert into public.measurement_sequence(company_id, year, last_number)
   values(p_company_id, v_year, 1)
@@ -133,3 +133,5 @@ create policy measurement_authenticated_update on public.measurement for update 
 create policy measurement_activity_authenticated_select on public.measurement_activity for select to authenticated using(auth.uid() is not null);
 create policy measurement_activity_authenticated_insert on public.measurement_activity for insert to authenticated with check(auth.uid() is not null);
 create policy measurement_sequence_authenticated_select on public.measurement_sequence for select to authenticated using(auth.uid() is not null);
+create policy measurement_sequence_authenticated_insert on public.measurement_sequence for insert to authenticated with check(auth.uid() is not null);
+create policy measurement_sequence_authenticated_update on public.measurement_sequence for update to authenticated using(auth.uid() is not null) with check(auth.uid() is not null);
