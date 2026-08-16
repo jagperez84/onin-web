@@ -1,0 +1,14 @@
+.product-page input[readonly],
+.product-page textarea[readonly],
+.product-page select:disabled,
+.product-page input:disabled,
+.product-page textarea:disabled,
+.product-page button:disabled {
+  cursor: default !important;
+}
+
+.product-page select:disabled,
+.product-page input:disabled,
+.product-page textarea:disabled {
+  opacity: 1;
+}
