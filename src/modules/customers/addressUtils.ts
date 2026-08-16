@@ -32,12 +32,13 @@ export function getLocality(address: {
   town?: string;
   village?: string;
   municipality?: string;
+  city_district?: string;
   county?: string;
   state_district?: string;
   state?: string;
 }): string {
   const state = (address.state ?? '').trim().toLowerCase();
-  const candidates = [address.city, address.town, address.village, address.municipality, address.county, address.state_district];
+  const candidates = [address.city, address.town, address.village, address.municipality, address.city_district, address.county, address.state_district];
   return candidates.find(value => {
     const normalized = (value ?? '').trim();
     return normalized && normalized.toLowerCase() !== state;
@@ -46,14 +47,21 @@ export function getLocality(address: {
 
 export function getProvince(address: {
   province?: string;
-  county?: string;
   state_district?: string;
   state?: string;
+  country_code?: string;
 }): string {
-  const state = (address.state ?? '').trim().toLowerCase();
-  const candidates = [address.province, address.county, address.state_district];
-  return candidates.find(value => {
-    const normalized = (value ?? '').trim();
-    return normalized && normalized.toLowerCase() !== state;
-  })?.trim() ?? '';
+  const country = (address.country_code ?? '').trim().toUpperCase();
+  const province = (address.province ?? '').trim();
+  const district = (address.state_district ?? '').trim();
+  const state = (address.state ?? '').trim();
+
+  if (province) return province;
+  if (district) return district;
+
+  // Nominatim may return the autonomous community as `state` without a
+  // separate province. Avoid exposing the autonomous community as the
+  // province where we can map the common Spanish exception directly.
+  if (country === 'ES' && state.toLowerCase() === 'comunidad de madrid') return 'Madrid';
+  return '';
 }
