@@ -8,8 +8,10 @@ export function ProductProfile(){
   const { id }=useParams<{id:string}>();
   const onError=useCallback((message:string)=>{window.dispatchEvent(new CustomEvent('onin-product-error',{detail:message}));},[]);
   const [editing,setEditing]=useState(false);
+  const [scaled,setScaled]=useState(false);
+  const [refreshKey,setRefreshKey]=useState(0);
 
-  if(!id || id==='nuevo') return <ProductV2 onEditModeChange={setEditing}/>;
+  if(!id || id==='nuevo') return <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled}/>;
 
   return <div className="product-profile-shell">
     <nav className="product-profile-section-nav" aria-label="Navegación rápida del artículo">
@@ -20,9 +22,12 @@ export function ProductProfile(){
       <a href="#producto-precios" data-section-label="Proveedores y precios" data-section-target="producto-precios">Proveedores y precios</a>
     </nav>
     <div className="product-profile-content">
-      <ProductV2 onEditModeChange={setEditing}/>
-      <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={!editing} onError={onError}/></div>
-      <div className="product-profile-section-wrap"><ProductCommercialPanel productId={Number(id)} editable={editing} onError={onError}/></div>
+      <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled}/>
+      <div id="producto-datos-generales" className="product-profile-section-wrap product-profile-anchor" />
+      <div id="producto-comercial" className="product-profile-section-wrap product-profile-anchor" />
+      <div id="producto-stock" className="product-profile-section-wrap product-profile-anchor" />
+      <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={!editing} scaled={scaled} onSaved={()=>setRefreshKey(v=>v+1)} onError={onError}/></div>
+      <div id="producto-precios" className="product-profile-section-wrap product-profile-anchor"><ProductCommercialPanel productId={Number(id)} editable={editing} scaled={scaled} refreshKey={refreshKey} onError={onError}/></div>
     </div>
   </div>;
 }
