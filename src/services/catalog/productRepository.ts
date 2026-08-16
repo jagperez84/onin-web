@@ -51,6 +51,8 @@ export async function listProducts(companyId:number,search='',status:ProductStat
   if(status==='active') q=q.eq('active',true).is('deleted_at',null);
   if(status==='inactive') q=q.eq('active',false).is('deleted_at',null);
   if(status==='deleted') q=q.not('deleted_at','is',null);
+  // Internal drafts are never shown in the normal article lists.
+  q=q.not('code','like','__DRAFT__%');
   const term=search.trim().replace(/[%_]/g,'');
   if(term) q=q.or(`code.ilike.%${term}%,technical_description.ilike.%${term}%,commercial_description.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
@@ -71,6 +73,19 @@ export async function getProduct(companyId:number,id:number):Promise<{product:Pr
 export async function createProduct(companyId:number,input:ProductForm):Promise<number>{
   const c=client(); const {data,error}=await c.from('product').insert({company_id:companyId,...input,deleted_at:null,deleted_by:null}).select('id').single(); if(error) throw new CoreRepositoryError(error.message); return Number(data.id);
 }
+
+export async function createProductDraft(companyId:number):Promise<number>{
+  const draftCode=`__DRAFT__${Date.now()}_${Math.floor(Math.random()*100000)}`;
+  const input:ProductForm={
+    code:draftCode,technical_description:'',commercial_description:'',family_id:null,product_type_id:null,base_unit_id:null,
+    sales_price:null,purchase_price:null,stock_enabled:false,allow_negative_stock:false,active:true,notes:'',cod_arb:null,
+    price_increment:0,upc:0,ptc:0,stock_minimum:0,discarded_size:null,minimum_remainder:null,smooth_cut:false,monochrome:false,
+    usage_status:'DRAFT',iva_percent:null,default_supplier_party_id:null,include_measurements_in_stock:false,include_stock_by_color:false,
+    scaled:false,scaled_by_characteristic:false,deleted_at:null,deleted_by:null,
+  };
+  return createProduct(companyId,input);
+}
+
 export async function updateProduct(companyId:number,id:number,input:ProductForm):Promise<void>{
   const c=client(); const {error}=await c.from('product').update(input).eq('company_id',companyId).eq('id',id).is('deleted_at',null); if(error) throw new CoreRepositoryError(error.message);
 }
