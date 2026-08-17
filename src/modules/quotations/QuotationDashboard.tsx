@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileText, CircleCheck, Clock3, ReceiptText } from 'lucide-react';
 import { getQuotationDashboardMetrics, type QuotationDashboardMetrics } from '../../services/sales/quotationDashboardRepository';
+import './quotation.css';
 
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 
