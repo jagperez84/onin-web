@@ -168,7 +168,6 @@ function HomeView() {
   const cards = [
     ['Clientes', 'Gestión de clientes', '/ventas/clientes'],
     ['Artículos', 'Catálogo de productos', '/ventas/articulos'],
-    ['Presupuestos', 'Gestor de presupuestos', '/ventas/presupuestos'],
   ];
 
   return (
