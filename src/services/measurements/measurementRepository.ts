@@ -177,7 +177,12 @@ export async function createMeasurement(companyId:number|null,input:Omit<Measure
 export async function updateMeasurement(id:number,changes:MeasurementChanges,message?:string,eventType='UPDATED'):Promise<void>{
   const c=client();
   const {data:user}=await c.auth.getUser();
-  const {error}=await c.from('measurement').update({...changes,updated_by:user.user?.id??null,updated_at:new Date().toISOString()}).eq('id',id);
+  // Status changes are performed explicitly by the workflow action. Generic
+  // form saves must not replay a stale status from the loaded draft.
+  const safeChanges=eventType==='UPDATED'&&Object.prototype.hasOwnProperty.call(changes,'status')
+    ? (({status:_status,...rest})=>rest)(changes)
+    : changes;
+  const {error}=await c.from('measurement').update({...safeChanges,updated_by:user.user?.id??null,updated_at:new Date().toISOString()}).eq('id',id);
   if(error) throw new CoreRepositoryError(error.message);
   if(message) await addMeasurementActivity(id,eventType,message);
 }
