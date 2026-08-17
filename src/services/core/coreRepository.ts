@@ -37,19 +37,14 @@ export async function getCustomerById(id:number):Promise<Customer>{
   const client=requireClient(); const {data,error}=await client.from('customer').select('id,party_id').eq('id',id).single();
   if(error) throw new CoreRepositoryError(error.message); return data as Customer;
 }
-export async function getUserDisplayName(userId:string|null):Promise<string|null>{
-  if(!userId) return null;
+export async function getUserDisplayName(authUserId:string|null):Promise<string|null>{
+  if(!authUserId) return null;
   const client=requireClient();
-  const {data,error}=await client.from('user_account').select('*').eq('id',userId).maybeSingle();
+  const {data,error}=await client.from('user_account').select('display_name,username,email').eq('auth_user_id',authUserId).maybeSingle();
   if(error) throw new CoreRepositoryError(error.message);
   if(!data) return null;
-  const row=data as Record<string,unknown>;
-  for(const key of ['full_name','display_name','name','username']){const value=row[key];if(typeof value==='string'&&value.trim())return value.trim();}
-  const first=typeof row.first_name==='string'?row.first_name.trim():'';
-  const last=typeof row.last_name==='string'?row.last_name.trim():'';
-  if(first||last)return `${first} ${last}`.trim();
-  const email=typeof row.email==='string'?row.email.trim():'';
-  return email||null;
+  const row=data as {display_name?:string|null;username?:string|null;email?:string|null};
+  return row.display_name?.trim()||row.username?.trim()||row.email?.trim()||null;
 }
 export async function getAddresses(partyId:number):Promise<Address[]>{
   const client=requireClient(); const {data,error}=await client.from('address').select('*').eq('party_id',partyId).order('id');
