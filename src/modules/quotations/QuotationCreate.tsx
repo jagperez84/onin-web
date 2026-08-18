@@ -6,6 +6,7 @@ import { CoreRepositoryError } from '../../services/core/coreRepository';
 import { createQuotation, customerAddresses, quotationOptions } from '../../services/sales/quotationCreationRepository';
 import { MessageLog } from '../../components/ui/MessageLog';
 import { ProfileSaveBar } from '../../components/ui/ProfileSaveBar';
+import './quotation-create.css';
 
 const today=()=>new Date().toISOString().slice(0,10);
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
