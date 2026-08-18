@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarDays, CreditCard, FileText, Hash, Tag, UserRound, Warehouse, Clock3 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CreditCard, FileText, Hash, Tag, UserRound, Warehouse, Clock3, Pencil } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
@@ -36,7 +36,7 @@ export function QuotationDetail(){
  return <div className="module-page quotation-page">
    <div className="quotation-detail-head">
      <div className="quotation-detail-title">
-       <Link className="secondary-button" to="/ventas/presupuestos"><ArrowLeft size={15}/>Volver a presupuestos</Link>
+       <div className="quotation-detail-actions"><Link className="secondary-button" to="/ventas/presupuestos"><ArrowLeft size={15}/>Volver a presupuestos</Link><Link className="primary-button" to={`/ventas/presupuestos/${data.id}/editar`}><Pencil size={15}/>Editar presupuesto</Link></div>
        <div className="eyebrow">VENTAS / PRESUPUESTOS</div>
        <div className="quotation-title-row"><h1>{data.code}</h1><span className={`quotation-status ${data.status.toLowerCase()}`}>{statusLabel(data.status)}</span></div>
        <p>{partyName(data.customer)} <span>·</span> {date(data.issue_date)}</p>
