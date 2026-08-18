@@ -3,9 +3,7 @@
 .quotation-create{--content-width:1280px;--field-height:40px}
 .quotation-create .quotation-header-panel,.quotation-create .quotation-lines-panel,.quotation-create>.panel:last-of-type{width:100%;max-width:var(--content-width);margin-left:auto;margin-right:auto;box-sizing:border-box}
 
-/* CABECERA: mismo patrón de formulario que Clientes/Artículos.
-   Tres columnas naturales, filas generadas por el orden real del formulario.
-   No se fuerza la posición de cada campo con nth-child ni áreas artificiales. */
+/* CABECERA: mismo patrón de formulario que Clientes/Artículos. */
 .quotation-create .quotation-header-panel .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--sp-4);row-gap:var(--sp-4);width:100%;box-sizing:border-box;align-items:start}
 .quotation-create .quotation-header-panel .form-grid>*{min-width:0;width:100%;box-sizing:border-box;margin:0!important;padding:0!important;border:0!important;align-self:start;display:flex;flex-direction:column}
 .quotation-create .quotation-header-panel .form-grid label,.quotation-create .quotation-header-panel .form-grid .field-label{display:block;font-size:13px;font-weight:600;line-height:1.3;margin:0 0 var(--sp-1)}
@@ -13,8 +11,8 @@
 .quotation-create .quotation-header-panel .date-field input{max-width:none}
 .quotation-create .quotation-header-panel .address-field select{width:100%}
 
-/* Tabla: descripción absorbe el espacio disponible; las columnas numéricas no flotan. */
-.quotation-create .quotation-lines-table{height:auto;min-height:0;overflow-x:auto}
+/* Líneas: más aire entre los controles sin perder espacio útil. */
+.quotation-create .quotation-lines-table{height:auto;min-height:0;overflow-x:auto;padding-top:var(--sp-2)}
 .quotation-create .quotation-lines-table table{width:100%;border-collapse:collapse;table-layout:fixed}
 .quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{display:grid;grid-template-columns:190px minmax(220px,1fr) 90px 100px 90px 100px 40px;column-gap:var(--sp-3);align-items:center;width:100%}
 .quotation-create .quotation-lines-table th,.quotation-create .quotation-lines-table td{min-width:0;box-sizing:border-box}
@@ -35,7 +33,7 @@
 .quotation-create .lookup-clear{border:0;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;padding:var(--sp-1);cursor:pointer}
 .quotation-create .lookup-portal{position:fixed;inset:0;z-index:10000;pointer-events:none}
 .quotation-create .lookup-dismiss{position:absolute;inset:0;border:0;background:transparent;pointer-events:auto;cursor:default}
-.quotation-create .lookup-results{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 14px 32px rgba(15,23,42,.16);padding:5px;max-height:300px;overflow:auto;pointer-events:auto;z-index:10001}
+.quotation-create .lookup-results{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 14px 32px rgba(15,23,42,.16);padding:5px;max-height:300px;overflow:auto;pointer-events:auto}
 .quotation-create .lookup-results button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:9px 10px;border-radius:6px;cursor:pointer;color:var(--text)}
 .quotation-create .lookup-results button:hover{background:#f3f6f9}
 .quotation-create .lookup-results strong{font-size:12px;font-weight:650}
