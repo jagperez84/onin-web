@@ -5,12 +5,20 @@
 
 /* Cabecera: misma anchura visual que Observaciones y patrón estable de formulario. */
 .quotation-create .quotation-header-panel .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--sp-4);row-gap:20px;width:100%;box-sizing:border-box;align-items:start}
-.quotation-create .quotation-header-panel .form-grid>*{min-width:0;width:100%;box-sizing:border-box;margin:0!important;padding:0!important;border:0!important;align-self:start;display:flex;flex-direction:column}
-.quotation-create .quotation-header-panel .form-grid label,.quotation-create .quotation-header-panel .form-grid .field-label{display:block;font-size:13px;font-weight:600;line-height:1.3;margin:0 0 var(--sp-1)}
+.quotation-create .quotation-header-panel .form-grid>*{min-width:0;width:100%;box-sizing:border-box;margin:0!important;align-self:start}
+.quotation-create .quotation-header-panel .form-grid>label{padding:0!important;border:0!important;display:flex;flex-direction:column}
+.quotation-create .quotation-header-panel .form-grid label,.quotation-create .quotation-header-panel .form-grid .field-label{font-size:13px;font-weight:600;line-height:1.3;margin:0 0 var(--sp-1)}
 .quotation-create .quotation-header-panel .form-grid input,.quotation-create .quotation-header-panel .form-grid select{width:100%;height:var(--field-height);min-width:0;box-sizing:border-box}
 .quotation-create .quotation-header-panel .date-field input{max-width:none}
-.quotation-create .quotation-header-panel .address-field{min-width:0}
-.quotation-create .quotation-header-panel .address-field select{width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Las direcciones se cargan del cliente, pero sus valores pertenecen al presupuesto y son editables. */
+.quotation-create .address-editor{min-width:0;width:100%;box-sizing:border-box;margin:0;padding:var(--sp-3);border:1px solid var(--border);border-radius:8px;background:#fafbfc;display:flex;flex-direction:column;gap:var(--sp-2)}
+.quotation-create .address-editor legend{padding:0 var(--sp-1);font-size:13px;font-weight:650;color:var(--text)}
+.quotation-create .address-editor label{display:flex;flex-direction:column;min-width:0;font-size:12px;font-weight:600;line-height:1.3;margin:0}
+.quotation-create .address-editor .address-source{margin-bottom:var(--sp-1)}
+.quotation-create .address-editor-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,2fr);gap:var(--sp-2)}
+.quotation-create .address-editor-grid .address-street{grid-column:1 / -1}
+.quotation-create .address-editor-grid input,.quotation-create .address-editor select{height:36px;width:100%;box-sizing:border-box}
 
 /* Líneas: columnas con espacio real y sin solapamiento entre lookup y descripción. */
 .quotation-create .quotation-lines-table{height:auto;min-height:0;overflow-x:auto;padding:var(--sp-2) 0 var(--sp-3)}
@@ -63,6 +71,8 @@
 }
 @media(max-width:760px){
  .quotation-create .quotation-header-panel .form-grid{grid-template-columns:1fr;gap:var(--sp-3)}
+ .quotation-create .address-editor-grid{grid-template-columns:1fr}
+ .quotation-create .address-editor-grid .address-street{grid-column:auto}
  .quotation-create .quotation-lines-table{overflow-x:auto}
  .quotation-create .quotation-lines-table table{min-width:1040px}
  .quotation-create .quote-totals{justify-content:flex-start}
