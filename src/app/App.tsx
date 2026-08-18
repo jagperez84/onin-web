@@ -26,6 +26,7 @@ import { UserDetail } from '../modules/users/UserDetail';
 import { OtdList, OtdEditor } from '../modules/otd/OtdEditor';
 import { QuotationList } from '../modules/quotations/QuotationList';
 import { QuotationCreate } from '../modules/quotations/QuotationCreate';
+import { QuotationEdit } from '../modules/quotations/QuotationEdit';
 import { QuotationDetail } from '../modules/quotations/QuotationDetail';
 import { QuotationDashboard } from '../modules/quotations/QuotationDashboard';
 import { LoginPage } from '../components/ui/LoginPage';
@@ -121,6 +122,7 @@ function Shell() {
             <Route path="/ventas/articulos/:id" element={<ProductProfile />} />
             <Route path="/ventas/presupuestos" element={<QuotationList />} />
             <Route path="/ventas/presupuestos/nuevo" element={<QuotationCreate />} />
+            <Route path="/ventas/presupuestos/:id/editar" element={<QuotationEdit />} />
             <Route path="/ventas/presupuestos/:id" element={<QuotationDetail />} />
             <Route path="/gestion/mediciones" element={<Measurements />} />
             <Route path="/gestion/mediciones/nuevo" element={<MeasurementCreate />} />
