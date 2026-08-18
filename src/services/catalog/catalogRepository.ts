@@ -2,15 +2,15 @@ import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { markForDeletion, restoreFromDeletion } from '../core/softDeleteRepository';
 
-export type CatalogKind = 'families' | 'types' | 'units' | 'magnitudes' | 'colors' | 'attributes';
-export type CatalogRow = { id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null; confectionable?:boolean; data_type?:string };
+export type CatalogKind = 'families' | 'types' | 'units' | 'magnitudes' | 'colors' | 'attributes' | 'controlTypes' | 'mountingTypes';
+export type CatalogRow = { id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null; confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null; product_type_id?:number|null; control_type_id?:number|null; mounting_type_id?:number|null; data_type?:string };
 export type AttributeValue = { id:number; attribute_id:number; code:string; name:string; active:boolean; deleted_at?:string|null; sort_order:number };
 
 function client(){
   if(!supabase) throw new CoreRepositoryError('Supabase no está configurado. Revisa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY.');
   return supabase;
 }
-const tableFor:Record<CatalogKind,string> = {families:'product_family',types:'product_type',units:'unit',magnitudes:'magnitude',colors:'color',attributes:'product_attribute'};
+const tableFor:Record<CatalogKind,string> = {families:'product_family',types:'product_type',units:'unit',magnitudes:'magnitude',colors:'color',attributes:'product_attribute',controlTypes:'product_control_type',mountingTypes:'product_mounting_type'};
 
 export async function listCatalog(kind:CatalogKind, companyId:number, search='',state:'active'|'inactive'|'deleted'|'all'='active'):Promise<CatalogRow[]>{
   const c=client(); let q=c.from(tableFor[kind]).select('*').eq('company_id',companyId).order('code');
@@ -22,9 +22,11 @@ export async function listCatalog(kind:CatalogKind, companyId:number, search='',
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
   return ((data??[]) as CatalogRow[]).map(row=>({...row,name:kind==='types'?String((row as CatalogRow & {description?:string}).description??''):row.name}));
 }
-export async function upsertCatalog(kind:CatalogKind,companyId:number,input:{id?:number;code:string;name:string;active:boolean;confectionable?:boolean;data_type?:string}):Promise<void>{
+export async function upsertCatalog(kind:CatalogKind,companyId:number,input:{id?:number;code:string;name:string;active:boolean;confectionable?:boolean;recuttable?:boolean;minimum_remainder?:number|null;product_type_id?:number|null;control_type_id?:number|null;mounting_type_id?:number|null;data_type?:string}):Promise<void>{
  const c=client(); const base:any={company_id:companyId,code:input.code.trim(),active:input.active,deleted_at:null,deleted_by:null};
- if(kind==='types') base.description=input.name.trim(); else base.name=input.name.trim(); if(kind==='families') base.confectionable=!!input.confectionable; if(kind==='attributes') base.data_type=input.data_type??'TEXT';
+ if(kind==='types') base.description=input.name.trim(); else base.name=input.name.trim();
+ if(kind==='families') { base.confectionable=!!input.confectionable; base.recuttable=!!input.recuttable; base.minimum_remainder=input.minimum_remainder??null; base.product_type_id=input.product_type_id??null; base.control_type_id=input.control_type_id??null; base.mounting_type_id=input.mounting_type_id??null; }
+ if(kind==='attributes') base.data_type=input.data_type??'TEXT';
  const q=input.id?c.from(tableFor[kind]).update(base).eq('id',input.id):c.from(tableFor[kind]).insert(base); const {error}=await q; if(error)throw new CoreRepositoryError(error.message);
 }
 export async function markCatalogForDeletion(kind:CatalogKind,id:number):Promise<void>{await markForDeletion(tableFor[kind],id);}
