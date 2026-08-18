@@ -36,6 +36,12 @@
 .quotation-create .quotation-lines-table .quantity-cell input,.quotation-create .quotation-lines-table .price-cell input,.quotation-create .quotation-lines-table .discount-cell input{text-align:right}
 .quotation-create .quotation-lines-table tbody tr+tr{border-top:1px solid var(--border)}
 
+/* La línea muestra capacidades avanzadas solo cuando el comportamiento de su familia las requiere. */
+.quotation-create .quotation-line-behavior{display:flex;flex-direction:column;gap:2px;margin-top:5px;padding:4px 7px;border-radius:5px;background:#f3f6f9;line-height:1.25;min-width:0}
+.quotation-create .quotation-line-behavior-name{font-size:11px;font-weight:650;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.quotation-create .quotation-line-behavior-capabilities{font-size:10px;color:var(--muted);white-space:normal}
+.quotation-create .quotation-lines-table input:disabled{background:#f3f4f6;color:var(--muted);cursor:not-allowed}
+
 /* Totales: lectura inmediata, sin competir con las líneas. */
 .quotation-create .quote-totals{display:flex;justify-content:flex-end;align-items:stretch;gap:var(--sp-4);border-top:1px solid var(--border);padding-top:var(--sp-3);margin-top:var(--sp-2);flex-wrap:wrap}
 .quotation-create .quote-totals>span{display:flex;flex-direction:column;gap:var(--sp-1);min-width:120px;text-align:right;color:var(--muted);font-size:12px}
