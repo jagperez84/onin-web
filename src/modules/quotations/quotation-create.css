@@ -16,18 +16,20 @@
 .quotation-create .address-editor legend{padding:0 var(--sp-1);font-size:13px;font-weight:650;color:var(--text)}
 .quotation-create .address-editor label{display:flex;flex-direction:column;min-width:0;font-size:12px;font-weight:600;line-height:1.3;margin:0}
 .quotation-create .address-editor .address-source{margin-bottom:var(--sp-1)}
-.quotation-create .address-editor-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,2fr);gap:var(--sp-2)}
+.quotation-create .address-editor-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(120px,1fr) minmax(0,1.2fr);gap:var(--sp-2)}
 .quotation-create .address-editor-grid .address-street{grid-column:1 / -1}
 .quotation-create .address-editor-grid input,.quotation-create .address-editor select{height:36px;width:100%;box-sizing:border-box}
 
-/* Líneas: columnas con espacio real y sin solapamiento entre lookup y descripción. */
+/* Líneas: Artículo tiene un ancho estable; Descripción absorbe el espacio disponible. */
 .quotation-create .quotation-lines-table{height:auto;min-height:0;overflow-x:auto;padding:var(--sp-2) 0 var(--sp-3)}
-.quotation-create .quotation-lines-table table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:1040px}
-.quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{display:grid;grid-template-columns:240px minmax(280px,1fr) 90px 105px 90px 110px 40px;column-gap:var(--sp-4);align-items:center;width:100%}
+.quotation-create .quotation-lines-table table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:1160px}
+.quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{display:grid;grid-template-columns:300px minmax(300px,1fr) 90px 105px 90px 110px 40px;column-gap:var(--sp-4);align-items:center;width:100%}
 .quotation-create .quotation-lines-table th,.quotation-create .quotation-lines-table td{min-width:0;box-sizing:border-box}
 .quotation-create .quotation-lines-table th{padding:0 0 var(--sp-2);text-align:left;white-space:nowrap;font-size:12px}
 .quotation-create .quotation-lines-table td{padding:var(--sp-2) 0}
 .quotation-create .quotation-lines-table input{width:100%;min-width:0;box-sizing:border-box}
+.quotation-create .quotation-lines-table .article-cell{min-width:0;overflow:visible}
+.quotation-create .quotation-lines-table .article-cell .lookup-field{width:100%;min-width:0}
 .quotation-create .quotation-lines-table .numeric{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .quotation-create .quotation-lines-table .description-cell{min-width:0;overflow:hidden}
 .quotation-create .quotation-lines-table .description-cell input{display:block;width:100%;min-width:0}
@@ -48,12 +50,13 @@
 .quotation-create .wide-field textarea{width:100%;min-height:120px;resize:vertical;box-sizing:border-box;line-height:1.5}
 
 .quotation-create .lookup-field{min-width:0;width:100%;position:relative}
+.quotation-create .lookup-field-compact{width:100%}
 .quotation-create .lookup-control{display:flex;align-items:center;gap:var(--sp-2);width:100%;height:var(--field-height);box-sizing:border-box;padding:0 var(--sp-2);border:1px solid var(--border);border-radius:7px;background:#fff}
 .quotation-create .lookup-control input{width:100%;min-width:0;height:auto;border:0!important;box-shadow:none!important;outline:0;padding:0!important;background:transparent!important}
 .quotation-create .lookup-clear{border:0;background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;padding:var(--sp-1);cursor:pointer}
 .quotation-create .lookup-portal{position:fixed;inset:0;z-index:10000;pointer-events:none}
-.quotation-create .lookup-dismiss{position:absolute;inset:0;border:0;background:transparent;pointer-events:auto;cursor:default}
-.quotation-create .lookup-results{position:fixed;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 14px 32px rgba(15,23,42,.16);padding:5px;max-height:300px;overflow:auto;pointer-events:auto}
+.quotation-create .lookup-dismiss{position:absolute;inset:0;z-index:0;border:0;background:transparent;pointer-events:auto;cursor:default}
+.quotation-create .lookup-results{position:fixed;z-index:1;background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 14px 32px rgba(15,23,42,.16);padding:5px;max-height:300px;overflow:auto;pointer-events:auto;box-sizing:border-box}
 .quotation-create .lookup-results button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:9px 10px;border-radius:6px;cursor:pointer;color:var(--text)}
 .quotation-create .lookup-results button:hover{background:#f3f6f9}
 .quotation-create .lookup-results strong{font-size:12px;font-weight:650}
@@ -67,14 +70,16 @@
 
 @media(max-width:1000px){
  .quotation-create .quotation-header-panel .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--sp-3);row-gap:var(--sp-3)}
- .quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{grid-template-columns:220px minmax(240px,1fr) 85px 95px 85px 105px 40px}
+ .quotation-create .address-editor-grid{grid-template-columns:1fr 1fr}
+ .quotation-create .address-editor-grid .address-street{grid-column:1 / -1}
+ .quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{grid-template-columns:300px minmax(280px,1fr) 85px 95px 85px 105px 40px}
 }
 @media(max-width:760px){
  .quotation-create .quotation-header-panel .form-grid{grid-template-columns:1fr;gap:var(--sp-3)}
  .quotation-create .address-editor-grid{grid-template-columns:1fr}
  .quotation-create .address-editor-grid .address-street{grid-column:auto}
  .quotation-create .quotation-lines-table{overflow-x:auto}
- .quotation-create .quotation-lines-table table{min-width:1040px}
+ .quotation-create .quotation-lines-table table{min-width:1160px}
  .quotation-create .quote-totals{justify-content:flex-start}
  .quotation-create .quote-totals>span{text-align:left}
  .quotation-create .quote-totals>span:last-child{border-left:0;padding-left:0}
