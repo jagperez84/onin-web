@@ -3,8 +3,18 @@ import { CoreRepositoryError } from '../core/coreRepository';
 
 export type ProductStatus = 'active' | 'inactive' | 'deleted' | 'all';
 export type ProductCatalogRef = { id:number; code:string; name:string };
+export type ProductFamilyRef = ProductCatalogRef & { product_type_id:number|null; control_type_id:number|null; mounting_type_id:number|null; minimum_remainder:number|null; confectionable:boolean; recuttable:boolean };
 export type ProductTypeRef = { id:number; code:string; name:string };
 export type ProductSupplierRef = { id:number; name:string };
+export type ProductFamilyBehavior = {
+  family_id:number;
+  product_type_id:number|null;
+  control_type_id:number|null;
+  mounting_type_id:number|null;
+  minimum_remainder:number|null;
+  confectionable:boolean;
+  recuttable:boolean;
+};
 export type Product = {
   id:number; company_id:number; code:string; technical_description:string|null; commercial_description:string|null;
   family_id:number|null; product_type_id:number|null; base_unit_id:number|null;
@@ -15,7 +25,7 @@ export type Product = {
   scaled:boolean; scaled_by_characteristic:boolean; deleted_at:string|null; deleted_by:string|null;
 };
 export type ProductForm = Omit<Product,'id'|'company_id'>;
-export type ProductListRow = Product & { family:ProductCatalogRef|null; productType:ProductTypeRef|null; unit:ProductCatalogRef|null; supplier:ProductSupplierRef|null };
+export type ProductListRow = Product & { family:ProductFamilyRef|null; productType:ProductTypeRef|null; unit:ProductCatalogRef|null; supplier:ProductSupplierRef|null; familyBehavior:ProductFamilyBehavior|null };
 export type ProductCharacteristic = {
   id:number; product_id:number; code:string; description:string|null; upc:number|null; ptc:number|null; pvp:number|null;
   price_increment:number; stock_minimum:number; active:boolean; scaled:boolean; deleted_at:string|null; deleted_by:string|null;
@@ -26,7 +36,7 @@ function client(){ if(!supabase) throw new CoreRepositoryError('Supabase no estÃ
 async function refs(companyId:number){
   const c=client();
   const [f,t,u,s]=await Promise.all([
-    c.from('product_family').select('id,code,name').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
+    c.from('product_family').select('id,code,name,product_type_id,control_type_id,mounting_type_id,minimum_remainder,confectionable,recuttable').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('product_type').select('id,code,description').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('unit').select('id,code,name').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('party_role').select('party_id').eq('role_code','SUPPLIER').eq('active',true),
@@ -36,7 +46,7 @@ async function refs(companyId:number){
   let suppliers:{id:number;legal_name:string;trade_name:string|null}[]=[];
   if(supplierIds.length){ const q=await c.from('party').select('id,legal_name,trade_name').in('id',supplierIds).eq('active',true); if(q.error) throw new CoreRepositoryError(q.error.message); suppliers=(q.data??[]) as typeof suppliers; }
   return {
-    families:(f.data??[]) as ProductCatalogRef[],
+    families:(f.data??[]).map(x=>({id:x.id,code:x.code,name:x.name,product_type_id:x.product_type_id??null,control_type_id:x.control_type_id??null,mounting_type_id:x.mounting_type_id??null,minimum_remainder:x.minimum_remainder==null?null:Number(x.minimum_remainder),confectionable:!!x.confectionable,recuttable:!!x.recuttable})) as ProductFamilyRef[],
     types:(t.data??[]).map((x:any)=>({id:x.id,code:x.code,name:x.description})) as ProductTypeRef[],
     units:(u.data??[]) as ProductCatalogRef[],
     suppliers:suppliers.map(x=>({id:x.id,name:x.trade_name||x.legal_name})) as ProductSupplierRef[],
@@ -44,6 +54,17 @@ async function refs(companyId:number){
 }
 
 export async function getProductReferences(companyId:number){ return refs(companyId); }
+
+function familyBehavior(family:ProductFamilyRef|null):ProductFamilyBehavior|null{
+  if(!family)return null;
+  return {family_id:family.id,product_type_id:family.product_type_id,control_type_id:family.control_type_id,mounting_type_id:family.mounting_type_id,minimum_remainder:family.minimum_remainder,confectionable:family.confectionable,recuttable:family.recuttable};
+}
+
+export async function getProductFamilyBehavior(companyId:number,familyId:number|null):Promise<ProductFamilyBehavior|null>{
+  if(familyId===null)return null;
+  const references=await refs(companyId);
+  return familyBehavior(references.families.find(x=>x.id===familyId)??null);
+}
 
 export async function listProducts(companyId:number,search='',status:ProductStatus='active'):Promise<ProductListRow[]>{
   const c=client();
@@ -56,17 +77,11 @@ export async function listProducts(companyId:number,search='',status:ProductStat
   if(term) q=q.or(`code.ilike.%${term}%,technical_description.ilike.%${term}%,commercial_description.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
   const references=await refs(companyId);
-  return ((data??[]) as Product[]).map(p=>({
-    ...p,
-    family:references.families.find(x=>x.id===p.family_id)??null,
-    productType:references.types.find(x=>x.id===p.product_type_id)??null,
-    unit:references.units.find(x=>x.id===p.base_unit_id)??null,
-    supplier:references.suppliers.find(x=>x.id===p.default_supplier_party_id)??null,
-  }));
+  return ((data??[]) as Product[]).map(p=>{const family=references.families.find(x=>x.id===p.family_id)??null;return {...p,family,productType:references.types.find(x=>x.id===p.product_type_id)?.id===p.product_type_id?references.types.find(x=>x.id===p.product_type_id)??null:null,unit:references.units.find(x=>x.id===p.base_unit_id)??null,supplier:references.suppliers.find(x=>x.id===p.default_supplier_party_id)??null,familyBehavior:familyBehavior(family)};});
 }
 
-export async function getProduct(companyId:number,id:number):Promise<{product:Product;references:Awaited<ReturnType<typeof refs>>}>{
-  const c=client(); const {data,error}=await c.from('product').select('*').eq('company_id',companyId).eq('id',id).single(); if(error) throw new CoreRepositoryError(error.message); return {product:data as Product,references:await refs(companyId)};
+export async function getProduct(companyId:number,id:number):Promise<{product:Product;references:Awaited<ReturnType<typeof refs>>;familyBehavior:ProductFamilyBehavior|null}>{
+  const c=client(); const {data,error}=await c.from('product').select('*').eq('company_id',companyId).eq('id',id).single(); if(error) throw new CoreRepositoryError(error.message); const references=await refs(companyId); const product=data as Product; const family=references.families.find(x=>x.id===product.family_id)??null; return {product,references,familyBehavior:familyBehavior(family)};
 }
 
 export async function createProduct(companyId:number,input:ProductForm):Promise<number>{
