@@ -1,46 +1,45 @@
 :root{--sp-1:4px;--sp-2:8px;--sp-3:16px;--sp-4:24px;--sp-6:32px}
 
 .quotation-create{--content-width:1280px;--field-height:40px}
-.quotation-create .quotation-header-panel,.quotation-create .quotation-lines-panel,.quotation-create>.panel:last-of-type{width:100%;max-width:var(--content-width);margin:0 auto;box-sizing:border-box}
+.quotation-create .quotation-header-panel,.quotation-create .quotation-lines-panel,.quotation-create>.panel:last-of-type{width:100%;max-width:var(--content-width);margin-left:auto;margin-right:auto;box-sizing:border-box}
 
-/* Cabecera */
-.quotation-create .quotation-header-panel .form-grid{display:flex;flex-direction:column;gap:0;width:100%}
-.quotation-create .quotation-header-panel .form-grid-row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--sp-4);margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
-.quotation-create .quotation-header-panel .form-grid-row:first-child{margin-top:0;padding-top:0;border-top:0}
-.quotation-create .form-grid-row>.field{min-width:0}
-.quotation-create .form-grid-row>.field-3{grid-column:span 3}
-.quotation-create .form-grid-row>.field-4{grid-column:span 4}
-.quotation-create .form-grid-row>.field-5{grid-column:span 5}
-.quotation-create .form-grid-row>.field-6{grid-column:span 6}
-.quotation-create .field-label{display:block;margin:0 0 var(--sp-1);font-size:13px;font-weight:600;line-height:1.3}
-.quotation-create .field-control,.quotation-create .form-grid-row input,.quotation-create .form-grid-row select{width:100%;height:var(--field-height);box-sizing:border-box}
-.quotation-create .date-field input{max-width:160px}
-.quotation-create .address-field select{width:100%}
+/* Datos generales: una única rejilla de 12 columnas, con posiciones explícitas. */
+.quotation-create .quotation-header-panel .form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:var(--sp-4);row-gap:var(--sp-4);width:100%;box-sizing:border-box;align-items:start}
+.quotation-create .quotation-header-panel .form-grid>label,.quotation-create .quotation-header-panel .form-grid>.lookup-field{min-width:0;width:100%;box-sizing:border-box;margin:0}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(1){grid-column:1 / span 4}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(2){grid-column:5 / span 5}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(3){grid-column:10 / span 3}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(4){grid-column:1 / span 3;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(5){grid-column:4 / span 3;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(6){grid-column:7 / span 3;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(7){grid-column:10 / span 3;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(8){grid-column:1 / span 4}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(9){grid-column:5 / span 4}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(10){grid-column:1 / span 6;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
+.quotation-create .quotation-header-panel .form-grid>:nth-child(11){grid-column:7 / span 6;margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid #e5e7eb}
 
-/* Tabla de líneas */
+.quotation-create .quotation-header-panel .form-grid label,.quotation-create .quotation-header-panel .form-grid .field-label{display:block;font-size:13px;font-weight:600;line-height:1.3;margin-bottom:var(--sp-1)}
+.quotation-create .quotation-header-panel .form-grid input,.quotation-create .quotation-header-panel .form-grid select{width:100%;height:var(--field-height);box-sizing:border-box}
+.quotation-create .quotation-header-panel .date-field input{max-width:155px}
+.quotation-create .quotation-header-panel .address-field select{width:100%}
+
+/* Tabla: descripción absorbe el espacio disponible; las columnas numéricas no flotan. */
 .quotation-create .quotation-lines-table{height:auto;min-height:0;overflow-x:auto}
-.quotation-create .quotation-lines-table table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
-.quotation-create .quotation-lines-table col.col-product{width:190px}
-.quotation-create .quotation-lines-table col.col-description{width:auto}
-.quotation-create .quotation-lines-table col.col-quantity{width:90px}
-.quotation-create .quotation-lines-table col.col-price{width:100px}
-.quotation-create .quotation-lines-table col.col-discount{width:90px}
-.quotation-create .quotation-lines-table col.col-total{width:100px}
-.quotation-create .quotation-lines-table col.col-action{width:40px}
-.quotation-create .quotation-lines-table th,.quotation-create .quotation-lines-table td{box-sizing:border-box;min-width:0;padding:0 var(--sp-2);vertical-align:middle}
-.quotation-create .quotation-lines-table th:first-child,.quotation-create .quotation-lines-table td:first-child{padding-left:0}
-.quotation-create .quotation-lines-table th:last-child,.quotation-create .quotation-lines-table td:last-child{padding-right:0}
-.quotation-create .quotation-lines-table th{padding-bottom:var(--sp-2);text-align:left;white-space:nowrap}
-.quotation-create .quotation-lines-table td{padding-top:var(--sp-2);padding-bottom:var(--sp-2)}
+.quotation-create .quotation-lines-table table{width:100%;border-collapse:collapse;table-layout:fixed}
+.quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{display:grid;grid-template-columns:190px minmax(220px,1fr) 90px 100px 90px 100px 40px;column-gap:var(--sp-3);align-items:center;width:100%}
+.quotation-create .quotation-lines-table th,.quotation-create .quotation-lines-table td{min-width:0;box-sizing:border-box}
+.quotation-create .quotation-lines-table th{padding:0 0 var(--sp-2);text-align:left;white-space:nowrap}
+.quotation-create .quotation-lines-table td{padding:var(--sp-2) 0}
+.quotation-create .quotation-lines-table td:not(:first-child),.quotation-create .quotation-lines-table th:not(:first-child){padding-left:0}
 .quotation-create .quotation-lines-table input{width:100%;min-width:0;box-sizing:border-box}
 .quotation-create .quotation-lines-table .numeric{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.quotation-create .quotation-lines-table .description-cell input{width:100%}
+.quotation-create .quotation-lines-panel.expanded .quotation-lines-table{max-height:65vh;overflow:auto}
 
-/* Acciones */
 .quotation-create .panel-actions{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .quotation-create .panel-actions .secondary-button{font-size:13px;font-weight:500;padding:var(--sp-2) var(--sp-3)}
 .quotation-create .panel-actions .primary-button{font-size:14px;font-weight:600;padding:var(--sp-2) var(--sp-4)}
 
-/* Lookup */
 .quotation-create .lookup-field{min-width:0;width:100%;position:relative}
 .quotation-create .lookup-control{display:flex;align-items:center;gap:var(--sp-2);width:100%;height:var(--field-height);box-sizing:border-box;padding:0 var(--sp-2);border:1px solid var(--border);border-radius:7px;background:#fff}
 .quotation-create .lookup-control input{width:100%;min-width:0;height:auto;border:0!important;box-shadow:none!important;outline:0;padding:0!important;background:transparent!important}
@@ -53,9 +52,6 @@
 .quotation-create .lookup-results strong{font-size:12px;font-weight:650}
 .quotation-create .lookup-results small{display:block;padding:10px;color:var(--muted)}
 
-.quotation-create .quotation-lines-table .description-cell input{width:100%}
-.quotation-create .quotation-lines-panel.expanded .quotation-lines-table{max-height:65vh;overflow:auto}
-
 .confirmation-overlay{position:fixed;inset:0;z-index:11000;background:rgba(15,23,42,.35);display:flex;align-items:center;justify-content:center;padding:var(--sp-3)}
 .confirmation-dialog{width:min(460px,100%);background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 50px rgba(15,23,42,.22);padding:var(--sp-4)}
 .confirmation-dialog h2{margin:0 0 var(--sp-2)}
@@ -63,14 +59,17 @@
 .confirmation-actions{display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-4)}
 
 @media(max-width:1000px){
- .quotation-create .quotation-header-panel .form-grid-row{grid-template-columns:repeat(6,minmax(0,1fr));gap:var(--sp-3)}
- .quotation-create .form-grid-row>.field-3,.quotation-create .form-grid-row>.field-4,.quotation-create .form-grid-row>.field-5,.quotation-create .form-grid-row>.field-6{grid-column:span 3}
- .quotation-create .date-field input{max-width:none}
+ .quotation-create .quotation-header-panel .form-grid{column-gap:var(--sp-3);row-gap:var(--sp-3)}
+ .quotation-create .quotation-header-panel .form-grid>:nth-child(n){grid-column:span 6;margin-top:0;padding-top:0;border-top:0}
+ .quotation-create .quotation-header-panel .form-grid>:nth-child(1),.quotation-create .quotation-header-panel .form-grid>:nth-child(2){grid-column:span 6}
+ .quotation-create .quotation-header-panel .form-grid>:nth-child(3),.quotation-create .quotation-header-panel .form-grid>:nth-child(4),.quotation-create .quotation-header-panel .form-grid>:nth-child(5),.quotation-create .quotation-header-panel .form-grid>:nth-child(6),.quotation-create .quotation-header-panel .form-grid>:nth-child(7),.quotation-create .quotation-header-panel .form-grid>:nth-child(8),.quotation-create .quotation-header-panel .form-grid>:nth-child(9),.quotation-create .quotation-header-panel .form-grid>:nth-child(10),.quotation-create .quotation-header-panel .form-grid>:nth-child(11){grid-column:span 6}
+ .quotation-create .quotation-header-panel .date-field input{max-width:none}
+ .quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{grid-template-columns:180px minmax(180px,1fr) 85px 95px 85px 100px 40px}
 }
 @media(max-width:760px){
- .quotation-create .quotation-header-panel .form-grid-row{grid-template-columns:1fr;gap:var(--sp-3)}
- .quotation-create .form-grid-row>.field-3,.quotation-create .form-grid-row>.field-4,.quotation-create .form-grid-row>.field-5,.quotation-create .form-grid-row>.field-6{grid-column:1}
- .quotation-create .date-field input{max-width:none}
+ .quotation-create .quotation-header-panel .form-grid{grid-template-columns:1fr;gap:var(--sp-3)}
+ .quotation-create .quotation-header-panel .form-grid>:nth-child(n){grid-column:1!important}
+ .quotation-create .quotation-header-panel .date-field input{max-width:none}
  .quotation-create .quotation-lines-table{overflow-x:auto}
- .quotation-create .quotation-lines-table table{min-width:760px}
+ .quotation-create .quotation-lines-table table{min-width:800px}
 }
