@@ -3,32 +3,11 @@
 .quotation-create{--content-width:1280px;--field-height:40px}
 .quotation-create .quotation-header-panel,.quotation-create .quotation-lines-panel,.quotation-create>.panel:last-of-type{width:100%;max-width:var(--content-width);margin-left:auto;margin-right:auto;box-sizing:border-box}
 
-/* CABECERA: la prioridad es la alineación. Una única rejilla explícita y cuatro filas. */
-.quotation-create .quotation-header-panel .form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-template-areas:"reference customer commercial" "warehouse issue valid payment" "terms tax tax-empty" "billing billing installation installation";grid-template-rows:auto auto auto auto;column-gap:var(--sp-4);row-gap:var(--sp-4);width:100%;box-sizing:border-box;align-items:start}
+/* CABECERA: mismo patrón de formulario que Clientes/Artículos.
+   Tres columnas naturales, filas generadas por el orden real del formulario.
+   No se fuerza la posición de cada campo con nth-child ni áreas artificiales. */
+.quotation-create .quotation-header-panel .form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--sp-4);row-gap:var(--sp-4);width:100%;box-sizing:border-box;align-items:start}
 .quotation-create .quotation-header-panel .form-grid>*{min-width:0;width:100%;box-sizing:border-box;margin:0!important;padding:0!important;border:0!important;align-self:start;display:flex;flex-direction:column}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(1){grid-area:reference}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(2){grid-area:customer}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(3){grid-area:commercial}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(4){grid-area:warehouse}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(5){grid-area:issue}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(6){grid-area:valid}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(7){grid-area:payment}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(8){grid-area:terms}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(9){grid-area:tax}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(10){grid-area:billing}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(11){grid-area:installation}
-
-/* Las tres columnas de la primera fila: 4 / 5 / 3. */
-.quotation-create .quotation-header-panel .form-grid>:nth-child(1){grid-column:span 4}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(2){grid-column:span 5}
-.quotation-create .quotation-header-panel .form-grid>:nth-child(3){grid-column:span 3}
-/* Segunda fila: cuatro columnas iguales. */
-.quotation-create .quotation-header-panel .form-grid>:nth-child(4),.quotation-create .quotation-header-panel .form-grid>:nth-child(5),.quotation-create .quotation-header-panel .form-grid>:nth-child(6),.quotation-create .quotation-header-panel .form-grid>:nth-child(7){grid-column:span 3}
-/* Tercera fila: dos columnas principales; la tercera queda libre. */
-.quotation-create .quotation-header-panel .form-grid>:nth-child(8),.quotation-create .quotation-header-panel .form-grid>:nth-child(9){grid-column:span 4}
-/* Cuarta fila: direcciones 50 / 50. */
-.quotation-create .quotation-header-panel .form-grid>:nth-child(10),.quotation-create .quotation-header-panel .form-grid>:nth-child(11){grid-column:span 6}
-
 .quotation-create .quotation-header-panel .form-grid label,.quotation-create .quotation-header-panel .form-grid .field-label{display:block;font-size:13px;font-weight:600;line-height:1.3;margin:0 0 var(--sp-1)}
 .quotation-create .quotation-header-panel .form-grid input,.quotation-create .quotation-header-panel .form-grid select{width:100%;height:var(--field-height);min-width:0;box-sizing:border-box}
 .quotation-create .quotation-header-panel .date-field input{max-width:none}
@@ -69,14 +48,12 @@
 .confirmation-actions{display:flex;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-4)}
 
 @media(max-width:1000px){
- .quotation-create .quotation-header-panel .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"reference customer" "commercial commercial" "warehouse issue" "valid payment" "terms tax" "billing installation";column-gap:var(--sp-3);row-gap:var(--sp-3)}
- .quotation-create .quotation-header-panel .form-grid>*{grid-column:span 1!important}
+ .quotation-create .quotation-header-panel .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--sp-3);row-gap:var(--sp-3)}
  .quotation-create .quotation-header-panel .date-field input{max-width:none}
  .quotation-create .quotation-lines-table thead tr,.quotation-create .quotation-lines-table tbody tr{grid-template-columns:180px minmax(180px,1fr) 85px 95px 85px 100px 40px}
 }
 @media(max-width:760px){
- .quotation-create .quotation-header-panel .form-grid{grid-template-columns:1fr;grid-template-areas:"reference" "customer" "commercial" "warehouse" "issue" "valid" "payment" "terms" "tax" "billing" "installation";gap:var(--sp-3)}
- .quotation-create .quotation-header-panel .form-grid>*{grid-column:1!important}
+ .quotation-create .quotation-header-panel .form-grid{grid-template-columns:1fr;gap:var(--sp-3)}
  .quotation-create .quotation-lines-table{overflow-x:auto}
  .quotation-create .quotation-lines-table table{min-width:800px}
 }
