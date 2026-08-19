@@ -2,11 +2,11 @@ import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { markForDeletion, restoreFromDeletion } from '../core/softDeleteRepository';
 
-export type CatalogKind = 'families'|'types'|'units'|'magnitudes'|'colors'|'attributes'|'lineBehaviors';
+export type CatalogKind = 'families' | 'types' | 'units' | 'magnitudes' | 'colors' | 'attributes' | 'mountingTypes' | 'lineBehaviors';
 export type CatalogRow = {
   id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
-  product_type_id?:number|null; line_behavior_id?:number|null;
+  product_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
   data_type?:string; description?:string|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; cut_calculation_enabled?:boolean; length_enabled?:boolean;
@@ -17,7 +17,7 @@ export type AttributeValue = { id:number; attribute_id:number; code:string; name
 type CatalogInput = {
   id?:number; code:string; name:string; active:boolean; description?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
-  product_type_id?:number|null; line_behavior_id?:number|null;
+  product_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; cut_calculation_enabled?:boolean; length_enabled?:boolean;
   characteristics_enabled?:boolean; canvas_cut_enabled?:boolean; data_type?:string;
@@ -29,7 +29,7 @@ function client(){
 }
 const tableFor:Record<CatalogKind,string> = {
   families:'product_family',types:'product_type',units:'unit',magnitudes:'magnitude',colors:'color',attributes:'product_attribute',
-  lineBehaviors:'product_line_behavior'
+  mountingTypes:'product_mounting_type',lineBehaviors:'product_line_behavior'
 };
 
 export async function listCatalog(kind:CatalogKind, companyId:number, search='',state:'active'|'inactive'|'deleted'|'all'='active'):Promise<CatalogRow[]>{
@@ -51,6 +51,7 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.recuttable=!!input.recuttable;
    base.minimum_remainder=input.minimum_remainder??null;
    base.product_type_id=input.product_type_id??null;
+   base.mounting_type_id=input.mounting_type_id??null;
    base.line_behavior_id=input.line_behavior_id??null;
  }
  if(kind==='lineBehaviors') {
