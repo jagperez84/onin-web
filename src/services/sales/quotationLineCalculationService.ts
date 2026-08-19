@@ -88,3 +88,25 @@ export async function calculateQuotationLine(input: {
     variables,
   };
 }
+
+/** Resolve an article and recalculate its quotation price without mutating catalog data. */
+export async function calculateQuotationLineByProductId(input: {
+  productId: number;
+  dimensions?: QuotationLineDimensionDraft[];
+}): Promise<QuotationLineCalculation> {
+  if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+
+  const { data: product, error } = await supabase
+    .from('product')
+    .select('*')
+    .eq('id', input.productId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw new CoreRepositoryError(error.message);
+  if (!product) throw new CoreRepositoryError('No se ha encontrado el artículo seleccionado.');
+
+  return calculateQuotationLine({
+    product: product as Product,
+    dimensions: input.dimensions,
+  });
+}
