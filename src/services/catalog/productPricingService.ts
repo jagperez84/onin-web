@@ -18,14 +18,15 @@ export type ProductPriceResult = {
 /**
  * Resolves the unit sales price following the behaviour found in Onin Original.
  *
- * Original uses the article's ESCALADO flag for generic scales and
- * ESCALADO_CARACTERISTICA for characteristic-specific scales. A scale row is
- * selected when both dimensions are greater than or equal to the requested
- * dimensions, ordered by the smallest dimension pair first.
+ * Original uses ESCALADO for generic scales and ESCALADO_CARACTERISTICA for
+ * characteristic-specific scales. A scale row is selected when both stored
+ * dimensions are greater than or equal to the requested dimensions, ordered
+ * by dimension_1 and then dimension_2 ascending.
  *
- * This service deliberately does not apply quantity, discount, VAT, formula
- * results or component/despiece prices. Those belong to the quotation/factory
- * calculation stages.
+ * If scaling is enabled but no matching row exists, Original returns 0; it
+ * does not silently fall back to the article/base-characteristic price.
+ * Quantity, discounts, VAT, formulas and despiece prices are deliberately
+ * outside this resolver and will be applied by their respective stages.
  */
 export function resolveProductUnitPrice(input: ProductPriceInput): ProductPriceResult {
   const { product, characteristic, scales = [] } = input;
@@ -37,8 +38,8 @@ export function resolveProductUnitPrice(input: ProductPriceInput): ProductPriceR
     const candidates = scales
       .filter(row => row.characteristic_id === characteristicId)
       .filter(row => Number(row.dimension_1) >= dim1)
-      .filter(row => row.dimension_2 == null || Number(row.dimension_2) >= dim2)
-      .sort((a, b) => Number(a.dimension_1) - Number(b.dimension_1) || (Number(a.dimension_2 ?? 0) - Number(b.dimension_2 ?? 0)));
+      .filter(row => row.dimension_2 != null && Number(row.dimension_2) >= dim2)
+      .sort((a, b) => Number(a.dimension_1) - Number(b.dimension_1) || Number(a.dimension_2) - Number(b.dimension_2));
 
     const scale = candidates[0];
     if (scale) {
@@ -48,6 +49,11 @@ export function resolveProductUnitPrice(input: ProductPriceInput): ProductPriceR
         scale,
       };
     }
+
+    return {
+      price: 0,
+      source: product.scaled_by_characteristic ? 'scale_characteristic' : 'scale',
+    };
   }
 
   if (characteristic?.pvp != null) {
