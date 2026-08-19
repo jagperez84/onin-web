@@ -14,13 +14,7 @@ export type QuotationLineCalculation = {
   variables: Record<string, number>;
 };
 
-/**
- * Resolves the commercial/technical behaviour of an article in a quotation line.
- *
- * OTD components are the editable technical definition. The calculation is
- * deliberately read-only here: quotation editing can ask for a recalculation
- * without mutating catalog or OTD data.
- */
+/** Read-only bridge between an article in a quotation and its OTD definition. */
 export async function calculateQuotationLine(input: {
   product: Product;
   dimensions?: QuotationLineDimensionDraft[];
@@ -44,20 +38,40 @@ export async function calculateQuotationLine(input: {
     .order('sort_order');
   if (error) throw new CoreRepositoryError(error.message);
 
-  const components: BreakdownComponent[] = ((rows ?? []) as any[]).map((row) => ({
-    id: Number(row.id),
-    code: String(row.code ?? ''),
-    description: row.description ?? null,
-    quantity_expression: row.quantity_expression ?? null,
-    unit_id: row.unit_id == null ? null : Number(row.unit_id),
-    product: null,
-  }));
+  const productIds = [...new Set(((rows ?? []) as any[])
+    .map(row => row.product_id == null ? null : Number(row.product_id))
+    .filter((id): id is number => id != null))];
+
+  const products = new Map<number, Product>();
+  if (productIds.length) {
+    const { data, error: productError } = await supabase
+      .from('product')
+      .select('*')
+      .in('id', productIds)
+      .is('deleted_at', null);
+    if (productError) throw new CoreRepositoryError(productError.message);
+    for (const product of (data ?? []) as Product[]) products.set(Number(product.id), product);
+  }
+
+  const dimensionValues = Object.values(variables);
+  const components: BreakdownComponent[] = ((rows ?? []) as any[]).map((row) => {
+    const componentProduct = row.product_id == null ? null : products.get(Number(row.product_id)) ?? null;
+    return {
+      id: Number(row.id),
+      code: String(row.code ?? ''),
+      description: row.description ?? null,
+      quantity_expression: row.quantity_expression ?? null,
+      unit_id: row.unit_id == null ? null : Number(row.unit_id),
+      product: componentProduct,
+      dimension1: dimensionValues[0] ?? null,
+      dimension2: dimensionValues[1] ?? null,
+    };
+  });
 
   const breakdown = components.length
     ? calculateBreakdown({ variables, components })
     : { components: [], price: 0, cost: 0 };
 
-  const dimensionValues = Object.values(variables);
   const pricing = resolveProductUnitPrice({
     product: input.product,
     characteristic: input.characteristic,
