@@ -48,38 +48,31 @@ export async function listMeasurementTypes(companyId: number, search = ''): Prom
 
 export async function upsertMeasurementType(companyId: number, input: MeasurementType): Promise<void> {
   const c = client();
-  const now = new Date().toISOString();
-  const base = {
-    company_id: companyId,
-    code: input.code.trim(),
-    name: input.name.trim(),
-    dimension_count: input.dimension_count,
-    result_unit_id: input.result_unit_id ?? null,
-    result_decimals: input.result_decimals,
-    calculation_type: input.calculation_type?.trim() || null,
-    formula: input.formula?.trim() || null,
-    active: input.active,
-    deleted_at: null,
-    deleted_by: null,
-    updated_at: now,
-  };
-  const { data, error } = input.id
-    ? await c.from('measurement_type').update(base).eq('id', input.id).eq('company_id', companyId).select('id').single()
-    : await c.from('measurement_type').insert(base).select('id').single();
-  if (error) throw new CoreRepositoryError(error.message);
-  const id = data.id as number;
-  const { error: deleteError } = await c.from('measurement_type_dimension').delete().eq('measurement_type_id', id);
-  if (deleteError) throw new CoreRepositoryError(deleteError.message);
   const dimensions = input.dimensions.slice(0, input.dimension_count).map((d, index) => ({
-    measurement_type_id: id,
     dimension_number: index + 1,
     code: d.code.trim(),
     name: d.name.trim(),
     unit_id: d.unit_id ?? null,
     decimals: d.decimals,
   }));
-  if (dimensions.length) {
-    const { error: insertError } = await c.from('measurement_type_dimension').insert(dimensions);
-    if (insertError) throw new CoreRepositoryError(insertError.message);
+
+  if (dimensions.length !== input.dimension_count) {
+    throw new CoreRepositoryError('La definición de dimensiones no coincide con el número indicado.');
   }
+
+  const { error } = await c.rpc('upsert_measurement_type', {
+    p_company_id: companyId,
+    p_id: input.id ?? null,
+    p_code: input.code.trim(),
+    p_name: input.name.trim(),
+    p_dimension_count: input.dimension_count,
+    p_result_unit_id: input.result_unit_id ?? null,
+    p_result_decimals: input.result_decimals,
+    p_calculation_type: input.calculation_type?.trim() || null,
+    p_formula: input.formula?.trim() || null,
+    p_active: input.active,
+    p_dimensions: dimensions,
+  });
+
+  if (error) throw new CoreRepositoryError(error.message);
 }
