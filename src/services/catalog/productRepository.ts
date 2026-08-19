@@ -9,13 +9,12 @@ export type ProductLineBehavior = {
   dimensions_enabled:boolean; configuration_enabled:boolean; cut_calculation_enabled:boolean;
   length_enabled:boolean; characteristics_enabled:boolean; canvas_cut_enabled:boolean;
 };
-export type ProductFamilyRef = ProductCatalogRef & { product_type_id:number|null; mounting_type_id:number|null; minimum_remainder:number|null; confectionable:boolean; recuttable:boolean; line_behavior_id:number|null; lineBehavior:ProductLineBehavior|null };
+export type ProductFamilyRef = ProductCatalogRef & { product_type_id:number|null; minimum_remainder:number|null; confectionable:boolean; recuttable:boolean; line_behavior_id:number|null; lineBehavior:ProductLineBehavior|null };
 export type ProductTypeRef = { id:number; code:string; name:string };
 export type ProductSupplierRef = { id:number; name:string };
 export type ProductFamilyBehavior = {
   family_id:number;
   product_type_id:number|null;
-  mounting_type_id:number|null;
   minimum_remainder:number|null;
   confectionable:boolean;
   recuttable:boolean;
@@ -43,7 +42,7 @@ function client(){ if(!supabase) throw new CoreRepositoryError('Supabase no estÃ
 async function refs(companyId:number){
   const c=client();
   const [f,t,u,s,b]=await Promise.all([
-    c.from('product_family').select('id,code,name,product_type_id,mounting_type_id,minimum_remainder,confectionable,recuttable,line_behavior_id').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
+    c.from('product_family').select('id,code,name,product_type_id,minimum_remainder,confectionable,recuttable,line_behavior_id').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('product_type').select('id,code,description').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('unit').select('id,code,name').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('party_role').select('party_id').eq('role_code','SUPPLIER').eq('active',true),
@@ -55,7 +54,7 @@ async function refs(companyId:number){
   if(supplierIds.length){ const q=await c.from('party').select('id,legal_name,trade_name').in('id',supplierIds).eq('active',true); if(q.error) throw new CoreRepositoryError(q.error.message); suppliers=(q.data??[]) as typeof suppliers; }
   const behaviors=(b.data??[]) as ProductLineBehavior[];
   return {
-    families:(f.data??[]).map(x=>{const lineBehavior=behaviors.find(b=>b.id===x.line_behavior_id)??null;return {id:x.id,code:x.code,name:x.name,product_type_id:x.product_type_id??null,mounting_type_id:x.mounting_type_id??null,minimum_remainder:x.minimum_remainder==null?null:Number(x.minimum_remainder),confectionable:!!x.confectionable,recuttable:!!x.recuttable,line_behavior_id:x.line_behavior_id??null,lineBehavior};}) as ProductFamilyRef[],
+    families:(f.data??[]).map(x=>{const lineBehavior=behaviors.find(b=>b.id===x.line_behavior_id)??null;return {id:x.id,code:x.code,name:x.name,product_type_id:x.product_type_id??null,minimum_remainder:x.minimum_remainder==null?null:Number(x.minimum_remainder),confectionable:!!x.confectionable,recuttable:!!x.recuttable,line_behavior_id:x.line_behavior_id??null,lineBehavior};}) as ProductFamilyRef[],
     types:(t.data??[]).map((x:any)=>({id:x.id,code:x.code,name:x.description})) as ProductTypeRef[],
     units:(u.data??[]) as ProductCatalogRef[],
     suppliers:suppliers.map(x=>({id:x.id,name:x.trade_name||x.legal_name})) as ProductSupplierRef[],
@@ -67,7 +66,7 @@ export async function getProductReferences(companyId:number){ return refs(compan
 
 function familyBehavior(family:ProductFamilyRef|null):ProductFamilyBehavior|null{
   if(!family)return null;
-  return {family_id:family.id,product_type_id:family.product_type_id,mounting_type_id:family.mounting_type_id,minimum_remainder:family.minimum_remainder,confectionable:family.confectionable,recuttable:family.recuttable,line_behavior_id:family.line_behavior_id,lineBehavior:family.lineBehavior};
+  return {family_id:family.id,product_type_id:family.product_type_id,minimum_remainder:family.minimum_remainder,confectionable:family.confectionable,recuttable:family.recuttable,line_behavior_id:family.line_behavior_id,lineBehavior:family.lineBehavior};
 }
 
 export async function getProductFamilyBehavior(companyId:number,familyId:number|null):Promise<ProductFamilyBehavior|null>{
