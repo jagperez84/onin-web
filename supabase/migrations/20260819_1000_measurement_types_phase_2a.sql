@@ -38,6 +38,14 @@ create index if not exists ix_measurement_type_dimension_type on public.measurem
 alter table public.measurement_type enable row level security;
 alter table public.measurement_type_dimension enable row level security;
 
+drop policy if exists measurement_type_authenticated_select on public.measurement_type;
+drop policy if exists measurement_type_authenticated_insert on public.measurement_type;
+drop policy if exists measurement_type_authenticated_update on public.measurement_type;
+drop policy if exists measurement_type_dimension_authenticated_select on public.measurement_type_dimension;
+drop policy if exists measurement_type_dimension_authenticated_insert on public.measurement_type_dimension;
+drop policy if exists measurement_type_dimension_authenticated_update on public.measurement_type_dimension;
+drop policy if exists measurement_type_dimension_authenticated_delete on public.measurement_type_dimension;
+
 create policy measurement_type_authenticated_select on public.measurement_type for select to authenticated using(auth.uid() is not null);
 create policy measurement_type_authenticated_insert on public.measurement_type for insert to authenticated with check(auth.uid() is not null);
 create policy measurement_type_authenticated_update on public.measurement_type for update to authenticated using(auth.uid() is not null) with check(auth.uid() is not null);
