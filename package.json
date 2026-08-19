@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "build:cloudflare": "vite build",
+    "build:cloudflare": "npm run build",
     "preview:cloudflare": "vite preview"
   },
   "dependencies": {
