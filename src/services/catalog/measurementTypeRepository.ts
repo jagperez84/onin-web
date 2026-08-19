@@ -40,7 +40,7 @@ export async function listMeasurementTypes(companyId: number, search = ''): Prom
   if (error) throw new CoreRepositoryError(error.message);
   const types = (data ?? []) as Omit<MeasurementType, 'dimensions'>[];
   if (!types.length) return [];
-  const ids = types.map(t => t.id!);
+  const ids = types.map(t => t.id!).filter(Boolean);
   const { data: dimensions, error: dimensionError } = await c.from('measurement_type_dimension').select('*').in('measurement_type_id', ids).order('dimension_number');
   if (dimensionError) throw new CoreRepositoryError(dimensionError.message);
   return types.map(t => ({ ...t, dimensions: ((dimensions ?? []) as MeasurementDimension[]).filter(d => d.measurement_type_id === t.id) }));
@@ -48,6 +48,7 @@ export async function listMeasurementTypes(companyId: number, search = ''): Prom
 
 export async function upsertMeasurementType(companyId: number, input: MeasurementType): Promise<void> {
   const c = client();
+  const now = new Date().toISOString();
   const base = {
     company_id: companyId,
     code: input.code.trim(),
@@ -60,9 +61,10 @@ export async function upsertMeasurementType(companyId: number, input: Measuremen
     active: input.active,
     deleted_at: null,
     deleted_by: null,
+    updated_at: now,
   };
   const { data, error } = input.id
-    ? await c.from('measurement_type').update(base).eq('id', input.id).select('id').single()
+    ? await c.from('measurement_type').update(base).eq('id', input.id).eq('company_id', companyId).select('id').single()
     : await c.from('measurement_type').insert(base).select('id').single();
   if (error) throw new CoreRepositoryError(error.message);
   const id = data.id as number;
