@@ -57,18 +57,46 @@ export async function getProductLineDefinition(productId: number): Promise<Produ
 
   let dimensions: ProductDimensionDefinition[] = [];
   if (effectiveMeasurementTypeId != null) {
-    const { data, error } = await c.from('measurement_type_dimension')
-      .select('dimension_number,code,name,unit_id,decimals')
-      .eq('measurement_type_id', effectiveMeasurementTypeId)
-      .order('dimension_number');
-    if (error) throw new CoreRepositoryError(error.message);
-    dimensions = (data ?? []).map((d: any) => ({
+    const [measurementTypeRes, dimensionsRes] = await Promise.all([
+      c.from('measurement_type').select('dimension_count,result_unit_id,result_decimals').eq('id', effectiveMeasurementTypeId).maybeSingle(),
+      c.from('measurement_type_dimension')
+        .select('dimension_number,code,name,unit_id,decimals')
+        .eq('measurement_type_id', effectiveMeasurementTypeId)
+        .order('dimension_number'),
+    ]);
+    if (measurementTypeRes.error) throw new CoreRepositoryError(measurementTypeRes.error.message);
+    if (dimensionsRes.error) throw new CoreRepositoryError(dimensionsRes.error.message);
+
+    dimensions = (dimensionsRes.data ?? []).map((d: any) => ({
       dimension_number: Number(d.dimension_number),
       code: String(d.code || ''),
       name: String(d.name || ''),
       unit_id: d.unit_id == null ? null : Number(d.unit_id),
       decimals: Number(d.decimals ?? 0),
     }));
+
+    // The measurement type's dimension_count is authoritative. Some existing
+    // measurement types only store the count and do not have rows in
+    // measurement_type_dimension. Keep the quotation line configurable in that
+    // case instead of silently losing the dimension.
+    const dimensionCount = Number(measurementTypeRes.data?.dimension_count ?? dimensions.length);
+    if (dimensions.length < dimensionCount) {
+      const existingNumbers = new Set(dimensions.map(d => d.dimension_number));
+      const fallbackUnitId = measurementTypeRes.data?.result_unit_id == null ? null : Number(measurementTypeRes.data.result_unit_id);
+      const fallbackDecimals = Number(measurementTypeRes.data?.result_decimals ?? 0);
+      for (let number = 1; number <= dimensionCount; number += 1) {
+        if (!existingNumbers.has(number)) {
+          dimensions.push({
+            dimension_number: number,
+            code: `DIMENSION_${number}`,
+            name: `Dimensión ${number}`,
+            unit_id: fallbackUnitId,
+            decimals: fallbackDecimals,
+          });
+        }
+      }
+      dimensions.sort((a, b) => a.dimension_number - b.dimension_number);
+    }
   }
 
   // Effective characteristics:
@@ -109,7 +137,6 @@ export async function getProductLineDefinition(productId: number): Promise<Produ
     if (!excludedIds.has(attributeId)) effectiveAssignments.set(attributeId, assignment);
   }
 
-  // Product assignments are explicit article-level additions/overrides.
   for (const assignment of productAssignmentsRes.data ?? []) {
     effectiveAssignments.set(Number(assignment.attribute_id), assignment);
   }
