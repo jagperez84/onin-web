@@ -5,6 +5,10 @@ import { supabase } from '../../lib/supabase';
 
 type MeasurementRef = { code: string; name: string };
 
+function findTarget() {
+  return document.querySelector<HTMLElement>('#producto-datos-generales .form-grid');
+}
+
 export function ProductInheritedMeasurement() {
   const { id } = useParams<{ id: string }>();
   const [value, setValue] = useState<MeasurementRef | null>(null);
@@ -12,7 +16,16 @@ export function ProductInheritedMeasurement() {
 
   useEffect(() => {
     if (!id || id === 'nuevo') return;
-    setTarget(document.querySelector<HTMLElement>('#producto-datos-generales .form-grid'));
+
+    const updateTarget = () => {
+      const next = findTarget();
+      setTarget(current => current === next ? current : next);
+    };
+
+    updateTarget();
+    const observer = new MutationObserver(updateTarget);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [id]);
 
   useEffect(() => {
@@ -21,19 +34,24 @@ export function ProductInheritedMeasurement() {
     let cancelled = false;
 
     async function load() {
-      const { data } = await db.from('product').select('family_id').eq('id', Number(id)).maybeSingle();
-      if (!data?.family_id) {
+      const { data: product } = await db
+        .from('product')
+        .select('family_id')
+        .eq('id', Number(id))
+        .maybeSingle();
+
+      if (!product?.family_id) {
         if (!cancelled) setValue(null);
         return;
       }
 
-      const { data: familyData } = await db
+      const { data: family } = await db
         .from('product_family')
         .select('measurement_type_id')
-        .eq('id', data.family_id)
+        .eq('id', product.family_id)
         .maybeSingle();
 
-      if (cancelled || familyData?.measurement_type_id == null) {
+      if (cancelled || family?.measurement_type_id == null) {
         if (!cancelled) setValue(null);
         return;
       }
@@ -41,7 +59,7 @@ export function ProductInheritedMeasurement() {
       const { data: type } = await db
         .from('measurement_type')
         .select('code,name')
-        .eq('id', familyData.measurement_type_id)
+        .eq('id', family.measurement_type_id)
         .maybeSingle();
 
       if (!cancelled) {
@@ -60,7 +78,21 @@ export function ProductInheritedMeasurement() {
   return createPortal(
     <label className="product-measurement-link-field">
       Tipo de medida
-      <Link to="/configuracion/tipos-medida" className="link-button primary-link" title="Consultar tipo de medida">
+      <Link
+        to="/configuracion/tipos-medida"
+        className="link-button primary-link"
+        title="Consultar tipo de medida"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: '38px',
+          padding: '8px 10px',
+          border: '1px solid var(--border, #d8d1c3)',
+          borderRadius: '6px',
+          background: 'var(--surface-muted, #f5f2eb)',
+          textDecoration: 'none',
+        }}
+      >
         {value.code} · {value.name}
       </Link>
     </label>,
