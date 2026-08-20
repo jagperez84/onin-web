@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ProductV2 } from './ProductV2';
+import { ProductFamilyCharacteristicsPanel } from './ProductFamilyCharacteristicsPanel';
 import { ProductCharacteristicsPanel } from './ProductCharacteristicsPanel';
-import { ProductAttributesPanel } from './ProductAttributesPanel';
 import { ProductCommercialPanel } from './ProductCommercialPanel';
+import { ProductInheritedMeasurement } from './ProductInheritedMeasurement';
 import { MessageLog } from '../../components/ui/MessageLog';
 import { ProfileSaveBar } from '../../components/ui/ProfileSaveBar';
 
@@ -26,15 +27,16 @@ export function ProductProfile(){
       <a href="#producto-comercial" data-section-label="Comercial" data-section-target="producto-comercial">Comercial</a>
       <a href="#producto-stock" data-section-label="Stock" data-section-target="producto-stock">Stock</a>
       <a href="#producto-caracteristicas" data-section-label="Características" data-section-target="producto-caracteristicas">Características</a>
-      <a href="#producto-atributos" data-section-label="Atributos" data-section-target="producto-atributos">Atributos</a>
+      <a href="#producto-variantes" data-section-label="Variantes" data-section-target="producto-variantes">Variantes</a>
       <a href="#producto-precios" data-section-label="Proveedores y precios" data-section-target="producto-precios">Proveedores y precios</a>
     </nav>}
     <MessageLog error={error} success={message}/>
     <div className="product-profile-content">
       <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled}/>
       {!isNew&&<>
+        <div className="product-profile-section-wrap"><ProductInheritedMeasurement/></div>
+        <div className="product-profile-section-wrap"><ProductFamilyCharacteristicsPanel productId={Number(id)} readOnly={!editing} onError={reportError}/></div>
         <div className="product-profile-section-wrap"><ProductCharacteristicsPanel productId={Number(id)} readOnly={!editing} scaled={scaled} onSaved={()=>setRefreshKey(v=>v+1)} onError={reportError}/></div>
-        <div className="product-profile-section-wrap"><ProductAttributesPanel productId={Number(id)} readOnly={!editing} onError={reportError}/></div>
         <div id="producto-precios" className="product-profile-section-wrap product-profile-anchor"><ProductCommercialPanel productId={Number(id)} editable={editing} scaled={scaled} refreshKey={refreshKey} onError={reportError}/></div>
       </>}
     </div>
