@@ -6,7 +6,7 @@ export type CatalogKind = 'families' | 'types' | 'units' | 'magnitudes' | 'color
 export type CatalogRow = {
   id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
-  product_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
+  product_type_id?:number|null; measurement_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
   data_type?:string; description?:string|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; cut_calculation_enabled?:boolean; length_enabled?:boolean;
@@ -17,7 +17,7 @@ export type AttributeValue = { id:number; attribute_id:number; code:string; name
 type CatalogInput = {
   id?:number; code:string; name:string; active:boolean; description?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
-  product_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
+  product_type_id?:number|null; measurement_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; cut_calculation_enabled?:boolean; length_enabled?:boolean;
   characteristics_enabled?:boolean; canvas_cut_enabled?:boolean; data_type?:string;
@@ -43,14 +43,15 @@ export async function listCatalog(kind:CatalogKind, companyId:number, search='',
   return ((data??[]) as CatalogRow[]).map(row=>({...row,name:kind==='types'?String(row.description??''):row.name}));
 }
 
-export async function upsertCatalog(kind:CatalogKind,companyId:number,input:CatalogInput):Promise<void>{
+export async function upsertCatalog(kind:CatalogKind,companyId:number,input:CatalogInput):Promise<CatalogRow|null>{
  const c=client(); const base:any={company_id:companyId,code:input.code.trim(),active:input.active,deleted_at:null,deleted_by:null};
  if(kind==='types') base.description=input.name.trim(); else base.name=input.name.trim();
  if(kind==='families') {
    base.confectionable=!!input.confectionable;
    base.recuttable=!!input.recuttable;
-   base.minimum_remainder=input.minimum_remainder??null;
+   base.minimum_remainder=(input.confectionable || input.recuttable) ? (input.minimum_remainder??null) : null;
    base.product_type_id=input.product_type_id??null;
+   base.measurement_type_id=input.measurement_type_id??null;
    base.mounting_type_id=input.mounting_type_id??null;
    base.line_behavior_id=input.line_behavior_id??null;
  }
@@ -67,7 +68,15 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.canvas_cut_enabled=!!input.canvas_cut_enabled;
  }
  if(kind==='attributes') base.data_type=input.data_type??'TEXT';
- const q=input.id?c.from(tableFor[kind]).update(base).eq('id',input.id):c.from(tableFor[kind]).insert(base); const {error}=await q; if(error)throw new CoreRepositoryError(error.message);
+ let q=input.id?c.from(tableFor[kind]).update(base).eq('id',input.id).select().maybeSingle():c.from(tableFor[kind]).insert(base).select().maybeSingle();
+ let res=await q;
+ if(res.error && kind==='families' && res.error.message?.includes('measurement_type_id')) {
+   delete base.measurement_type_id;
+   q=input.id?c.from(tableFor[kind]).update(base).eq('id',input.id).select().maybeSingle():c.from(tableFor[kind]).insert(base).select().maybeSingle();
+   res=await q;
+ }
+ if(res.error)throw new CoreRepositoryError(res.error.message);
+ return res.data as CatalogRow | null;
 }
 export async function markCatalogForDeletion(kind:CatalogKind,id:number):Promise<void>{await markForDeletion(tableFor[kind],id);}
 export async function restoreCatalog(kind:CatalogKind,id:number):Promise<void>{await restoreFromDeletion(tableFor[kind],id);}

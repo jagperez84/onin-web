@@ -9,12 +9,13 @@ export type ProductLineBehavior = {
   dimensions_enabled:boolean; configuration_enabled:boolean; cut_calculation_enabled:boolean;
   length_enabled:boolean; characteristics_enabled:boolean; canvas_cut_enabled:boolean;
 };
-export type ProductFamilyRef = ProductCatalogRef & { product_type_id:number|null; minimum_remainder:number|null; confectionable:boolean; recuttable:boolean; line_behavior_id:number|null; lineBehavior:ProductLineBehavior|null };
+export type ProductFamilyRef = ProductCatalogRef & { product_type_id:number|null; measurement_type_id:number|null; minimum_remainder:number|null; confectionable:boolean; recuttable:boolean; line_behavior_id:number|null; lineBehavior:ProductLineBehavior|null };
 export type ProductTypeRef = { id:number; code:string; name:string };
 export type ProductSupplierRef = { id:number; name:string };
 export type ProductFamilyBehavior = {
   family_id:number;
   product_type_id:number|null;
+  measurement_type_id:number|null;
   minimum_remainder:number|null;
   confectionable:boolean;
   recuttable:boolean;
@@ -23,7 +24,7 @@ export type ProductFamilyBehavior = {
 };
 export type Product = {
   id:number; company_id:number; code:string; technical_description:string|null; commercial_description:string|null;
-  family_id:number|null; product_type_id:number|null; base_unit_id:number|null;
+  family_id:number|null; product_type_id:number|null; measurement_type_id?:number|null; base_unit_id:number|null;
   sales_price:number|null; purchase_price:number|null; stock_enabled:boolean; allow_negative_stock:boolean;
   active:boolean; notes:string|null; cod_arb:string|null; price_increment:number; upc:number; ptc:number; stock_minimum:number;
   discarded_size:number|null; minimum_remainder:number|null; smooth_cut:boolean; monochrome:boolean; usage_status:string;
@@ -39,10 +40,31 @@ export type ProductCharacteristic = {
 
 function client(){ if(!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase; }
 
+async function fetchProductFamilies(c: any, companyId: number) {
+  const q = await c
+    .from('product_family')
+    .select('id,code,name,product_type_id,measurement_type_id,minimum_remainder,confectionable,recuttable,line_behavior_id')
+    .eq('company_id', companyId)
+    .eq('active', true)
+    .is('deleted_at', null)
+    .order('code');
+  if (!q.error) return q;
+  if (q.error.message?.includes('measurement_type_id')) {
+    return await c
+      .from('product_family')
+      .select('id,code,name,product_type_id,minimum_remainder,confectionable,recuttable,line_behavior_id')
+      .eq('company_id', companyId)
+      .eq('active', true)
+      .is('deleted_at', null)
+      .order('code');
+  }
+  return q;
+}
+
 async function refs(companyId:number){
   const c=client();
   const [f,t,u,s,b]=await Promise.all([
-    c.from('product_family').select('id,code,name,product_type_id,minimum_remainder,confectionable,recuttable,line_behavior_id').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
+    fetchProductFamilies(c, companyId),
     c.from('product_type').select('id,code,description').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('unit').select('id,code,name').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('party_role').select('party_id').eq('role_code','SUPPLIER').eq('active',true),
@@ -54,7 +76,7 @@ async function refs(companyId:number){
   if(supplierIds.length){ const q=await c.from('party').select('id,legal_name,trade_name').in('id',supplierIds).eq('active',true); if(q.error) throw new CoreRepositoryError(q.error.message); suppliers=(q.data??[]) as typeof suppliers; }
   const behaviors=(b.data??[]) as ProductLineBehavior[];
   return {
-    families:(f.data??[]).map(x=>{const lineBehavior=behaviors.find(b=>b.id===x.line_behavior_id)??null;return {id:x.id,code:x.code,name:x.name,product_type_id:x.product_type_id??null,minimum_remainder:x.minimum_remainder==null?null:Number(x.minimum_remainder),confectionable:!!x.confectionable,recuttable:!!x.recuttable,line_behavior_id:x.line_behavior_id??null,lineBehavior};}) as ProductFamilyRef[],
+    families:((f.data??[]) as any[]).map((x:any)=>{const lineBehavior=behaviors.find(b=>b.id===x.line_behavior_id)??null;return {id:x.id,code:x.code,name:x.name,product_type_id:x.product_type_id??null,measurement_type_id:x.measurement_type_id??null,minimum_remainder:x.minimum_remainder==null?null:Number(x.minimum_remainder),confectionable:!!x.confectionable,recuttable:!!x.recuttable,line_behavior_id:x.line_behavior_id??null,lineBehavior};}) as ProductFamilyRef[],
     types:(t.data??[]).map((x:any)=>({id:x.id,code:x.code,name:x.description})) as ProductTypeRef[],
     units:(u.data??[]) as ProductCatalogRef[],
     suppliers:suppliers.map(x=>({id:x.id,name:x.trade_name||x.legal_name})) as ProductSupplierRef[],
@@ -66,7 +88,16 @@ export async function getProductReferences(companyId:number){ return refs(compan
 
 function familyBehavior(family:ProductFamilyRef|null):ProductFamilyBehavior|null{
   if(!family)return null;
-  return {family_id:family.id,product_type_id:family.product_type_id,minimum_remainder:family.minimum_remainder,confectionable:family.confectionable,recuttable:family.recuttable,line_behavior_id:family.line_behavior_id,lineBehavior:family.lineBehavior};
+  return {
+    family_id:family.id,
+    product_type_id:family.product_type_id,
+    measurement_type_id:family.measurement_type_id ?? null,
+    minimum_remainder:family.minimum_remainder,
+    confectionable:family.confectionable,
+    recuttable:family.recuttable,
+    line_behavior_id:family.line_behavior_id,
+    lineBehavior:family.lineBehavior
+  };
 }
 
 export async function getProductFamilyBehavior(companyId:number,familyId:number|null):Promise<ProductFamilyBehavior|null>{
