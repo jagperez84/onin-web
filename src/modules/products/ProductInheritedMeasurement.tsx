@@ -9,16 +9,17 @@ export function ProductInheritedMeasurement(){
   const [value,setValue]=useState<MeasurementRef|null>(null);
   const [family,setFamily]=useState('Sin familia');
   useEffect(()=>{
-    if(!supabase||!id||id==='nuevo')return;
+    if(!id||id==='nuevo'||!supabase)return;
+    const db=supabase;
     let cancelled=false;
     async function load(){
-      const {data}=await supabase.from('product').select('family_id').eq('id',Number(id)).maybeSingle();
+      const {data}=await db.from('product').select('family_id').eq('id',Number(id)).maybeSingle();
       if(!data?.family_id){if(!cancelled){setValue(null);setFamily('Sin familia');}return;}
-      const {data:familyData}=await supabase.from('product_family').select('code,name,measurement_type_id').eq('id',data.family_id).maybeSingle();
+      const {data:familyData}=await db.from('product_family').select('code,name,measurement_type_id').eq('id',data.family_id).maybeSingle();
       if(cancelled)return;
       setFamily(familyData?`${familyData.code} · ${familyData.name}`:'—');
       if(familyData?.measurement_type_id==null){setValue(null);return;}
-      const {data:type}=await supabase.from('measurement_type').select('code,name').eq('id',familyData.measurement_type_id).maybeSingle();
+      const {data:type}=await db.from('measurement_type').select('code,name').eq('id',familyData.measurement_type_id).maybeSingle();
       if(!cancelled)setValue(type?{code:String(type.code),name:String(type.name)}:null);
     }
     void load();
