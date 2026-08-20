@@ -52,8 +52,8 @@
 }
 
 /* Simplificación del maestro de artículos: Tipo de producto ya no es relevante en UI. */
-.product-table thead th:nth-child(4),
-.product-table tbody td:nth-child(4),
+.product-page .product-table thead th:nth-child(4),
+.product-page .product-table tbody td:nth-child(4),
 #producto-datos-generales .form-grid > label:nth-child(6) {
   display: none;
 }
