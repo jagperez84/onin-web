@@ -47,9 +47,17 @@
   min-width: 120px;
 }
 
-/* ProductProfile now uses the shared MessageLog; keep the legacy inline copy
-   in the DOM so the existing error observer can still capture it, but do not
-   render the same message a second time inside the article form. */
 .product-profile-shell .product-profile-content > .product-page > .inline-error {
   display: none;
+}
+
+/* Simplificación del maestro de artículos: Tipo de producto ya no es relevante en UI. */
+.product-table thead th:nth-child(4),
+.product-table tbody td:nth-child(4),
+#producto-datos-generales .form-grid > label:nth-child(6) {
+  display: none;
+}
+
+.product-inherited-measurement {
+  margin-top: 0;
 }
