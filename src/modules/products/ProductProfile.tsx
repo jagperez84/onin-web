@@ -32,7 +32,7 @@ export function ProductProfile(){
     <div className="product-profile-content">
       <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled}/>
       {!isNew&&<>
-        <div className="product-profile-section-wrap"><ProductInheritedMeasurement/></div>
+        <ProductInheritedMeasurement/>
         <div className="product-profile-section-wrap"><ProductFamilyCharacteristicsPanel productId={Number(id)} readOnly={!editing} onError={reportError}/></div>
         <div id="producto-precios" className="product-profile-section-wrap product-profile-anchor"><ProductCommercialPanel productId={Number(id)} editable={editing} scaled={scaled} refreshKey={refreshKey} onError={reportError}/></div>
       </>}
