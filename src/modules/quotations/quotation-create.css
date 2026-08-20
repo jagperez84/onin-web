@@ -62,3 +62,13 @@
 .quotation-create .quotation-line-editor-card .quotation-instance-row span{display:none!important}
 /* The legacy modal is not part of the simple-article quotation UX. */
 .quotation-create .configurator-overlay{display:none!important}
+
+/* Precio de combinación no existente en catálogo. */
+.quotation-lines-table tbody tr.quotation-line-row.line-price-missing{background:#fff1f2!important;border-top:1px solid #fecaca;border-bottom:1px solid #fecaca}
+.quotation-lines-table tbody tr.quotation-line-row.line-price-missing:hover{background:#ffe4e6!important}
+.quotation-lines-table tbody tr.line-price-missing .line-num-badge{background:#fee2e2;color:#b91c1c}
+.quotation-lines-table tbody tr.line-price-missing .line-text-input,.quotation-lines-table tbody tr.line-price-missing .line-num-input{border-color:#f87171;color:#991b1b}
+.quotation-lines-table tbody tr.line-price-missing .line-num-input:focus{border-color:#dc2626;box-shadow:0 0 0 2px rgba(220,38,38,.12)}
+.line-price-warning{display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:12px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;font-size:11px;font-weight:700}
+.price-input-missing{font-weight:700}
+.price-missing-help{display:block;margin-top:5px;color:#b91c1c;font-size:10.5px;line-height:1.25;text-align:left}
