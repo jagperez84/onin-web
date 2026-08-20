@@ -51,13 +51,20 @@
   display: none;
 }
 
-/* Simplificación del maestro de artículos: Tipo de producto ya no es relevante en UI. */
-.product-page .product-table thead th:nth-child(4),
-.product-page .product-table tbody td:nth-child(4),
+/* Tipo de producto: permanece en el modelo por compatibilidad, pero no se muestra en la UI. */
 #producto-datos-generales .form-grid > label:nth-child(6) {
-  display: none;
+  display: none !important;
+}
+
+.product-page .product-table thead th:nth-child(4),
+.product-page .product-table tbody td:nth-child(4) {
+  display: none !important;
 }
 
 .product-inherited-measurement {
   margin-top: 0;
+}
+
+.product-inherited-measurement .form-grid {
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
 }
