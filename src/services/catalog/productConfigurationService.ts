@@ -102,7 +102,6 @@ export async function loadMasterProductConfiguration(productId: number, companyI
   const family = product.family_id ? families.find(f => f.id === product.family_id) ?? null : null;
   const lineBehavior = family?.lineBehavior ?? null;
 
-  // Measurement type is inherited from the family unless explicitly overridden on the product.
   let measurementType: (MeasurementType & { dimensions: MeasurementDimension[] }) | null = null;
   let dimensions: MeasurementDimension[] = [];
   const effectiveMeasurementTypeId = product.measurement_type_id ?? family?.measurement_type_id ?? null;
@@ -114,7 +113,7 @@ export async function loadMasterProductConfiguration(productId: number, companyI
     ]);
 
     if (mTypeRes.data) {
-      const dims = (mDimsRes.data ?? []).map((d: any) => ({
+      const dims: MeasurementDimension[] = (mDimsRes.data ?? []).map((d: any) => ({
         id: Number(d.id),
         measurement_type_id: Number(d.measurement_type_id),
         dimension_number: Number(d.dimension_number),
