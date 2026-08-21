@@ -1,0 +1,79 @@
+/* OTD editor fixes: keep the article picker inside the viewport and remove the unused natural-language area. */
+.otd-page .otd-product-picker {
+  position: fixed;
+  z-index: 2000;
+  top: 96px;
+  left: 50%;
+  right: auto;
+  width: min(620px, calc(100vw - 40px));
+  max-height: min(520px, calc(100vh - 128px));
+  overflow: hidden;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  padding: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+}
+
+.otd-page .otd-product-picker::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.08);
+}
+
+.otd-page .otd-product-search {
+  background: #ffffff;
+}
+
+.otd-page .otd-product-picker > button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  margin-top: 5px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+}
+
+.otd-page .otd-product-picker > button:hover {
+  background: #f1f5f9;
+}
+
+.otd-page .otd-product-picker > button strong {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.otd-page .otd-product-picker > button span {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.25;
+}
+
+.otd-page .otd-product-picker .otd-product-no-results {
+  padding: 12px 8px;
+}
+
+/* The natural-language formulation textarea is intentionally disabled for now. */
+.otd-page form > .otd-card textarea {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .otd-page .otd-product-picker {
+    top: 72px;
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 96px);
+  }
+}
