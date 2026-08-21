@@ -8,12 +8,14 @@ type Otd = { id:number; company_id:number; code:string; name:string; template_ty
 type Selection = { id:number; code:string; name:string; selection_type:string; required:boolean; sort_order:number; options?: Option[] };
 type Option = { id:number; code:string; label:string; value:string|null; sort_order:number };
 type Variable = { id:number; code:string; name:string; expression:string|null; data_type:string; min_value:number|null; max_value:number|null; sort_order:number; active:boolean };
-type Product = { id:number; code:string; technical_description:string|null; commercial_description:string|null; measurement_type_id:number|null; measurement_type?: { id:number; code:string; name:string; dimension_count:number }|null };
-type Component = { id:number; product_id:number|null; code:string; description:string|null; quantity_expression:string|null; component_type:'BASIC'|'IMPROVEMENT'; price_increment:number; active:boolean; sort_order:number };
+type Dimension = { id:number; measurement_type_id:number; dimension_number:number; code:string; name:string; unit_id:number|null; decimals:number; unit?: { id:number; code:string; name:string }|null };
+type MeasurementType = { id:number; code:string; name:string; dimension_count:number; dimensions:Dimension[] };
+type Product = { id:number; code:string; technical_description:string|null; commercial_description:string|null; measurement_type_id:number|null; measurement_type?: MeasurementType|null };
+type Component = { id:number; product_id:number|null; code:string; description:string|null; quantity_expression:string|null; dimension_expressions:Record<string,string>; component_type:'BASIC'|'IMPROVEMENT'; price_increment:number; active:boolean; sort_order:number };
 
 const emptySelection = (): Selection => ({ id:0, code:'', name:'', selection_type:'OPTION', required:false, sort_order:0, options:[] });
 const emptyVariable = (): Variable => ({ id:0, code:'', name:'', expression:'', data_type:'NUMBER', min_value:null, max_value:null, sort_order:0, active:true });
-const emptyComponent = (): Component => ({ id:0, product_id:null, code:'', description:'', quantity_expression:'1', component_type:'BASIC', price_increment:0, active:true, sort_order:0 });
+const emptyComponent = (): Component => ({ id:0, product_id:null, code:'', description:'', quantity_expression:'1', dimension_expressions:{}, component_type:'BASIC', price_increment:0, active:true, sort_order:0 });
 
 export function OtdEditor() {
   const { id } = useParams();
@@ -48,7 +50,14 @@ export function OtdEditor() {
       if (s.data) setSelections(s.data.map((x:any) => ({ ...x, options:x.otd_selection_option ?? [] })));
       if (v.data) setVariables(v.data);
       if (c.data) {
-        const loaded = (c.data as any[]).map(x => ({ ...x, product_id:x.product_id ?? null, component_type:x.component_type === 'IMPROVEMENT' ? 'IMPROVEMENT' : 'BASIC', price_increment:Number(x.price_increment ?? 0), quantity_expression:x.quantity_expression || '1' })) as Component[];
+        const loaded = (c.data as any[]).map(x => ({
+          ...x,
+          product_id:x.product_id ?? null,
+          component_type:x.component_type === 'IMPROVEMENT' ? 'IMPROVEMENT' : 'BASIC',
+          price_increment:Number(x.price_increment ?? 0),
+          quantity_expression:x.quantity_expression || '1',
+          dimension_expressions:(x.dimension_expressions && typeof x.dimension_expressions === 'object') ? x.dimension_expressions : {},
+        })) as Component[];
         setComponents(loaded);
         await loadProducts(loaded.map(x=>x.product_id).filter((x): x is number => Number.isFinite(x)));
       }
@@ -66,7 +75,11 @@ export function OtdEditor() {
     if (error || !data) return;
     const mtIds = [...new Set(data.map((p:any)=>p.measurement_type_id).filter((x:any): x is number => Number.isFinite(x)))];
     const measurements = mtIds.length ? (await supabase.from('measurement_type').select('id,code,name,dimension_count').in('id', mtIds)).data ?? [] : [];
-    const mtMap = Object.fromEntries(measurements.map((m:any)=>[m.id,m]));
+    const dimensions = mtIds.length ? (await supabase.from('measurement_type_dimension').select('id,measurement_type_id,dimension_number,code,name,unit_id,decimals').in('measurement_type_id', mtIds).order('dimension_number')).data ?? [] : [];
+    const unitIds = [...new Set(dimensions.map((d:any)=>d.unit_id).filter((x:any): x is number => Number.isFinite(x)))];
+    const units = unitIds.length ? (await supabase.from('unit').select('id,code,name').in('id', unitIds)).data ?? [] : [];
+    const unitMap = Object.fromEntries(units.map((u:any)=>[u.id,u]));
+    const mtMap = Object.fromEntries(measurements.map((m:any)=>[m.id,{...m,dimensions:dimensions.filter((d:any)=>d.measurement_type_id===m.id).map((d:any)=>({...d,unit:unitMap[d.unit_id] ?? null}))}]));
     setProducts(prev => ({ ...prev, ...Object.fromEntries(data.map((p:any)=>[p.id,{...p,measurement_type:mtMap[p.measurement_type_id] ?? null}])) }));
   }
 
@@ -78,13 +91,18 @@ export function OtdEditor() {
     if (error || !data) { setProductResults([]); return; }
     const mtIds = [...new Set(data.map((p:any)=>p.measurement_type_id).filter((x:any): x is number => Number.isFinite(x)))];
     const measurements = mtIds.length ? (await supabase.from('measurement_type').select('id,code,name,dimension_count').in('id', mtIds)).data ?? [] : [];
-    const mtMap = Object.fromEntries(measurements.map((m:any)=>[m.id,m]));
+    const dimensions = mtIds.length ? (await supabase.from('measurement_type_dimension').select('id,measurement_type_id,dimension_number,code,name,unit_id,decimals').in('measurement_type_id', mtIds).order('dimension_number')).data ?? [] : [];
+    const unitIds = [...new Set(dimensions.map((d:any)=>d.unit_id).filter((x:any): x is number => Number.isFinite(x)))];
+    const units = unitIds.length ? (await supabase.from('unit').select('id,code,name').in('id', unitIds)).data ?? [] : [];
+    const unitMap = Object.fromEntries(units.map((u:any)=>[u.id,u]));
+    const mtMap = Object.fromEntries(measurements.map((m:any)=>[m.id,{...m,dimensions:dimensions.filter((d:any)=>d.measurement_type_id===m.id).map((d:any)=>({...d,unit:unitMap[d.unit_id] ?? null}))}]));
     setProductResults(data.map((p:any)=>({...p,measurement_type:mtMap[p.measurement_type_id] ?? null})) as Product[]);
   }
 
   function selectProduct(index:number, product:Product) {
     const next = [...components];
-    next[index] = { ...next[index], product_id:product.id, code:product.code, description:product.commercial_description || product.technical_description || product.code };
+    const dimension_expressions = Object.fromEntries((product.measurement_type?.dimensions ?? []).map(d=>[d.code,'']));
+    next[index] = { ...next[index], product_id:product.id, code:product.code, description:product.commercial_description || product.technical_description || product.code, dimension_expressions };
     setComponents(next);
     setProducts(prev=>({...prev,[product.id]:product}));
     setActiveProductComponent(null);
@@ -94,7 +112,13 @@ export function OtdEditor() {
 
   function clearProduct(index:number) {
     const next = [...components];
-    next[index] = { ...next[index], product_id:null, code:'', description:'' };
+    next[index] = { ...next[index], product_id:null, code:'', description:'', dimension_expressions:{} };
+    setComponents(next);
+  }
+
+  function updateComponent(index:number, patch:Partial<Component>) {
+    const next = [...components];
+    next[index] = { ...next[index], ...patch };
     setComponents(next);
   }
 
@@ -136,7 +160,7 @@ export function OtdEditor() {
       }
       const vars = variables.map((v,i)=>({ otd_id:oid, code:v.code, name:v.name, expression:v.expression || null, data_type:v.data_type, min_value:v.min_value, max_value:v.max_value, sort_order:i, active:v.active }));
       if (vars.length) { const { error } = await supabase.from('otd_variable').insert(vars); if (error) throw error; }
-      const comps = components.map((c,i)=>({ otd_id:oid, product_id:c.product_id, code:c.code, description:c.description || null, quantity_expression:c.quantity_expression || '1', component_type:c.component_type, price_increment:c.component_type === 'IMPROVEMENT' ? Number(c.price_increment || 0) : 0, active:c.active, sort_order:i }));
+      const comps = components.map((c,i)=>({ otd_id:oid, product_id:c.product_id, code:c.code, description:c.description || null, quantity_expression:c.quantity_expression || '1', component_type:c.component_type, price_increment:c.component_type === 'IMPROVEMENT' ? Number(c.price_increment || 0) : 0, dimension_expressions:c.dimension_expressions || {}, active:c.active, sort_order:i }));
       if (comps.length) { const { error } = await supabase.from('otd_component').insert(comps); if (error) throw error; }
       const { data: allS } = await supabase.from('otd_selection').select('*, otd_selection_option(*)').eq('otd_id', oid).order('sort_order');
       const { data: allV } = await supabase.from('otd_variable').select('*').eq('otd_id', oid).order('sort_order');
@@ -179,6 +203,7 @@ export function OtdEditor() {
         <div className="otd-card-head"><div><h2>Componentes del producto</h2><p>Cada componente es un artículo real de ONIN. El OTD solo define cómo participa en el producto.</p></div><button type="button" className="secondary-btn" onClick={()=>setComponents(x=>[...x,emptyComponent()])}><Plus size={15}/> Añadir artículo</button></div>
         {components.length===0 ? <div className="otd-empty">Todavía no hay artículos en el OTD.</div> : components.map((c,ci)=>{
           const product = c.product_id ? products[c.product_id] : undefined;
+          const dimensions = product?.measurement_type?.dimensions ?? [];
           return <div className="otd-row-card" key={c.id || ci}>
             <div className="otd-row-actions"><strong>{ci+1}. Componente</strong><button type="button" className="icon-btn danger" onClick={()=>setComponents(x=>x.filter((_,i)=>i!==ci))}><Trash2 size={15}/></button></div>
             <div className="otd-component-grid">
@@ -187,10 +212,11 @@ export function OtdEditor() {
                 {product ? <div className="otd-product-selected"><div><strong>{product.code}</strong><span>{product.commercial_description || product.technical_description || 'Sin descripción'}</span>{product.measurement_type && <small>Tipo de medida: {product.measurement_type.name} · {product.measurement_type.dimension_count} dimensión(es)</small>}</div><button type="button" className="icon-btn" title="Cambiar artículo" onClick={()=>{setActiveProductComponent(ci);setProductSearch(product.code);void searchProducts(product.code)}}><Search size={15}/></button><button type="button" className="icon-btn danger" title="Quitar artículo" onClick={()=>clearProduct(ci)}><X size={15}/></button></div> : <button type="button" className="product-select-empty" onClick={()=>{setActiveProductComponent(ci);setProductSearch('');setProductResults([])}}><Search size={16}/> Seleccionar artículo de ONIN</button>}
                 {activeProductComponent===ci && <div className="otd-product-picker"><div className="otd-product-search"><Search size={15}/><input autoFocus value={productSearch} onChange={e=>void searchProducts(e.target.value)} placeholder="Buscar por código o descripción…"/><button type="button" className="icon-btn" onClick={()=>{setActiveProductComponent(null);setProductResults([])}}><X size={14}/></button></div>{productResults.length>0 ? <div className="otd-product-results">{productResults.map(p=><button type="button" key={p.id} onClick={()=>selectProduct(ci,p)}><strong>{p.code}</strong><span>{p.commercial_description || p.technical_description || 'Sin descripción'}</span>{p.measurement_type && <small>{p.measurement_type.name} · {p.measurement_type.dimension_count} dimensión(es)</small>}</button>)}</div> : productSearch.length>=2 ? <div className="otd-product-no-results">No se han encontrado artículos.</div> : <div className="otd-product-no-results">Escribe al menos 2 caracteres.</div>}</div>}
               </div>
-              <label>Tipo<select value={c.component_type} onChange={e=>{const x=[...components];x[ci]={...c,component_type:e.target.value as Component['component_type']};setComponents(x)}}><option value="BASIC">Básico</option><option value="IMPROVEMENT">Mejora</option></select></label>
-              <label>Cantidad / fórmula<input value={c.quantity_expression??''} onChange={e=>{const x=[...components];x[ci]={...c,quantity_expression:e.target.value};setComponents(x)}} placeholder="Ej. 1"/></label>
-              <label>Incremento {c.component_type==='IMPROVEMENT' && <span className="required-mark">*</span>}<input type="number" min="0" step="0.01" value={c.component_type==='IMPROVEMENT'?c.price_increment:0} disabled={c.component_type!=='IMPROVEMENT'} onChange={e=>{const x=[...components];x[ci]={...c,price_increment:Number(e.target.value)||0};setComponents(x)}} placeholder="0,00"/></label>
+              <label>Tipo<select value={c.component_type} onChange={e=>updateComponent(ci,{component_type:e.target.value as Component['component_type']})}><option value="BASIC">Básico</option><option value="IMPROVEMENT">Mejora</option></select></label>
+              <label className="quantity-formula-label">Cantidad / fórmula <span className="help-tip" tabIndex={0}><span>?</span><span className="help-popover">Indica cuántas unidades del artículo necesita el OTD. Puede ser una cantidad fija como 1 o 2, o una fórmula basada en las variables del OTD, por ejemplo ANCHO / 1000.</span></span><input value={c.quantity_expression??''} onChange={e=>updateComponent(ci,{quantity_expression:e.target.value})} placeholder="Ej. 1"/></label>
+              <label>Incremento {c.component_type==='IMPROVEMENT' && <span className="required-mark">*</span>}<input type="number" min="0" step="0.01" value={c.component_type==='IMPROVEMENT'?c.price_increment:0} disabled={c.component_type!=='IMPROVEMENT'} onChange={e=>updateComponent(ci,{price_increment:Number(e.target.value)||0})} placeholder="0,00"/></label>
             </div>
+            {dimensions.length>0 && <div className="otd-dimensions-block"><div className="otd-dimensions-title"><strong>Dimensiones del artículo</strong><span>Se generan automáticamente según el Tipo de medida. El técnico define aquí la expresión que calculará cada dimensión.</span></div><div className="otd-dimensions-grid">{dimensions.map(d=><label key={d.id}>{d.name} <span className="dimension-meta">{d.unit?.name || d.unit?.code || ''}<span className="help-tip compact" tabIndex={0}><span>?</span><span className="help-popover">Expresión de la dimensión. Puede usar las variables del OTD, por ejemplo ANCHO, SALIDA o ANCHO_UTIL. Todavía no se ejecuta: se guarda para el motor de cálculo.</span></span></span><input value={c.dimension_expressions?.[d.code] ?? ''} onChange={e=>updateComponent(ci,{dimension_expressions:{...c.dimension_expressions,[d.code]:e.target.value}})} placeholder="Ej. ANCHO_UTIL"/></label>)}</div></div>}
           </div>;
         })}
       </section>
