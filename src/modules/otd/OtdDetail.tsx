@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { MessageLog } from '../../components/ui/MessageLog';
 import './otd.css';
+import './otd-detail.css';
 
 type Otd={id:number;company_id:number;code:string;name:string;template_type:string|null;active:boolean};
 type Selection={id:number;code:string;name:string;selection_type:string;required:boolean;is_dimension:boolean;sort_order:number;options:any[]};
@@ -30,7 +31,7 @@ export function OtdDetail(){
    const characteristics=products.length?(await supabase.from('product_characteristic').select('id,product_id,code,description,price_increment').in('product_id',products.map((p:any)=>p.id)).eq('active',true).is('deleted_at',null).order('code')).data??[]:[];
    const familyIds=[...new Set(products.map((p:any)=>p.family_id).filter((x:any)=>Number.isFinite(x)))]; const families=familyIds.length?(await supabase.from('product_family').select('id,measurement_type_id').in('id',familyIds)).data??[]:[];
    const familyMap=Object.fromEntries(families.map((f:any)=>[f.id,f])); const mtIds=[...new Set(products.map((p:any)=>Number.isFinite(p.measurement_type_id)?p.measurement_type_id:familyMap[p.family_id]?.measurement_type_id).filter((x:any)=>Number.isFinite(x)))];
-   const mts=mtIds.length?(await supabase.from('measurement_type').select('id,name,dimension_count').in('id',mtIds)).data??[]:[]; const dims=mtIds.length?(await supabase.from('measurement_type_dimension').select('id,measurement_type_id,code,name,dimension_number,unit_id').in('measurement_type_id',mtIds).order('dimension_number')).data??[]:[];
+   const mts=mtIds.length?(await supabase.from('measurement_type').select('id,name,dimension_count').in('id',mtIds)).data??[]:[]; const dims=mtIds.length?(await supabase.from('measurement_type_dimension').select('id,measurement_type_id,code,name,dimension_number,unit_id').in('measurement_type_id',mtIds).order('dimension_number')).data??[];
    const mtMap=Object.fromEntries(mts.map((m:any)=>[m.id,{...m,dimensions:dims.filter((d:any)=>d.measurement_type_id===m.id)}])); const charMap=new Map<number,any[]>();
    for(const ch of characteristics as any[]){const list=charMap.get(ch.product_id)??[];list.push(ch);charMap.set(ch.product_id,list);}
    const productMap=Object.fromEntries(products.map((p:any)=>{const mtId=Number.isFinite(p.measurement_type_id)?p.measurement_type_id:familyMap[p.family_id]?.measurement_type_id;return [p.id,{...p,measurement_type:mtId?mtMap[mtId]??null:null,characteristics:charMap.get(p.id)??[]}]}));
