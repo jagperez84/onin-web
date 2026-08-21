@@ -1,0 +1,52 @@
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Pencil, Play, Ruler } from 'lucide-react';
+import { NavLink, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
+import { MessageLog } from '../../components/ui/MessageLog';
+import './otd.css';
+
+type Otd={id:number;company_id:number;code:string;name:string;template_type:string|null;active:boolean};
+type Selection={id:number;code:string;name:string;selection_type:string;required:boolean;is_dimension:boolean;sort_order:number;options:any[]};
+type Variable={id:number;code:string;name:string;expression:string|null;data_type:string;min_value:number|null;max_value:number|null;sort_order:number;active:boolean};
+type Product={id:number;code:string;commercial_description:string|null;technical_description:string|null;measurement_type?:{name:string;dimension_count:number;dimensions:any[]}|null;characteristics:any[]};
+type Component={id:number;product_id:number|null;characteristic_id:number|null;characteristic_expression:string|null;code:string;description:string|null;quantity_expression:string|null;dimension_expressions:Record<string,string>;component_type:string;price_increment:number;active:boolean;sort_order:number;product?:Product|null};
+type RouteState={success?:string};
+
+export function OtdDetail(){
+ const {id}=useParams(); const navigate=useNavigate(); const location=useLocation();
+ const messageLogRef=useRef<HTMLDivElement|null>(null);
+ const [otd,setOtd]=useState<Otd|null>(null); const [selections,setSelections]=useState<Selection[]>([]); const [variables,setVariables]=useState<Variable[]>([]); const [components,setComponents]=useState<Component[]>([]);
+ const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [success,setSuccess]=useState((location.state as RouteState|null)?.success??'');
+ useEffect(()=>{
+  if(!supabase||!id){setLoading(false);return;} let active=true;
+  (async()=>{try{
+   const oid=Number(id); const [o,s,v,c]=await Promise.all([
+    supabase.from('otd').select('*').eq('id',oid).single(),
+    supabase.from('otd_selection').select('*,otd_selection_option(*)').eq('otd_id',oid).order('sort_order'),
+    supabase.from('otd_variable').select('*').eq('otd_id',oid).order('sort_order'),
+    supabase.from('otd_component').select('*').eq('otd_id',oid).order('sort_order')]);
+   if(o.error)throw o.error; const rows=(c.data??[]) as any[]; const productIds=[...new Set(rows.map(x=>x.product_id).filter((x:any)=>Number.isFinite(x)))];
+   const products=productIds.length?(await supabase.from('product').select('id,code,commercial_description,technical_description,family_id,measurement_type_id').in('id',productIds)).data??[]:[];
+   const characteristics=products.length?(await supabase.from('product_characteristic').select('id,product_id,code,description,price_increment').in('product_id',products.map((p:any)=>p.id)).eq('active',true).is('deleted_at',null).order('code')).data??[]:[];
+   const familyIds=[...new Set(products.map((p:any)=>p.family_id).filter((x:any)=>Number.isFinite(x)))]; const families=familyIds.length?(await supabase.from('product_family').select('id,measurement_type_id').in('id',familyIds)).data??[]:[];
+   const familyMap=Object.fromEntries(families.map((f:any)=>[f.id,f])); const mtIds=[...new Set(products.map((p:any)=>Number.isFinite(p.measurement_type_id)?p.measurement_type_id:familyMap[p.family_id]?.measurement_type_id).filter((x:any)=>Number.isFinite(x)))];
+   const mts=mtIds.length?(await supabase.from('measurement_type').select('id,name,dimension_count').in('id',mtIds)).data??[]:[]; const dims=mtIds.length?(await supabase.from('measurement_type_dimension').select('id,measurement_type_id,code,name,dimension_number,unit_id').in('measurement_type_id',mtIds).order('dimension_number')).data??[]:[];
+   const mtMap=Object.fromEntries(mts.map((m:any)=>[m.id,{...m,dimensions:dims.filter((d:any)=>d.measurement_type_id===m.id)}])); const charMap=new Map<number,any[]>();
+   for(const ch of characteristics as any[]){const list=charMap.get(ch.product_id)??[];list.push(ch);charMap.set(ch.product_id,list);}
+   const productMap=Object.fromEntries(products.map((p:any)=>{const mtId=Number.isFinite(p.measurement_type_id)?p.measurement_type_id:familyMap[p.family_id]?.measurement_type_id;return [p.id,{...p,measurement_type:mtId?mtMap[mtId]??null:null,characteristics:charMap.get(p.id)??[]}]}));
+   if(!active)return; setOtd(o.data as Otd); setSelections((s.data??[]).map((x:any)=>({...x,options:x.otd_selection_option??[]}))); setVariables((v.data??[]) as Variable[]); setComponents(rows.map(x=>({...x,product:productMap[x.product_id]??null,dimension_expressions:x.dimension_expressions&&typeof x.dimension_expressions==='object'?x.dimension_expressions:{}})) as Component[]);
+  }catch(e:any){if(active)setError(e?.message??'No se ha podido cargar el OTD.')}finally{if(active)setLoading(false)}})(); return()=>{active=false};
+ },[id]);
+ useEffect(()=>{if(success||error)requestAnimationFrame(()=>{messageLogRef.current?.scrollIntoView({behavior:'smooth',block:'start'});messageLogRef.current?.focus()})},[success,error]);
+ useEffect(()=>{if(location.state){navigate(location.pathname,{replace:true,state:null})}},[location,navigate]);
+ if(loading)return <div className="otd-page"><div className="otd-empty">Cargando OTD…</div></div>;
+ if(error||!otd)return <div className="otd-page"><MessageLog ref={messageLogRef} error={error||'OTD no encontrado.'}/></div>;
+ return <div className="otd-page">
+  <div className="otd-head"><div><NavLink to="/produccion/otd" className="otd-back"><ArrowLeft size={15}/> OTD</NavLink><div className="eyebrow">PRODUCCIÓN / OTD / {otd.id}</div><h1>{otd.name}</h1><p>{otd.code} · {otd.template_type||'Configurador genérico'}</p></div><div className="actions"><button className="secondary-btn" type="button" onClick={()=>navigate(`/produccion/otd/${otd.id}/probar`)}><Play size={15}/> Probar OTD</button><button className="primary-btn" type="button" onClick={()=>navigate(`/produccion/otd/${otd.id}/editar`)}><Pencil size={15}/> Editar</button></div></div>
+  <MessageLog ref={messageLogRef} success={success} error={error}/>
+  <section className="otd-card"><div className="otd-card-head"><div><h2>Identificación</h2><p>Configuración general del OTD.</p></div><span className={otd.active?'active-dot':'inactive-dot'}>{otd.active?'Activo':'Inactivo'}</span></div><div className="otd-grid three"><label>ID<input readOnly value={otd.id}/></label><label>Código<input readOnly value={otd.code}/></label><label>Nombre<input readOnly value={otd.name}/></label><label>Tipo<input readOnly value={otd.template_type||'Genérico'}/></label></div></section>
+  <section className="otd-card"><div className="otd-card-head"><div><h2>Entradas para oficina</h2><p>Datos que el usuario seleccionará al configurar el producto.</p></div></div>{selections.length===0?<div className="otd-empty">No hay entradas definidas.</div>:selections.map(s=><div className="otd-row-card" key={s.id}><div className="otd-row-actions"><strong>{s.code} · {s.name}</strong><span>{s.selection_type}{s.required?' · Obligatorio':''}{s.is_dimension?' · Dimensión':''}</span></div>{s.options.length>0&&<div className="otd-detail-options">{s.options.map((o:any)=><span key={o.id}>{o.label}{o.value&&o.value!==o.label?` · ${o.value}`:''}</span>)}</div>}</div>)}</section>
+  <section className="otd-card"><div className="otd-card-head"><div><h2>Formulación</h2><p>Variables y expresiones técnicas definidas para el cálculo.</p></div></div>{variables.length===0?<div className="otd-empty">No hay variables calculadas.</div>:<div className="otd-detail-table">{variables.map(v=><div className="otd-detail-line" key={v.id}><strong>{v.code}</strong><span>{v.name}</span><code>{v.expression||'—'}</code></div>)}</div>}</section>
+  <section className="otd-card"><div className="otd-card-head"><div><h2>Componentes del producto</h2><p>Artículos reales de ONIN que forman el despiece.</p></div></div>{components.length===0?<div className="otd-empty">No hay componentes definidos.</div>:components.map((c,i)=>{const p=c.product;return <div className="otd-row-card" key={c.id}><div className="otd-row-actions"><strong>{i+1}. {p?.code||c.code}</strong><span>{c.component_type==='IMPROVEMENT'?'Mejora':'Básico'}</span></div><div className="otd-detail-grid"><div><small>Descripción</small><span>{p?.commercial_description||p?.technical_description||c.description||'—'}</span></div><div><small>Cantidad / fórmula</small><code>{c.quantity_expression||'1'}</code></div><div><small>Característica</small><span>{c.characteristic_id?((p?.characteristics??[]).find((x:any)=>x.id===c.characteristic_id)?.code||'Fija'):c.characteristic_expression||'—'}</span></div><div><small>Incremento</small><span>{Number(c.price_increment||0).toLocaleString('es-ES',{style:'currency',currency:'EUR'})}</span></div></div>{p?.measurement_type?.dimensions?.length>0&&<div className="otd-detail-dimensions"><div><Ruler size={14}/><strong>Dimensiones</strong></div>{p.measurement_type.dimensions.map((d:any)=><span key={d.id}>{d.name}: <code>{c.dimension_expressions?.[d.code]||'—'}</code></span>)}</div>}</div>})}</section>
+ </div>;
+}
