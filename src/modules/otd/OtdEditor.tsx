@@ -1,27 +1,32 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Plus, Save, Trash2, ArrowLeft, WandSparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Save, Search, Trash2, WandSparkles, X } from 'lucide-react';
 import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import './otd.css';
 
-type Otd = { id:number; company_id:number; code:string; name:string; template_type:string|null; active:boolean };
+type Otd = { id:number; company_id:number; code:string; name:string; template_type:string|null; active:boolean; product_id?:number|null };
 type Selection = { id:number; code:string; name:string; selection_type:string; required:boolean; sort_order:number; options?: Option[] };
 type Option = { id:number; code:string; label:string; value:string|null; sort_order:number };
 type Variable = { id:number; code:string; name:string; expression:string|null; data_type:string; min_value:number|null; max_value:number|null; sort_order:number; active:boolean };
-type Component = { id:number; code:string; description:string|null; quantity_expression:string|null; active:boolean; sort_order:number };
+type Product = { id:number; code:string; technical_description:string|null; commercial_description:string|null; measurement_type_id:number|null; measurement_type?: { id:number; code:string; name:string; dimension_count:number }|null };
+type Component = { id:number; product_id:number|null; code:string; description:string|null; quantity_expression:string|null; component_type:'BASIC'|'IMPROVEMENT'; price_increment:number; active:boolean; sort_order:number };
 
 const emptySelection = (): Selection => ({ id:0, code:'', name:'', selection_type:'OPTION', required:false, sort_order:0, options:[] });
 const emptyVariable = (): Variable => ({ id:0, code:'', name:'', expression:'', data_type:'NUMBER', min_value:null, max_value:null, sort_order:0, active:true });
-const emptyComponent = (): Component => ({ id:0, code:'', description:'', quantity_expression:'', active:true, sort_order:0 });
+const emptyComponent = (): Component => ({ id:0, product_id:null, code:'', description:'', quantity_expression:'1', component_type:'BASIC', price_increment:0, active:true, sort_order:0 });
 
 export function OtdEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const editing = Boolean(id);
-  const [otd, setOtd] = useState<Otd>({ id:0, company_id:0, code:'', name:'', template_type:'TOLDO', active:true });
+  const [otd, setOtd] = useState<Otd>({ id:0, company_id:0, code:'', name:'', template_type:'TOLDO', active:true, product_id:null });
   const [selections, setSelections] = useState<Selection[]>([]);
   const [variables, setVariables] = useState<Variable[]>([]);
   const [components, setComponents] = useState<Component[]>([]);
+  const [products, setProducts] = useState<Record<number,Product>>({});
+  const [productResults, setProductResults] = useState<Product[]>([]);
+  const [activeProductComponent, setActiveProductComponent] = useState<number|null>(null);
+  const [productSearch, setProductSearch] = useState('');
   const [naturalRule, setNaturalRule] = useState('');
   const [loading, setLoading] = useState(editing);
   const [saving, setSaving] = useState(false);
@@ -42,13 +47,56 @@ export function OtdEditor() {
       if (o.data) setOtd(o.data);
       if (s.data) setSelections(s.data.map((x:any) => ({ ...x, options:x.otd_selection_option ?? [] })));
       if (v.data) setVariables(v.data);
-      if (c.data) setComponents(c.data);
+      if (c.data) {
+        const loaded = (c.data as any[]).map(x => ({ ...x, product_id:x.product_id ?? null, component_type:x.component_type === 'IMPROVEMENT' ? 'IMPROVEMENT' : 'BASIC', price_increment:Number(x.price_increment ?? 0), quantity_expression:x.quantity_expression || '1' })) as Component[];
+        setComponents(loaded);
+        await loadProducts(loaded.map(x=>x.product_id).filter((x): x is number => Number.isFinite(x)));
+      }
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [id, editing]);
 
   const variableCodes = useMemo(() => variables.filter(v=>v.code).map(v=>v.code).join(', '), [variables]);
+
+  async function loadProducts(ids:number[]) {
+    if (!supabase || !ids.length) return;
+    const unique = [...new Set(ids)];
+    const { data, error } = await supabase.from('product').select('id,code,technical_description,commercial_description,measurement_type_id').in('id', unique);
+    if (error || !data) return;
+    const mtIds = [...new Set(data.map((p:any)=>p.measurement_type_id).filter((x:any): x is number => Number.isFinite(x)))];
+    const measurements = mtIds.length ? (await supabase.from('measurement_type').select('id,code,name,dimension_count').in('id', mtIds)).data ?? [] : [];
+    const mtMap = Object.fromEntries(measurements.map((m:any)=>[m.id,m]));
+    setProducts(prev => ({ ...prev, ...Object.fromEntries(data.map((p:any)=>[p.id,{...p,measurement_type:mtMap[p.measurement_type_id] ?? null}])) }));
+  }
+
+  async function searchProducts(term:string) {
+    setProductSearch(term);
+    if (!supabase || term.trim().length < 2) { setProductResults([]); return; }
+    const q = term.trim();
+    const { data, error } = await supabase.from('product').select('id,code,technical_description,commercial_description,measurement_type_id').eq('active',true).or(`code.ilike.%${q}%,technical_description.ilike.%${q}%,commercial_description.ilike.%${q}%`).order('code').limit(8);
+    if (error || !data) { setProductResults([]); return; }
+    const mtIds = [...new Set(data.map((p:any)=>p.measurement_type_id).filter((x:any): x is number => Number.isFinite(x)))];
+    const measurements = mtIds.length ? (await supabase.from('measurement_type').select('id,code,name,dimension_count').in('id', mtIds)).data ?? [] : [];
+    const mtMap = Object.fromEntries(measurements.map((m:any)=>[m.id,m]));
+    setProductResults(data.map((p:any)=>({...p,measurement_type:mtMap[p.measurement_type_id] ?? null})) as Product[]);
+  }
+
+  function selectProduct(index:number, product:Product) {
+    const next = [...components];
+    next[index] = { ...next[index], product_id:product.id, code:product.code, description:product.commercial_description || product.technical_description || product.code };
+    setComponents(next);
+    setProducts(prev=>({...prev,[product.id]:product}));
+    setActiveProductComponent(null);
+    setProductSearch('');
+    setProductResults([]);
+  }
+
+  function clearProduct(index:number) {
+    const next = [...components];
+    next[index] = { ...next[index], product_id:null, code:'', description:'' };
+    setComponents(next);
+  }
 
   async function companyId() {
     if (!supabase) throw new Error('Supabase no está configurado');
@@ -63,16 +111,18 @@ export function OtdEditor() {
     e?.preventDefault();
     if (!supabase) return setMessage('Supabase no está configurado.');
     if (!otd.code.trim() || !otd.name.trim()) return setMessage('Código y nombre son obligatorios.');
+    const invalid = components.findIndex(c=>!c.product_id);
+    if (invalid >= 0) return setMessage(`El componente ${invalid + 1} debe tener un artículo de ONIN seleccionado.`);
     setSaving(true); setMessage('');
     try {
       const company_id = otd.company_id || await companyId();
       let oid = otd.id;
       if (!oid) {
-        const { data, error } = await supabase.from('otd').insert({ company_id, code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active }).select().single();
+        const { data, error } = await supabase.from('otd').insert({ company_id, code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active, product_id:otd.product_id || null }).select().single();
         if (error) throw error;
         oid = data.id;
       } else {
-        const { error } = await supabase.from('otd').update({ code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active, updated_at:new Date().toISOString() }).eq('id', oid);
+        const { error } = await supabase.from('otd').update({ code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active, product_id:otd.product_id || null, updated_at:new Date().toISOString() }).eq('id', oid);
         if (error) throw error;
       }
       await supabase.from('otd_selection').delete().eq('otd_id', oid);
@@ -86,7 +136,7 @@ export function OtdEditor() {
       }
       const vars = variables.map((v,i)=>({ otd_id:oid, code:v.code, name:v.name, expression:v.expression || null, data_type:v.data_type, min_value:v.min_value, max_value:v.max_value, sort_order:i, active:v.active }));
       if (vars.length) { const { error } = await supabase.from('otd_variable').insert(vars); if (error) throw error; }
-      const comps = components.map((c,i)=>({ otd_id:oid, code:c.code, description:c.description || null, quantity_expression:c.quantity_expression || null, active:c.active, sort_order:i }));
+      const comps = components.map((c,i)=>({ otd_id:oid, product_id:c.product_id, code:c.code, description:c.description || null, quantity_expression:c.quantity_expression || '1', component_type:c.component_type, price_increment:c.component_type === 'IMPROVEMENT' ? Number(c.price_increment || 0) : 0, active:c.active, sort_order:i }));
       if (comps.length) { const { error } = await supabase.from('otd_component').insert(comps); if (error) throw error; }
       const { data: allS } = await supabase.from('otd_selection').select('*, otd_selection_option(*)').eq('otd_id', oid).order('sort_order');
       const { data: allV } = await supabase.from('otd_variable').select('*').eq('otd_id', oid).order('sort_order');
@@ -106,7 +156,7 @@ export function OtdEditor() {
 
   return <div className="otd-page">
     <div className="otd-head">
-      <div><NavLink to="/produccion/otd" className="otd-back"><ArrowLeft size={15}/> OTD</NavLink><div className="eyebrow">EDITOR TÉCNICO</div><h1>{editing ? otd.name || 'Editar OTD' : 'Nuevo OTD'}</h1><p>Define entradas de oficina, variables de cálculo y componentes. La formulación puede evolucionar a lenguaje natural asistido.</p></div>
+      <div><NavLink to="/produccion/otd" className="otd-back"><ArrowLeft size={15}/> OTD</NavLink><div className="eyebrow">EDITOR TÉCNICO</div><h1>{editing ? otd.name || 'Editar OTD' : 'Nuevo OTD'}</h1><p>Construye el producto a partir de artículos reales de ONIN.</p></div>
       <button className="primary-btn" onClick={()=>save()} disabled={saving}><Save size={16}/>{saving?'Guardando…':'Guardar OTD'}</button>
     </div>
     <form onSubmit={save}>
@@ -126,8 +176,23 @@ export function OtdEditor() {
         <button type="button" className="secondary-btn" onClick={()=>setVariables(x=>[...x,emptyVariable()])}><Plus size={15}/> Añadir variable calculada</button>
       </section>
       <section className="otd-card">
-        <div className="otd-card-head"><div><h2>Componentes y materiales</h2><p>Resultado que utilizará posteriormente el presupuesto/producción.</p></div><button type="button" className="secondary-btn" onClick={()=>setComponents(x=>[...x,emptyComponent()])}><Plus size={15}/> Añadir componente</button></div>
-        {components.length===0 ? <div className="otd-empty">Sin componentes definidos.</div> : components.map((c,ci)=><div className="otd-rule-line" key={ci}><input placeholder="Código" value={c.code} onChange={e=>{const x=[...components];x[ci]={...c,code:e.target.value};setComponents(x)}}/><input placeholder="Descripción" value={c.description??''} onChange={e=>{const x=[...components];x[ci]={...c,description:e.target.value};setComponents(x)}}/><input className="wide" placeholder="Cantidad / expresión" value={c.quantity_expression??''} onChange={e=>{const x=[...components];x[ci]={...c,quantity_expression:e.target.value};setComponents(x)}}/><button type="button" className="icon-btn danger" onClick={()=>setComponents(x=>x.filter((_,i)=>i!==ci))}><Trash2 size={14}/></button></div>)}
+        <div className="otd-card-head"><div><h2>Componentes del producto</h2><p>Cada componente es un artículo real de ONIN. El OTD solo define cómo participa en el producto.</p></div><button type="button" className="secondary-btn" onClick={()=>setComponents(x=>[...x,emptyComponent()])}><Plus size={15}/> Añadir artículo</button></div>
+        {components.length===0 ? <div className="otd-empty">Todavía no hay artículos en el OTD.</div> : components.map((c,ci)=>{
+          const product = c.product_id ? products[c.product_id] : undefined;
+          return <div className="otd-row-card" key={c.id || ci}>
+            <div className="otd-row-actions"><strong>{ci+1}. Componente</strong><button type="button" className="icon-btn danger" onClick={()=>setComponents(x=>x.filter((_,i)=>i!==ci))}><Trash2 size={15}/></button></div>
+            <div className="otd-component-grid">
+              <div className="otd-product-field">
+                <span className="field-label">Artículo</span>
+                {product ? <div className="otd-product-selected"><div><strong>{product.code}</strong><span>{product.commercial_description || product.technical_description || 'Sin descripción'}</span>{product.measurement_type && <small>Tipo de medida: {product.measurement_type.name} · {product.measurement_type.dimension_count} dimensión(es)</small>}</div><button type="button" className="icon-btn" title="Cambiar artículo" onClick={()=>{setActiveProductComponent(ci);setProductSearch(product.code);void searchProducts(product.code)}}><Search size={15}/></button><button type="button" className="icon-btn danger" title="Quitar artículo" onClick={()=>clearProduct(ci)}><X size={15}/></button></div> : <button type="button" className="product-select-empty" onClick={()=>{setActiveProductComponent(ci);setProductSearch('');setProductResults([])}}><Search size={16}/> Seleccionar artículo de ONIN</button>}
+                {activeProductComponent===ci && <div className="otd-product-picker"><div className="otd-product-search"><Search size={15}/><input autoFocus value={productSearch} onChange={e=>void searchProducts(e.target.value)} placeholder="Buscar por código o descripción…"/><button type="button" className="icon-btn" onClick={()=>{setActiveProductComponent(null);setProductResults([])}}><X size={14}/></button></div>{productResults.length>0 ? <div className="otd-product-results">{productResults.map(p=><button type="button" key={p.id} onClick={()=>selectProduct(ci,p)}><strong>{p.code}</strong><span>{p.commercial_description || p.technical_description || 'Sin descripción'}</span>{p.measurement_type && <small>{p.measurement_type.name} · {p.measurement_type.dimension_count} dimensión(es)</small>}</button>)}</div> : productSearch.length>=2 ? <div className="otd-product-no-results">No se han encontrado artículos.</div> : <div className="otd-product-no-results">Escribe al menos 2 caracteres.</div>}</div>}
+              </div>
+              <label>Tipo<select value={c.component_type} onChange={e=>{const x=[...components];x[ci]={...c,component_type:e.target.value as Component['component_type']};setComponents(x)}}><option value="BASIC">Básico</option><option value="IMPROVEMENT">Mejora</option></select></label>
+              <label>Cantidad / fórmula<input value={c.quantity_expression??''} onChange={e=>{const x=[...components];x[ci]={...c,quantity_expression:e.target.value};setComponents(x)}} placeholder="Ej. 1"/></label>
+              <label>Incremento {c.component_type==='IMPROVEMENT' && <span className="required-mark">*</span>}<input type="number" min="0" step="0.01" value={c.component_type==='IMPROVEMENT'?c.price_increment:0} disabled={c.component_type!=='IMPROVEMENT'} onChange={e=>{const x=[...components];x[ci]={...c,price_increment:Number(e.target.value)||0};setComponents(x)}} placeholder="0,00"/></label>
+            </div>
+          </div>;
+        })}
       </section>
       {message && <div className={`otd-message ${message.startsWith('Guardado')?'ok':'error'}`}>{message}</div>}
     </form>
