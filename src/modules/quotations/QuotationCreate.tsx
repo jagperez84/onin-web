@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowLeft, ChevronDown, ChevronUp, Layers, Pencil, Plus, Search, Trash2, X, Eye, SlidersHorizontal, Sparkles } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import { getProductLineDefinition, type ProductLineDefinition } from '../../services/catalog/productDefinitionRepository';
 import { createQuotation, customerAddresses, customerProductDiscount, quotationOptions, type ProductLineBehavior, type QuotationLineCharacteristicDraft, type QuotationLineDimensionDraft } from '../../services/sales/quotationCreationRepository';
@@ -29,7 +29,7 @@ type Line = {
   dimensions: QuotationLineDimensionDraft[];
   characteristics: QuotationLineCharacteristicDraft[];
   specific_data: Record<string, unknown>;
-  configuration_snapshot?: QuotationLineSnapshot | null;
+  configuration_snapshot?: QuotationLineSnapshot | any | null;
 };
 
 const emptyAddress = (): AddressDraft => ({ source_id: null, label: '', street: '', postal_code: '', city: '', region: '' });
@@ -43,6 +43,7 @@ function hasRequiredCharacteristicValues(line: Line) { return (line.product_defi
 
 export function QuotationCreate() {
   const nav = useNavigate();
+  const location = useLocation();
   const [opts, setOpts] = useState<any>();
   const [addresses, setAddresses] = useState<any[]>([]);
   const [customerId, setCustomerId] = useState<number | null>(null);
@@ -72,11 +73,45 @@ export function QuotationCreate() {
   const [configuratorOpen, setConfiguratorOpen] = useState(false);
   const [configuratorLineIndex, setConfiguratorLineIndex] = useState<number | null>(null);
   const [snapshotModalOpen, setSnapshotModalOpen] = useState(false);
-  const [selectedSnapshot, setSelectedSnapshot] = useState<QuotationLineSnapshot | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<QuotationLineSnapshot | any | null>(null);
   const [selectedSnapshotLineNo, setSelectedSnapshotLineNo] = useState<number>(1);
   const calculationRequests = useRef<Record<number, number>>({});
 
   useEffect(() => { void quotationOptions().then(setOpts).catch(e => setError(e instanceof Error ? e.message : 'No se pudieron cargar los datos.')).finally(() => setLoading(false)); }, []);
+
+  // Handle incoming OTD snapshot
+  useEffect(() => {
+    if (location.state?.otdSnapshot) {
+      const otdSnap = location.state.otdSnapshot;
+      const dimSummary = (otdSnap.inputs_display || [])
+        .filter((i: any) => i.is_dimension || i.value !== null)
+        .map((i: any) => `${i.name}: ${i.display_value}`)
+        .join(', ');
+      const desc = `${otdSnap.otd_name} (${dimSummary || otdSnap.otd_code})`;
+
+      const newLine: Line = {
+        product_id: null,
+        description: desc,
+        quantity: 1,
+        unit_price: Number(otdSnap.total_amount || 0),
+        discount_percent: 0,
+        line_behavior: null,
+        product_definition_snapshot: null,
+        dimensions: [],
+        characteristics: [],
+        specific_data: {
+          configuration_snapshot: otdSnap,
+          otd_snapshot: otdSnap,
+          is_otd: true,
+          otd_id: otdSnap.otd_id,
+          price_missing: false,
+        },
+        configuration_snapshot: otdSnap,
+      };
+      setLines([newLine]);
+      setToast(`Configuración OTD "${otdSnap.otd_name}" añadida como línea.`);
+    }
+  }, [location.state]);
   const totals = useMemo(() => lines.reduce((a, l) => { const gross=Math.max(0,l.quantity*l.unit_price); const discount=Math.max(0,gross*l.discount_percent/100); const net=Math.max(0,gross-discount); const tax=net*taxPercent/100; return {discount:a.discount+discount,net:a.net+net,tax:a.tax+tax,total:a.total+net+tax}; }, {discount:0,net:0,tax:0,total:0}), [lines,taxPercent]);
   const updateLine = (i:number,patch:Partial<Line>) => setLines(xs=>xs.map((l,j)=>j===i?{...l,...patch}:l));
 

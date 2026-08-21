@@ -9,15 +9,19 @@ import {
   DollarSign,
   Ruler,
   Calendar,
+  Calculator,
+  TrendingUp,
+  Sliders,
 } from 'lucide-react';
 import type { QuotationLineSnapshot } from '../../services/sales/quotationLineCalculationService';
+import type { OtdConfigurationSnapshot } from '../../services/otd/otdCalculationService';
 import { formatEuro } from '../../services/catalog/productPricingService';
 import './quotation-configurator.css';
 
 export type QuotationLineSnapshotModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  snapshot: QuotationLineSnapshot | null;
+  snapshot: QuotationLineSnapshot | OtdConfigurationSnapshot | any | null;
   lineNo?: number;
 };
 
@@ -27,15 +31,218 @@ export function QuotationLineSnapshotModal({
   snapshot,
   lineNo = 1,
 }: QuotationLineSnapshotModalProps) {
-  const [activeTab, setActiveTab] = useState<'pricing' | 'bom' | 'cuts' | 'stock'>('pricing');
+  const [activeTab, setActiveTab] = useState<'pricing' | 'bom' | 'cuts' | 'stock' | 'otd_components' | 'otd_variables'>('pricing');
 
   if (!isOpen || !snapshot) return null;
 
-  const article = snapshot.article;
-  const pricing = snapshot.pricing;
-  const breakdown = snapshot.breakdown;
-  const cuts = snapshot.cuts;
-  const stock = snapshot.stock_preview;
+  // Detect if snapshot is an OTD snapshot
+  const isOtdSnapshot = Boolean(
+    snapshot.otd_code ||
+    snapshot.otd_id ||
+    snapshot.inputs_display ||
+    (snapshot.components && Array.isArray(snapshot.components) && snapshot.components[0]?.product_code)
+  );
+
+  if (isOtdSnapshot) {
+    const otdSnap = snapshot as OtdConfigurationSnapshot;
+    return (
+      <div className="configurator-overlay" role="dialog" aria-modal="true">
+        <div className="configurator-modal" style={{ width: 'min(920px, 95vw)' }}>
+          {/* Header */}
+          <div className="configurator-header">
+            <div className="configurator-header-info">
+              <span className="configurator-eyebrow">
+                Snapshot OTD Inmutable · Línea {lineNo}
+              </span>
+              <h2>{otdSnap.otd_name} <span style={{ fontSize: '15px', color: '#64748b', fontWeight: 400 }}>({otdSnap.otd_code})</span></h2>
+            </div>
+            <button
+              type="button"
+              className="configurator-close-btn"
+              onClick={onClose}
+              aria-label="Cerrar"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          {/* Metadata bar */}
+          <div style={{ background: '#f8fafc', padding: '12px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '12px', color: '#64748b', alignItems: 'center' }}>
+            <div>
+              <strong>Creado:</strong> {new Date(otdSnap.created_at).toLocaleString('es-ES')}
+            </div>
+            <div>
+              <strong>Versión:</strong> {otdSnap.snapshot_version || '1.0'}
+            </div>
+            <div>
+              <span className="tag-badge success">
+                <CheckCircle2 size={12} /> Configuración OTD Congelada
+              </span>
+            </div>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="sub-tabs-bar" style={{ padding: '0 24px', margin: '14px 0 0' }}>
+            <button
+              type="button"
+              className={`sub-tab-btn ${activeTab === 'pricing' || activeTab === 'otd_components' ? 'active' : ''}`}
+              onClick={() => setActiveTab('otd_components')}
+            >
+              <Layers size={14} style={{ display: 'inline', marginRight: '6px' }} />
+              Componentes y Escalado ({otdSnap.components?.length || 0})
+            </button>
+            <button
+              type="button"
+              className={`sub-tab-btn ${activeTab === 'otd_variables' ? 'active' : ''}`}
+              onClick={() => setActiveTab('otd_variables')}
+            >
+              <Calculator size={14} style={{ display: 'inline', marginRight: '6px' }} />
+              Variables y Entradas ({otdSnap.inputs_display?.length || 0})
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="configurator-body">
+            {/* Inputs Overview */}
+            <div className="configurator-card" style={{ padding: '14px 18px', background: '#f8fafc' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Entradas de Oficina Registradas
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', fontSize: '13px' }}>
+                {(otdSnap.inputs_display || []).map((inp, i) => (
+                  <div key={i} style={{ background: '#fff', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>{inp.name}</span>
+                    <strong style={{ color: '#0f172a' }}>{inp.display_value}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* TAB: Components and Scaling */}
+            {(activeTab === 'pricing' || activeTab === 'otd_components') && (
+              <div>
+                <table className="config-data-table">
+                  <thead>
+                    <tr>
+                      <th>Artículo</th>
+                      <th>Tipo</th>
+                      <th>Cantidad</th>
+                      <th>Medidas Buscadas</th>
+                      <th>Escalón / Base</th>
+                      <th>Incremento</th>
+                      <th>Precio Unit.</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(otdSnap.components || []).map((comp, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <strong>{comp.product_code}</strong>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{comp.product_name}</div>
+                          {comp.characteristic_name && (
+                            <span style={{ fontSize: '10px', color: '#0369a1', background: '#e0f2fe', padding: '1px 5px', borderRadius: '3px' }}>
+                              {comp.characteristic_name}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`tag-badge ${comp.component_type === 'IMPROVEMENT' ? 'warning' : 'info'}`}>
+                            {comp.component_type === 'IMPROVEMENT' ? 'Mejora' : 'Básico'}
+                          </span>
+                        </td>
+                        <td>{comp.quantity}</td>
+                        <td style={{ fontSize: '11px' }}>
+                          {comp.dimension_list && comp.dimension_list.length > 0
+                            ? comp.dimension_list.map(d => `${d.code}: ${d.value} mm`).join(' · ')
+                            : Object.entries(comp.dimensions || {}).map(([k, v]) => `${k}: ${v} mm`).join(' · ') || '—'}
+                        </td>
+                        <td>
+                          {comp.scale_step_used ? (
+                            <div>
+                              <strong>{formatEuro(comp.base_price)}</strong>
+                              <div style={{ fontSize: '10px', color: '#64748b' }}>
+                                Paso: {comp.scale_step_used.dimension_1} × {comp.scale_step_used.dimension_2 ?? '—'}
+                              </div>
+                            </div>
+                          ) : (
+                            formatEuro(comp.base_price)
+                          )}
+                        </td>
+                        <td>
+                          {comp.increment_amount > 0 ? (
+                            <span style={{ color: '#b45309', fontWeight: 600 }}>
+                              +{formatEuro(comp.increment_amount)}
+                              <small style={{ display: 'block', fontSize: '10px', color: '#78350f' }}>
+                                ({comp.price_increment_type === 'PERCENTAGE' ? `${comp.price_increment}%` : 'fijo'})
+                              </small>
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td><strong>{formatEuro(comp.unit_price)}</strong></td>
+                        <td><strong style={{ color: '#0f172a' }}>{formatEuro(comp.total_price)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* TAB: Variables */}
+            {activeTab === 'otd_variables' && (
+              <div>
+                <table className="config-data-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Nombre Variable</th>
+                      <th>Fórmula / Expresión</th>
+                      <th>Valor Resuelto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(otdSnap.variables_display || []).map((v, i) => (
+                      <tr key={i}>
+                        <td><code>{v.code}</code></td>
+                        <td>{v.name}</td>
+                        <td><code>{v.expression || '—'}</code></td>
+                        <td><strong>{v.value.toLocaleString('es-ES', { maximumFractionDigits: 2 })}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="configurator-footer">
+            <div className="configurator-footer-summary">
+              <div>
+                <span>Total OTD Calculado: </span>
+                <strong style={{ color: '#0284c7', fontSize: '18px' }}>
+                  {formatEuro(otdSnap.total_amount || 0)}
+                </strong>
+              </div>
+            </div>
+            <button type="button" className="primary-button" onClick={onClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Standard Product Snapshot
+  const standardSnap = snapshot as QuotationLineSnapshot;
+  const article = standardSnap.article;
+  const pricing = standardSnap.pricing;
+  const breakdown = standardSnap.breakdown;
+  const cuts = standardSnap.cuts;
+  const stock = standardSnap.stock_preview;
 
   return (
     <div className="configurator-overlay" role="dialog" aria-modal="true">
@@ -46,7 +253,7 @@ export function QuotationLineSnapshotModal({
             <span className="configurator-eyebrow">
               Snapshot de Configuración Inmutable · Línea {lineNo}
             </span>
-            <h2>{article.code} · {article.commercial_description || article.technical_description || 'Artículo'}</h2>
+            <h2>{article?.code} · {article?.commercial_description || article?.technical_description || 'Artículo'}</h2>
           </div>
           <button
             type="button"
@@ -61,10 +268,10 @@ export function QuotationLineSnapshotModal({
         {/* Snapshot Metadata Bar */}
         <div style={{ background: '#f8fafc', padding: '12px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '12px', color: '#64748b' }}>
           <div>
-            <strong>Creado:</strong> {new Date(snapshot.created_at).toLocaleString('es-ES')}
+            <strong>Creado:</strong> {new Date(standardSnap.created_at).toLocaleString('es-ES')}
           </div>
           <div>
-            <strong>Versión Snapshot:</strong> {snapshot.snapshot_version}
+            <strong>Versión Snapshot:</strong> {standardSnap.snapshot_version}
           </div>
           <div>
             <span className="tag-badge success">
@@ -117,34 +324,34 @@ export function QuotationLineSnapshotModal({
               <div>
                 <strong style={{ color: '#475569' }}>Dimensiones:</strong>
                 <div>
-                  {snapshot.dimensions.map(d => `${d.name}: ${d.value ?? 0} ${d.unit_code}`).join(' × ') || 'Sin dimensiones'}
+                  {(standardSnap.dimensions || []).map(d => `${d.name}: ${d.value ?? 0} ${d.unit_code}`).join(' × ') || 'Sin dimensiones'}
                 </div>
               </div>
               <div>
                 <strong style={{ color: '#475569' }}>Variante / Color:</strong>
-                <div>{snapshot.selected_variant?.description || snapshot.selected_variant?.code || 'Estándar'}</div>
+                <div>{standardSnap.selected_variant?.description || standardSnap.selected_variant?.code || 'Estándar'}</div>
               </div>
               <div>
                 <strong style={{ color: '#475569' }}>Características:</strong>
                 <div>
-                  {snapshot.selected_attributes.map(a => `${a.name}: ${a.value_label}`).join(', ') || 'Sin atributos adicionales'}
+                  {(standardSnap.selected_attributes || []).map(a => `${a.name}: ${a.value_label}`).join(', ') || 'Sin atributos adicionales'}
                 </div>
               </div>
               <div>
                 <strong style={{ color: '#475569' }}>Cantidad & Dto:</strong>
                 <div>
-                  {snapshot.quantity} {article.base_unit_code} · {pricing.discount_percent}% Dto.
+                  {standardSnap.quantity} {article?.base_unit_code} · {pricing?.discount_percent}% Dto.
                 </div>
               </div>
             </div>
           </div>
 
           {/* TAB 1: Pricing */}
-          {activeTab === 'pricing' && (
+          {activeTab === 'pricing' && pricing && (
             <div className="pricing-breakdown-card">
               <table className="pricing-steps-table">
                 <tbody>
-                  {pricing.explainable_steps.map((step, idx) => (
+                  {(pricing.explainable_steps || []).map((step, idx) => (
                     <tr key={idx} className={step.highlight ? 'highlight-row' : undefined}>
                       <td>
                         {step.label}
@@ -323,11 +530,11 @@ export function QuotationLineSnapshotModal({
           <div className="configurator-footer-summary">
             <div>
               <span>Precio Unitario: </span>
-              <strong>{formatEuro(pricing.unit_price)}</strong>
+              <strong>{formatEuro(pricing?.unit_price ?? 0)}</strong>
             </div>
             <div>
               <span>Total Línea: </span>
-              <strong style={{ color: '#0284c7' }}>{formatEuro(pricing.total_amount)}</strong>
+              <strong style={{ color: '#0284c7' }}>{formatEuro(pricing?.total_amount ?? 0)}</strong>
             </div>
           </div>
           <button type="button" className="primary-button" onClick={onClose}>

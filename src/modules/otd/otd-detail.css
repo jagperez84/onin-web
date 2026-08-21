@@ -1,1 +1,248 @@
-.otd-detail-options{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.otd-detail-options span{padding:5px 9px;border:1px solid #d0d5dd;border-radius:999px;background:#f8f9fb;color:#344054;font-size:12px}.otd-detail-table{border:1px solid #eaecf0;border-radius:9px;overflow:hidden}.otd-detail-line{display:grid;grid-template-columns:180px 1.2fr 2fr;gap:14px;padding:11px 13px;border-bottom:1px solid #eaecf0;align-items:center}.otd-detail-line:last-child{border-bottom:0}.otd-detail-line span{color:#475467;font-size:13px}.otd-detail-line code,.otd-detail-grid code,.otd-detail-dimensions code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#344054;background:#f2f4f7;border-radius:5px;padding:3px 6px}.otd-detail-grid{display:grid;grid-template-columns:2fr 1fr 1.5fr 1fr;gap:14px}.otd-detail-grid>div{display:flex;flex-direction:column;gap:5px;min-width:0}.otd-detail-grid small{font-size:11px;color:#667085}.otd-detail-grid span{font-size:13px;color:#344054}.otd-detail-dimensions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:12px;padding-top:11px;border-top:1px solid #eaecf0}.otd-detail-dimensions>div{display:inline-flex;align-items:center;gap:5px;margin-right:4px;font-size:12px;color:#344054}.otd-detail-dimensions>span{font-size:12px;color:#475467}@media(max-width:900px){.otd-detail-line{grid-template-columns:1fr}.otd-detail-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.otd-detail-grid{grid-template-columns:1fr}}
+/* OTD Detail Page Specific Styles */
+.otd-detail-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.otd-detail-badge.active {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.otd-detail-badge.inactive {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.otd-detail-val-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.otd-detail-val-box label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 0;
+}
+
+.otd-detail-val-box .val-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.otd-detail-val-box .val-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  color: #1e293b;
+  background: #edf2f7;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.otd-options-view-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.otd-options-view-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.otd-options-view-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.otd-options-view-table tr:last-child td {
+  border-bottom: none;
+}
+
+.otd-options-view-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #0f172a;
+}
+
+.otd-detail-formula-banner {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.otd-detail-formula-banner strong {
+  display: block;
+  font-size: 13px;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.otd-detail-formula-banner p {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.otd-variables-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.otd-variables-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.otd-variables-table th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.otd-variables-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.otd-variables-table tr:last-child td {
+  border-bottom: none;
+}
+
+.otd-variables-table code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12.5px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #dbeafe;
+  padding: 3px 8px;
+  border-radius: 5px;
+  display: inline-block;
+}
+
+.otd-detail-comp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.otd-detail-char-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.otd-detail-char-box small {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.otd-detail-char-box span {
+  font-size: 13px;
+  color: #1e293b;
+}
+
+.otd-detail-char-box code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.otd-detail-dims-wrap {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+}
+
+.otd-detail-dims-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 10px;
+}
+
+.otd-detail-dims-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.otd-detail-dim-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.otd-detail-dim-item label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.otd-detail-dim-item code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
