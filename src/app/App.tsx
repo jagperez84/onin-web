@@ -25,6 +25,7 @@ import { MeasurementDetail } from '../modules/measurements/MeasurementDetail';
 import { UserList } from '../modules/users/UserList';
 import { UserDetail } from '../modules/users/UserDetail';
 import { OtdList, OtdEditor } from '../modules/otd/OtdEditor';
+import { OtdRuntime } from '../modules/otd/OtdRuntime';
 import { QuotationList } from '../modules/quotations/QuotationList';
 import { QuotationCreate } from '../modules/quotations/QuotationCreate';
 import { QuotationEdit } from '../modules/quotations/QuotationEdit';
@@ -36,20 +37,7 @@ import { useAuth } from '../auth/AuthContext';
 import { listAssignedMeasurements, type AssignedMeasurementRow } from '../services/measurements/measurementRepository';
 import './home.css';
 
-const implementedRoutes = [
-  '/ventas/clientes',
-  '/ventas/articulos',
-  '/ventas/presupuestos',
-  '/gestion/mediciones',
-  '/configuracion/usuarios',
-  '/configuracion/tipos-medida',
-  '/almacen/almacenes',
-  '/almacen/existencias',
-  '/almacen/movimientos',
-  '/almacen/transferencias',
-  '/almacen/reservas',
-  '/produccion/otd',
-];
+const implementedRoutes = ['/ventas/clientes','/ventas/articulos','/ventas/presupuestos','/gestion/mediciones','/configuracion/usuarios','/configuracion/tipos-medida','/almacen/almacenes','/almacen/existencias','/almacen/movimientos','/almacen/transferencias','/almacen/reservas','/produccion/otd'];
 
 function Shell() {
   const location = useLocation();
@@ -67,33 +55,7 @@ function Shell() {
     else if (location.pathname.startsWith('/produccion/otd')) title = 'OTD';
   }
   const placeholderRoutes = navSections.flatMap((section) => section.items).filter((item) => !implementedRoutes.includes(item.to));
-
-  return (
-    <div className="app-shell">
-      <SectionNavBehavior />
-      <aside className={`sidebar ${mobileOpen ? 'is-open' : ''}`} aria-label="Navegación principal">
-        <div className="brand">ONIN</div>
-        <NavLink to="/" className="home-link" onClick={() => setMobileOpen(false)}><Home size={16} />Inicio</NavLink>
-        <div className="nav-scroll">{navSections.map((section) => <div key={section.label} className="nav-section"><div className="nav-section-title">{section.label}</div>{section.items.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={() => setMobileOpen(false)}>{item.icon}<span>{item.label}</span></NavLink>)}</div>)}</div>
-        <div className="sidebar-footer"><div className="sidebar-user" title={user?.email ?? ''}>{user?.email ?? 'Usuario autenticado'}</div><button className="logout" onClick={() => signOut()}><LogOut size={16} />Cerrar sesión</button></div>
-      </aside>
-      <div className="workspace"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen((v) => !v)} aria-label="Abrir menú"><Menu size={20} /></button><div className="crumb"><NavLink to="/">Inicio</NavLink><span>/</span><strong>{title}</strong></div><div className="topbar-spacer" /><div className="global-search"><Search size={16} /><input placeholder="Buscar..." aria-label="Buscar en ONIN" /></div><button className="avatar" title={user?.email ?? 'Usuario'}>{(user?.email?.[0] ?? 'U').toUpperCase()}</button></header>
-        <main className="content"><Routes>
-          <Route path="/" element={<HomeView />} />
-          <Route path="/ventas/clientes" element={<CustomerList />} /><Route path="/ventas/clientes/nuevo" element={<CustomerCreate />} /><Route path="/ventas/clientes/:id" element={<CustomerDetail />} />
-          <Route path="/ventas/articulos" element={<ProductV2 />} /><Route path="/ventas/articulos/nuevo" element={<ProductDraftCreate />} /><Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1 />} /><Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics />} /><Route path="/ventas/articulos/:id" element={<ProductProfile />} />
-          <Route path="/ventas/presupuestos" element={<QuotationList />} /><Route path="/ventas/presupuestos/nuevo" element={<QuotationCreate />} /><Route path="/ventas/presupuestos/:id/editar" element={<QuotationEdit />} /><Route path="/ventas/presupuestos/:id" element={<QuotationDetail />} />
-          <Route path="/gestion/mediciones" element={<Measurements />} /><Route path="/gestion/mediciones/nuevo" element={<MeasurementCreate />} /><Route path="/gestion/mediciones/:id" element={<MeasurementDetail />} />
-          <Route path="/configuracion/usuarios" element={<UserList />} /><Route path="/configuracion/usuarios/:id" element={<UserDetail />} /><Route path="/configuracion/tipos-medida" element={<MeasurementTypesV1 />} />
-          <Route path="/almacen/almacenes" element={<WarehouseList />} /><Route path="/almacen/almacenes/nuevo" element={<WarehouseDetail />} /><Route path="/almacen/almacenes/:id" element={<WarehouseDetail />} /><Route path="/almacen/existencias" element={<StockList />} /><Route path="/almacen/movimientos" element={<StockMovements />} /><Route path="/almacen/movimientos/nuevo" element={<StockMovements />} /><Route path="/almacen/transferencias" element={<StockTransfers />} /><Route path="/almacen/reservas" element={<StockReservations />} />
-          <Route path="/produccion/otd" element={<OtdList />} /><Route path="/produccion/otd/nuevo" element={<OtdEditor />} /><Route path="/produccion/otd/:id" element={<OtdEditor />} />
-          {placeholderRoutes.map((item) => <Route key={item.to} path={item.to} element={<PagePlaceholder title={item.label} />} />)}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes></main>
-      </div>
-      {mobileOpen && <button className="scrim" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" />}
-    </div>
-  );
+  return <div className="app-shell"><SectionNavBehavior /><aside className={`sidebar ${mobileOpen ? 'is-open' : ''}`} aria-label="Navegación principal"><div className="brand">ONIN</div><NavLink to="/" className="home-link" onClick={() => setMobileOpen(false)}><Home size={16} />Inicio</NavLink><div className="nav-scroll">{navSections.map((section) => <div key={section.label} className="nav-section"><div className="nav-section-title">{section.label}</div>{section.items.map((item) => <NavLink key={item.to} to={item.to} className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`} onClick={() => setMobileOpen(false)}>{item.icon}<span>{item.label}</span></NavLink>)}</div>)}</div><div className="sidebar-footer"><div className="sidebar-user" title={user?.email ?? ''}>{user?.email ?? 'Usuario autenticado'}</div><button className="logout" onClick={() => signOut()}><LogOut size={16} />Cerrar sesión</button></div></aside><div className="workspace"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen((v) => !v)} aria-label="Abrir menú"><Menu size={20} /></button><div className="crumb"><NavLink to="/">Inicio</NavLink><span>/</span><strong>{title}</strong></div><div className="topbar-spacer" /><div className="global-search"><Search size={16} /><input placeholder="Buscar..." aria-label="Buscar en ONIN" /></div><button className="avatar" title={user?.email ?? 'Usuario'}>{(user?.email?.[0] ?? 'U').toUpperCase()}</button></header><main className="content"><Routes><Route path="/" element={<HomeView />} /><Route path="/ventas/clientes" element={<CustomerList />} /><Route path="/ventas/clientes/nuevo" element={<CustomerCreate />} /><Route path="/ventas/clientes/:id" element={<CustomerDetail />} /><Route path="/ventas/articulos" element={<ProductV2 />} /><Route path="/ventas/articulos/nuevo" element={<ProductDraftCreate />} /><Route path="/ventas/articulos/catalogos" element={<ProductCatalogV1 />} /><Route path="/ventas/articulos/:id/caracteristicas" element={<ProductCharacteristics />} /><Route path="/ventas/articulos/:id" element={<ProductProfile />} /><Route path="/ventas/presupuestos" element={<QuotationList />} /><Route path="/ventas/presupuestos/nuevo" element={<QuotationCreate />} /><Route path="/ventas/presupuestos/:id/editar" element={<QuotationEdit />} /><Route path="/ventas/presupuestos/:id" element={<QuotationDetail />} /><Route path="/gestion/mediciones" element={<Measurements />} /><Route path="/gestion/mediciones/nuevo" element={<MeasurementCreate />} /><Route path="/gestion/mediciones/:id" element={<MeasurementDetail />} /><Route path="/configuracion/usuarios" element={<UserList />} /><Route path="/configuracion/usuarios/:id" element={<UserDetail />} /><Route path="/configuracion/tipos-medida" element={<MeasurementTypesV1 />} /><Route path="/almacen/almacenes" element={<WarehouseList />} /><Route path="/almacen/almacenes/nuevo" element={<WarehouseDetail />} /><Route path="/almacen/almacenes/:id" element={<WarehouseDetail />} /><Route path="/almacen/existencias" element={<StockList />} /><Route path="/almacen/movimientos" element={<StockMovements />} /><Route path="/almacen/movimientos/nuevo" element={<StockMovements />} /><Route path="/almacen/transferencias" element={<StockTransfers />} /><Route path="/almacen/reservas" element={<StockReservations />} /><Route path="/produccion/otd" element={<OtdList />} /><Route path="/produccion/otd/nuevo" element={<OtdEditor />} /><Route path="/produccion/otd/:id" element={<OtdEditor />} /><Route path="/produccion/otd/:id/probar" element={<OtdRuntime />} />{placeholderRoutes.map((item) => <Route key={item.to} path={item.to} element={<PagePlaceholder title={item.label} />} />)}<Route path="*" element={<Navigate to="/" replace />} /></Routes></main></div>{mobileOpen && <button className="scrim" onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" />}</div>;
 }
 
 function HomeView() {
@@ -104,9 +66,4 @@ function HomeView() {
   return <div className="home-page"><div className="page-head"><div><div className="eyebrow">INICIO</div><h1>Resumen de gestión</h1><p>Acceso rápido a las áreas principales de ONIN.</p></div></div><div className="metric-grid">{cards.map(([t, d, to]) => <NavLink key={t} to={to} className="metric-card"><span className="metric-title">{t}</span><span className="metric-desc">{d}</span><span className="metric-arrow">→</span></NavLink>)}<div className={`metric-card metric-card-measurements ${assigned.length ? 'has-alert' : ''}`}><NavLink to="/gestion/mediciones" className="metric-card-main"><span className="metric-title">Mediciones</span><span className="metric-desc">Gestión de mediciones</span><span className="metric-arrow">→</span></NavLink>{assigned.length > 0 && <div className="measurement-notification" aria-label={`${assigned.length} mediciones recién asignadas`}><div className="measurement-notification-head"><span className="measurement-notification-badge"><Bell size={13} /> {assigned.length} nueva{assigned.length === 1 ? '' : 's'}</span><span className="measurement-notification-label">Pendientes de revisión</span></div><div className="measurement-assignment-list">{assigned.slice(0, 2).map((item) => <NavLink key={item.id} to={`/gestion/mediciones/${item.id}`} className="measurement-assignment-item"><span><strong>{item.code}</strong><small>{item.customer_name_snapshot || 'Cliente potencial'}{item.site_city ? ` · ${item.site_city}` : ''}</small></span><span className="measurement-assignment-arrow">→</span></NavLink>)}</div>{assigned.length > 2 && <NavLink to="/gestion/mediciones" className="measurement-assignment-more">Ver las {assigned.length} mediciones</NavLink>}</div>}</div></div><QuotationDashboard /><CoreStatus /></div>;
 }
 
-export function App(){
-  const { user, loading } = useAuth();
-  if (loading) return <div className="app-loading">Cargando...</div>;
-  if (!user) return <LoginPage />;
-  return <ProtectedRoute><Shell /></ProtectedRoute>;
-}
+export function App(){ const { user, loading } = useAuth(); if (loading) return <div className="app-loading">Cargando...</div>; if (!user) return <LoginPage />; return <ProtectedRoute><Shell /></ProtectedRoute>; }
