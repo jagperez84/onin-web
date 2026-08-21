@@ -1,5 +1,5 @@
 type FormulaVariable = { code:string; name:string };
-type FormulaHost = { input:HTMLInputElement; editor:HTMLDivElement; suggestions:HTMLDivElement; lastValue:string; variableSignature:string };
+type FormulaHost = { input:HTMLInputElement; editor:HTMLDivElement; suggestions:HTMLDivElement; lastValue:string; variableSignature:string; selectedIndex:number };
 
 const formulaPlaceholders = new Set(['Expresión técnica (opcional)','Ej. 1','Ej. COLOR_CLIENTE','Ej. ANCHO_UTIL']);
 const hosts = new WeakMap<HTMLInputElement,FormulaHost>();
@@ -9,25 +9,79 @@ function currentVariableCode(input:HTMLInputElement){
   const row=input.closest('.otd-rule-line');
   return row?.querySelector<HTMLInputElement>('input[placeholder="Código"]')?.value.trim()??'';
 }
-function getVariables(excludeCode=''):FormulaVariable[]{
-  const rows=[...document.querySelectorAll<HTMLInputElement>('.otd-rule-line input[placeholder="Código"]')];
-  return rows.map(codeInput=>({code:codeInput.value.trim(),name:codeInput.parentElement?.querySelector<HTMLInputElement>('input[placeholder="Nombre"]')?.value.trim()??''})).filter(v=>Boolean(v.code)&&v.code!==excludeCode);
+function getVariableCandidates(excludeCode=''):FormulaVariable[]{
+  const variables=[...document.querySelectorAll<HTMLInputElement>('.otd-rule-line input[placeholder="Código"]')]
+    .map(codeInput=>({code:codeInput.value.trim(),name:codeInput.parentElement?.querySelector<HTMLInputElement>('input[placeholder="Nombre"]')?.value.trim()??''}));
+  const selections=[...document.querySelectorAll<HTMLInputElement>('.otd-row-card input[placeholder="Código"]')]
+    .filter(input=>!input.closest('.option-list'))
+    .map(codeInput=>({code:codeInput.value.trim(),name:codeInput.parentElement?.querySelector<HTMLInputElement>('input[placeholder="Nombre"]')?.value.trim()??''}));
+  const seen=new Set<string>();
+  return [...variables,...selections].filter(v=>Boolean(v.code)&&v.code!==excludeCode&&!seen.has(v.code)&&seen.add(v.code));
 }
-function variableSignature(){return getVariables().map(v=>`${v.code}::${v.name}`).join('|');}
+function variableSignature(){return getVariableCandidates().map(v=>`${v.code}::${v.name}`).join('|');}
 function tokenRegex(variables:FormulaVariable[]){return variables.length?new RegExp(`(${variables.sort((a,b)=>b.code.length-a.code.length).map(x=>x.code.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')).join('|')})`,'g'):null;}
 function render(value:string,variables:FormulaVariable[]){
   const codes=variables.map(v=>v.code);const re=tokenRegex(variables);if(!re)return escape(value);
   return value.split(re).map(part=>codes.includes(part)?`<span class="formula-token" data-token="${escape(part)}" contenteditable="false">${escape(part)}</span>`:escape(part)).join('');
 }
 function read(root:HTMLElement){let out='';root.childNodes.forEach(n=>{if(n.nodeType===Node.ELEMENT_NODE&&(n as HTMLElement).dataset.token)out+=(n as HTMLElement).dataset.token;else out+=n.textContent??'';});return out;}
-function replaceAtCaret(root:HTMLElement,code:string){
-  const sel=window.getSelection();const range=sel&&sel.rangeCount?sel.getRangeAt(0):null;const token=document.createElement('span');token.className='formula-token';token.dataset.token=code;token.contentEditable='false';token.textContent=code;const space=document.createTextNode(' ');
-  if(range&&root.contains(range.commonAncestorContainer)){range.deleteContents();range.insertNode(token);token.after(space);range.setStartAfter(space);range.collapse(true);sel?.removeAllRanges();sel?.addRange(range);}else root.append(token,space);
+function currentQuery(root:HTMLElement){
+  const sel=window.getSelection();
+  if(sel&&sel.rangeCount&&root.contains(sel.anchorNode)){
+    const range=sel.getRangeAt(0);
+    if(range.collapsed&&range.startContainer.nodeType===Node.TEXT_NODE){
+      return (range.startContainer.textContent??'').slice(0,range.startOffset).match(/[A-Za-z_][A-Za-z0-9_]*$/)?.[0]??'';
+    }
+  }
+  return read(root).match(/[A-Za-z_][A-Za-z0-9_]*$/)?.[0]??'';
 }
-function updateSuggestions(host:FormulaHost){
+function filteredCandidates(host:FormulaHost){
+  const query=currentQuery(host.editor).toLowerCase();
+  if(!query)return [];
+  return getVariableCandidates(currentVariableCode(host.input)).filter(v=>v.code.toLowerCase().includes(query)||v.name.toLowerCase().includes(query)).slice(0,8);
+}
+function setSelectedIndex(host:FormulaHost,index:number){
+  const buttons=[...host.suggestions.querySelectorAll<HTMLButtonElement>('button')];
+  host.selectedIndex=Math.max(0,Math.min(index,buttons.length-1));
+  buttons.forEach((button,i)=>button.classList.toggle('is-selected',i===host.selectedIndex));
+  buttons[host.selectedIndex]?.scrollIntoView({block:'nearest'});
+}
+function deleteCurrentQuery(root:HTMLElement){
+  const query=currentQuery(root);if(!query)return;
+  const sel=window.getSelection();
+  if(!sel||!sel.rangeCount)return;
+  const range=sel.getRangeAt(0);
+  if(range.collapsed&&range.startContainer.nodeType===Node.TEXT_NODE){
+    const start=range.startOffset-query.length;
+    if(start>=0){range.setStart(range.startContainer,start);range.deleteContents();}
+  }
+}
+function insertTokenAtCaret(root:HTMLElement,code:string){
+  const sel=window.getSelection();const range=sel&&sel.rangeCount?sel.getRangeAt(0):null;
+  if(range&&root.contains(range.commonAncestorContainer))deleteCurrentQuery(root);
+  const activeRange=sel&&sel.rangeCount?sel.getRangeAt(0):null;
+  const token=document.createElement('span');token.className='formula-token';token.dataset.token=code;token.contentEditable='false';token.textContent=code;
+  const space=document.createTextNode(' ');
+  if(activeRange&&root.contains(activeRange.commonAncestorContainer)){activeRange.insertNode(token);token.after(space);activeRange.setStartAfter(space);activeRange.collapse(true);sel?.removeAllRanges();sel?.addRange(activeRange);}else root.append(token,space);
+}
+function refreshSuggestions(host:FormulaHost){
   host.suggestions.innerHTML='';
-  const excludeCode=currentVariableCode(host.input);
-  getVariables(excludeCode).slice(0,20).forEach(v=>{const button=document.createElement('button');button.type='button';button.innerHTML=`<span class="formula-token-suggestion-chip">${escape(v.code)}</span><span><strong>${escape(v.name||v.code)}</strong></span>`;button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{host.editor.focus();replaceAtCaret(host.editor,v.code);const value=read(host.editor);host.lastValue=value;host.input.value=value;host.input.dispatchEvent(new Event('input',{bubbles:true}));host.suggestions.classList.remove('visible');});host.suggestions.appendChild(button);});
+  const candidates=filteredCandidates(host);
+  host.selectedIndex=0;
+  if(!candidates.length){host.suggestions.classList.remove('visible');return;}
+  candidates.forEach((v,i)=>{
+    const button=document.createElement('button');button.type='button';button.classList.toggle('is-selected',i===0);
+    button.innerHTML=`<span class="formula-token-suggestion-chip">${escape(v.code)}</span><span><strong>${escape(v.name||v.code)}</strong></span>`;
+    button.addEventListener('mousedown',e=>e.preventDefault());
+    button.addEventListener('click',()=>selectCandidate(host,v));
+    host.suggestions.appendChild(button);
+  });
+  host.suggestions.classList.add('visible');
+}
+function selectCandidate(host:FormulaHost,candidate:FormulaVariable){
+  host.editor.focus();insertTokenAtCaret(host.editor,candidate.code);
+  const value=read(host.editor);host.lastValue=value;host.input.value=value;host.input.dispatchEvent(new Event('input',{bubbles:true}));
+  host.suggestions.classList.remove('visible');host.selectedIndex=0;
 }
 function enhance(input:HTMLInputElement){
   if(hosts.has(input))return;
@@ -35,12 +89,20 @@ function enhance(input:HTMLInputElement){
   const editor=document.createElement('div');editor.className='formula-token-input';editor.contentEditable='true';editor.dataset.placeholder=input.placeholder||'Escribe una fórmula…';
   const suggestions=document.createElement('div');suggestions.className='formula-token-suggestions';
   wrapper.append(editor,suggestions);input.style.display='none';input.parentElement?.insertBefore(wrapper,input);
-  const host:FormulaHost={input,editor,suggestions,lastValue:input.value,variableSignature:variableSignature()};hosts.set(input,host);
-  editor.innerHTML=render(input.value,getVariables(currentVariableCode(input)));
-  editor.addEventListener('focus',()=>{updateSuggestions(host);suggestions.classList.add('visible');});
+  const host:FormulaHost={input,editor,suggestions,lastValue:input.value,variableSignature:variableSignature(),selectedIndex:0};hosts.set(input,host);
+  editor.innerHTML=render(input.value,getVariableCandidates(currentVariableCode(input)));
+  editor.addEventListener('focus',()=>refreshSuggestions(host));
   editor.addEventListener('blur',()=>setTimeout(()=>suggestions.classList.remove('visible'),150));
-  editor.addEventListener('input',()=>{const value=read(editor);host.lastValue=value;input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));});
-  const localObserver=new MutationObserver(()=>{const signature=variableSignature();if(signature===host.variableSignature)return;host.variableSignature=signature;const vars=getVariables(currentVariableCode(input));if(document.activeElement!==editor)editor.innerHTML=render(host.lastValue,vars);if(document.activeElement===editor)updateSuggestions(host);});
+  editor.addEventListener('input',()=>{const value=read(editor);host.lastValue=value;input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));refreshSuggestions(host);});
+  editor.addEventListener('keydown',event=>{
+    const buttons=suggestions.querySelectorAll('button');
+    if(!suggestions.classList.contains('visible')||!buttons.length)return;
+    if(event.key==='ArrowDown'){event.preventDefault();setSelectedIndex(host,host.selectedIndex+1);}
+    else if(event.key==='ArrowUp'){event.preventDefault();setSelectedIndex(host,host.selectedIndex-1);}
+    else if(event.key==='Enter'){event.preventDefault();const candidate=filteredCandidates(host)[host.selectedIndex];if(candidate)selectCandidate(host,candidate);}
+    else if(event.key==='Escape'){event.preventDefault();suggestions.classList.remove('visible');}
+  });
+  const localObserver=new MutationObserver(()=>{const signature=variableSignature();if(signature===host.variableSignature)return;host.variableSignature=signature;const vars=getVariableCandidates(currentVariableCode(input));if(document.activeElement!==editor)editor.innerHTML=render(host.lastValue,vars);if(document.activeElement===editor)refreshSuggestions(host);});
   localObserver.observe(document.querySelector('.otd-card')||document.body,{subtree:true,childList:true,characterData:true});
 }
 function scan(){document.querySelectorAll<HTMLInputElement>('.otd-page input').forEach(input=>{if(formulaPlaceholders.has(input.placeholder)||input.classList.contains('formula-input'))enhance(input);});}
