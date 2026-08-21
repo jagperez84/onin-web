@@ -4,7 +4,7 @@ import { NavLink, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import './otd.css';
 
-type Otd = { id:number; company_id:number; code:string; name:string; template_type:string|null; active:boolean; product_id?:number|null };
+type Otd = { id:number; company_id:number; code:string; name:string; template_type:string|null; active:boolean };
 type Selection = { id:number; code:string; name:string; selection_type:string; required:boolean; sort_order:number; options?: Option[] };
 type Option = { id:number; code:string; label:string; value:string|null; sort_order:number };
 type Variable = { id:number; code:string; name:string; expression:string|null; data_type:string; min_value:number|null; max_value:number|null; sort_order:number; active:boolean };
@@ -19,7 +19,7 @@ export function OtdEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const editing = Boolean(id);
-  const [otd, setOtd] = useState<Otd>({ id:0, company_id:0, code:'', name:'', template_type:'TOLDO', active:true, product_id:null });
+  const [otd, setOtd] = useState<Otd>({ id:0, company_id:0, code:'', name:'', template_type:'TOLDO', active:true });
   const [selections, setSelections] = useState<Selection[]>([]);
   const [variables, setVariables] = useState<Variable[]>([]);
   const [components, setComponents] = useState<Component[]>([]);
@@ -118,11 +118,11 @@ export function OtdEditor() {
       const company_id = otd.company_id || await companyId();
       let oid = otd.id;
       if (!oid) {
-        const { data, error } = await supabase.from('otd').insert({ company_id, code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active, product_id:otd.product_id || null }).select().single();
+        const { data, error } = await supabase.from('otd').insert({ company_id, code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active }).select().single();
         if (error) throw error;
         oid = data.id;
       } else {
-        const { error } = await supabase.from('otd').update({ code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active, product_id:otd.product_id || null, updated_at:new Date().toISOString() }).eq('id', oid);
+        const { error } = await supabase.from('otd').update({ code:otd.code.trim(), name:otd.name.trim(), template_type:otd.template_type || null, active:otd.active, updated_at:new Date().toISOString() }).eq('id', oid);
         if (error) throw error;
       }
       await supabase.from('otd_selection').delete().eq('otd_id', oid);
