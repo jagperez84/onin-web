@@ -1,4 +1,5 @@
 import * as V4 from './otdCalculationServiceV4';
+import { resolveOtdVariables } from './formulaEngine';
 import { resolveComponentCharacteristicExpression } from './otdCharacteristicResolution';
 
 export * from './otdCalculationServiceV4';
@@ -21,7 +22,7 @@ export function calculateOtdRuntime(
 
   let resolvedVariables: Record<string, number> = numericVariables;
   try {
-    resolvedVariables = V4.resolveOtdVariables(data.variables, numericVariables);
+    resolvedVariables = resolveOtdVariables(data.variables, numericVariables);
   } catch {
     // V4 remains responsible for reporting formula errors.
   }
