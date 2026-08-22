@@ -1,1 +1,1 @@
-export * from './otdCalculationServiceV4';
+export * from './otdCalculationServiceV6';
