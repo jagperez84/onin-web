@@ -8,6 +8,7 @@ export type QuotationSummary = {
   valid_until: string | null;
   status: string;
   total_amount: number;
+  reference?: string | null;
   contact_name?: string | null;
   measurement_id?: number | null;
   customer: { party: { legal_name: string; trade_name: string | null } | null } | null;
@@ -28,7 +29,6 @@ async function companyId(): Promise<number> {
 
 export function isQuotationExpired(quotation: { status: string; valid_until: string | null }): boolean {
   if (quotation.status === 'ACCEPTED' || quotation.status === 'CANCELLED') return false;
-  if (quotation.status === 'EXPIRED') return true;
   if (!quotation.valid_until) return false;
   const today = new Date().toISOString().slice(0, 10);
   return quotation.valid_until < today;
@@ -45,7 +45,7 @@ export function getEffectiveStatus(quotation: { status: string; valid_until: str
 export async function listQuotations(search='', includeCancelled=false): Promise<QuotationSummary[]> {
   const c=client();
   const cid=await companyId();
-  let q=c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order('issue_date',{ascending:false}).order('id',{ascending:false});
+  let q=c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,reference,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order('issue_date',{ascending:false}).order('id',{ascending:false});
   
   if (!includeCancelled) {
     q = q.neq('status', 'CANCELLED');
@@ -61,7 +61,7 @@ export async function listQuotations(search='', includeCancelled=false): Promise
   const {data,error}=await q;
   if(error && (error.message.includes('deleted_at') || error.code === '42703')) {
     // Fallback if deleted_at column is not yet present
-    let qFallback = c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order('issue_date',{ascending:false}).order('id',{ascending:false});
+    let qFallback = c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,reference,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order('issue_date',{ascending:false}).order('id',{ascending:false});
     if (!includeCancelled) {
       qFallback = qFallback.neq('status', 'CANCELLED');
     }
@@ -79,7 +79,6 @@ export async function cancelDraftQuotation(id: number, reason?: string): Promise
   const cid = await companyId();
   const { data: user } = await c.auth.getUser();
 
-  // Validate that quotation exists and is in DRAFT
   const { data: q, error: qe } = await c
     .from('quotation')
     .select('id,code,status,notes,measurement_id')
@@ -121,7 +120,6 @@ export async function cancelDraftQuotation(id: number, reason?: string): Promise
     throw new CoreRepositoryError(error.message);
   }
 
-  // If originating from a measurement, record activity on the measurement
   if (q.measurement_id) {
     try {
       await c.from('measurement_activity').insert({
