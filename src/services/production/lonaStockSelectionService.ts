@@ -7,6 +7,8 @@ import { listLonaStockCandidates, type LonaStockCandidate } from './lonaConfecti
  * A product characteristic coming from the OTD is not necessarily a stock
  * characteristic. An uncharacterized physical stock item is therefore a
  * valid fallback when no exact-characteristic material is available.
+ * Dimensional comparisons are performed using the units carried by the OTD
+ * and by each physical stock item.
  */
 export async function findLonaStockCandidates(input: {
   companyId: number;
@@ -14,6 +16,8 @@ export async function findLonaStockCandidates(input: {
   characteristicCode?: string | null;
   requiredLine: number;
   requiredOutput: number;
+  requiredLineUnit?: string | null;
+  requiredOutputUnit?: string | null;
 }): Promise<LonaStockCandidate[]> {
   const exact = input.characteristicCode
     ? await listLonaStockCandidates(input)
