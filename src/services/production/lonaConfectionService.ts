@@ -13,10 +13,10 @@ type OtdDimensionSnapshot={code?:string|null;name?:string|null;value?:unknown;un
 type OtdComponentSnapshot={product_id?:unknown;product_code?:unknown;product_name?:unknown;characteristic_name?:unknown;characteristic_code?:unknown;quantity?:unknown;dimension_list?:OtdDimensionSnapshot[];dimensions?:Record<string,unknown>};
 type OtdSnapshot={otd_code?:unknown;components?:OtdComponentSnapshot[];dimensions?:OtdDimensionSnapshot[]};
 type DimensionValue=OtdDimensionSnapshot;
-type StockRow={id:number;product_id:number;warehouse_stock_id:number;characteristic_id:number|null;quantity:number;dimension_values:unknown;status:string};
 type StockHeaderRow={id:number;warehouse_id:number};
 type CharacteristicRow={id:number;code:string|null};
 type WarehouseRow={id:number;code:string|null;name:string|null};
+type StockItemRow={id:number;product_id:number;warehouse_stock_id:number;characteristic_id:number|null;quantity:number;dimension_values:unknown;status:string};
 function client(){if(!supabase)throw new CoreRepositoryError('Supabase no está configurado.');return supabase}
 function numeric(value:unknown):number|null{const n=Number(value);return Number.isFinite(n)?n:null}
 function componentDimensions(component:OtdComponentSnapshot,snapshot:OtdSnapshot):DimensionValue[]{if(Array.isArray(component.dimension_list)&&component.dimension_list.length)return component.dimension_list;if(component.dimensions&&typeof component.dimensions==='object'){const entries=Object.entries(component.dimensions).map(([code,value])=>({code,value} as OtdDimensionSnapshot));if(entries.length)return entries}return Array.isArray(snapshot.dimensions)?snapshot.dimensions:[]}
@@ -30,24 +30,24 @@ export async function listLonaStockCandidates(input:{companyId:number;productId:
  const c=client();
  const {data:itemData,error:itemError}=await c.from('warehouse_stock_item').select('id,product_id,warehouse_stock_id,characteristic_id,quantity,dimension_values,status').eq('product_id',input.productId).gt('quantity',0).eq('status','AVAILABLE').order('created_at',{ascending:true}).limit(500);
  if(itemError)throw new CoreRepositoryError(itemError.message);
- const items=(itemData??[]) as unknown as StockRow[];
+ const items=(itemData??[]) as StockItemRow[];
  const stockIds=[...new Set(items.map(row=>Number(row.warehouse_stock_id)).filter(Number.isFinite))];
  const characteristicIds=[...new Set(items.map(row=>row.characteristic_id==null?null:Number(row.characteristic_id)).filter((id):id is number=>id!=null))];
  const [stocksResult,characteristicsResult]=await Promise.all([
-   stockIds.length?c.from('warehouse_stock').select('id,warehouse_id').in('id',stockIds):Promise.resolve({data:[],error:null} as any),
-   characteristicIds.length?c.from('product_characteristic').select('id,code').in('id',characteristicIds):Promise.resolve({data:[],error:null} as any),
+   stockIds.length?c.from('warehouse_stock').select('id,warehouse_id').in('id',stockIds):Promise.resolve({data:[],error:null}),
+   characteristicIds.length?c.from('product_characteristic').select('id,code').in('id',characteristicIds):Promise.resolve({data:[],error:null}),
  ]);
  if(stocksResult.error)throw new CoreRepositoryError(stocksResult.error.message);
  if(characteristicsResult.error)throw new CoreRepositoryError(characteristicsResult.error.message);
- const stockHeaders=(stocksResult.data??[]) as unknown as StockHeaderRow[];
- const characteristics=(characteristicsResult.data??[]) as unknown as CharacteristicRow[];
- const warehouseIds=[...new Set(stockHeaders.map(row=>Number(row.warehouse_id)).filter(Number.isFinite))];
- const warehousesResult=warehouseIds.length?await c.from('warehouse').select('id,code,name').in('id',warehouseIds):{data:[],error:null} as any;
+ const stocks=(stocksResult.data??[]) as StockHeaderRow[];
+ const characteristics=(characteristicsResult.data??[]) as CharacteristicRow[];
+ const warehouseIds=[...new Set(stocks.map(row=>Number(row.warehouse_id)).filter(Number.isFinite))];
+ const warehousesResult=warehouseIds.length?await c.from('warehouse').select('id,code,name').in('id',warehouseIds):{data:[],error:null};
  if(warehousesResult.error)throw new CoreRepositoryError(warehousesResult.error.message);
- const warehouses=(warehousesResult.data??[]) as unknown as WarehouseRow[];
- const stockById=new Map<number,StockHeaderRow>(stockHeaders.map(row=>[Number(row.id),row]));
- const characteristicById=new Map<number,CharacteristicRow>(characteristics.map(row=>[Number(row.id),row]));
- const warehouseById=new Map<number,WarehouseRow>(warehouses.map(row=>[Number(row.id),row]));
+ const warehouses=(warehousesResult.data??[]) as WarehouseRow[];
+ const stockById=new Map(stocks.map(row=>[Number(row.id),row]));
+ const characteristicById=new Map(characteristics.map(row=>[Number(row.id),row]));
+ const warehouseById=new Map(warehouses.map(row=>[Number(row.id),row]));
  const requestedCharacteristic=input.characteristicCode??null;
  const result:LonaStockCandidate[]=[];
  for(const row of items){
@@ -64,7 +64,8 @@ export async function listLonaStockCandidates(input:{companyId:number;productId:
    const remainder:[number,number]=[Math.max(0,dimensions[0]-cut[0]),Math.max(0,dimensions[1]-cut[1])];
    const waste=remainder[0]*remainder[1];
    const stock=stockById.get(Number(row.warehouse_stock_id));
-   const warehouse=stock?warehouseById.get(Number(stock.warehouse_id)):undefined;
+   if(!stock)continue;
+   const warehouse=warehouseById.get(Number(stock.warehouse_id));
    if(!warehouse)continue;
    result.push({stockItemId:Number(row.id),warehouseId:Number(stock.warehouse_id),warehouseCode:warehouse.code??'—',warehouseName:warehouse.name??'—',productId:Number(row.product_id),characteristicId,characteristicCode,quantity:Number(row.quantity||0),sourceDimensions:dimensions,cutDimensions:cut,remainderDimensions:remainder,rotated:useRotated,score:(useRotated?100000:0)+waste,reason:useRotated?'Material compatible girando la pieza.':'Material compatible en la orientación original.'});
  }
