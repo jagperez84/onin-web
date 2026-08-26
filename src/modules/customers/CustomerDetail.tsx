@@ -1,0 +1,811 @@
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Mail,
+  MapPin,
+  Pencil,
+  Plus,
+  Trash2,
+  Undo2,
+  UserRound,
+} from "lucide-react";
+import {
+  getCustomerDetails,
+  updateCustomer,
+  deleteCustomer,
+  restoreCustomer,
+  createAddress,
+  deleteAddress,
+  updateAddress,
+  createContact,
+  deleteContact,
+  updateContact,
+} from "../../services/core/customerRepository";
+import type { Address, Contact, Party } from "../../domain/core/types";
+import type {
+  AddressForm,
+  ContactForm,
+  CustomerForm,
+  CustomerDetails,
+} from "./types";
+import {
+  validateEmail,
+  validatePhone,
+  validateSpanishTaxId,
+} from "./validation";
+import { AddressLookup } from "./AddressLookup";
+import { COUNTRY_OPTIONS, getCountryName } from "./addressUtils";
+import { CustomerCommercialSection } from "./CustomerCommercialSection";
+import { MessageLog } from "../../components/ui/MessageLog";
+import { ProfileSaveBar } from "../../components/ui/ProfileSaveBar";
+import "./customer-detail.css";
+
+const emptyAddress: AddressForm = {
+  address_type: "FISCAL",
+  street: "",
+  postal_code: "",
+  city: "",
+  region: "",
+  country_code: "ES",
+};
+const emptyContact: ContactForm = {
+  first_name: "",
+  last_name: "",
+  job_title: "",
+  department: "",
+  phone: "",
+  mobile: "",
+  email: "",
+  notes: "",
+  active: true,
+};
+
+type SectionErrorHandler = { onError: (message: string) => void };
+
+export function CustomerDetail() {
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const [data, setData] = useState<CustomerDetails | null>(null);
+  const [form, setForm] = useState<CustomerForm>({
+    legal_name: "",
+    trade_name: "",
+    tax_id: "",
+    email: "",
+    phone: "",
+    active: true,
+    notes: "",
+  });
+  const [editing, setEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const messageLogRef = useRef<HTMLDivElement | null>(null);
+
+  const reportError = (value: string) => {
+    setMessage("");
+    setError(value);
+  };
+  async function load() {
+    if (!id) return;
+    setLoading(true);
+    setError("");
+    try {
+      const d = await getCustomerDetails(Number(id));
+      setData(d);
+      setForm({
+        legal_name: d.party.legal_name,
+        trade_name: d.party.trade_name ?? "",
+        tax_id: d.party.tax_id ?? "",
+        email: d.party.email ?? "",
+        phone: d.party.phone ?? "",
+        active: d.party.active,
+        notes: "",
+      });
+    } catch (e) {
+      reportError(
+        e instanceof Error ? e.message : "No se pudo cargar el cliente.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    load();
+  }, [id]);
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    const errors = [
+      validateSpanishTaxId(form.tax_id),
+      validateEmail(form.email),
+      validatePhone(form.phone),
+    ].filter(Boolean) as string[];
+    if (!form.legal_name.trim())
+      errors.unshift("La razón social es obligatoria.");
+    if (errors.length) {
+      reportError(errors[0]);
+      return;
+    }
+    if (!id) return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await updateCustomer(Number(id), form);
+      setEditing(false);
+      setMessage("Cliente guardado correctamente.");
+      await load();
+    } catch (e) {
+      reportError(e instanceof Error ? e.message : "No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function markDeleted() {
+    if (!id) return;
+    if (
+      !window.confirm(
+        `¿Marcar el cliente ${data?.party.trade_name || data?.party.legal_name} para borrado? No se eliminará físicamente y podrá recuperarse.`,
+      )
+    )
+      return;
+    try {
+      await deleteCustomer(Number(id));
+      setMessage("Cliente marcado para borrado.");
+      setEditing(false);
+      await load();
+    } catch (e) {
+      reportError(
+        e instanceof Error
+          ? e.message
+          : "No se pudo marcar el cliente para borrado.",
+      );
+    }
+  }
+  async function restore() {
+    if (!id) return;
+    try {
+      await restoreCustomer(Number(id));
+      setMessage("Cliente recuperado correctamente.");
+      await load();
+    } catch (e) {
+      reportError(
+        e instanceof Error ? e.message : "No se pudo recuperar el cliente.",
+      );
+    }
+  }
+  if (loading) return <div className="loading-block">Cargando cliente…</div>;
+  if (!data) return <div className="inline-error">Cliente no encontrado.</div>;
+  const deleted = !!data.customer.deleted_at;
+  const saveProfile = () => {
+    const formElement = document.getElementById(
+      "customer-profile-form",
+    ) as HTMLFormElement | null;
+    formElement?.requestSubmit();
+  };
+  return (
+    <div className="module-page">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">VENTAS / CLIENTES / {data.customer.id}</div>
+          <h1>Cliente {data.customer.id}</h1>
+          <p>{data.party.trade_name || data.party.legal_name}</p>
+        </div>
+        <div className="actions">
+          <Link className="secondary-button" to="/ventas/clientes">
+            ← Volver al listado
+          </Link>
+          {!deleted && !editing && (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => setEditing(true)}
+            >
+              <Pencil size={15} /> Editar
+            </button>
+          )}
+          {editing && deleted && (
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={restore}
+            >
+              <Undo2 size={15} /> Recuperar
+            </button>
+          )}
+          {!deleted && !editing && (
+            <button
+              className="danger-button"
+              type="button"
+              onClick={markDeleted}
+            >
+              <Trash2 size={15} /> Marcar para borrado
+            </button>
+          )}
+        </div>
+      </div>
+      <nav
+        className="customer-section-nav"
+        aria-label="Navegación rápida del cliente"
+      >
+        <a className="primary" href="#datos-generales">
+          Datos generales
+        </a>
+        <a href="#direcciones">Direcciones</a>
+        <a href="#contactos">Contactos</a>
+        <a href="#descuentos">Descuentos</a>
+      </nav>
+      <MessageLog ref={messageLogRef} error={error} success={message} />
+      <form
+        id="customer-profile-form"
+        onSubmit={onSubmit}
+        className="detail-grid"
+      >
+        <section id="datos-generales" className="panel customer-detail-anchor">
+          <div className="panel-head">
+            <div>
+              <h2>Datos generales</h2>
+              <p>
+                {deleted
+                  ? "Registro marcado para borrado."
+                  : "Consulta de datos del cliente."}
+              </p>
+            </div>
+            <span
+              className={`status ${deleted ? "inactive" : data.party.active ? "active" : "inactive"}`}
+            >
+              {deleted
+                ? "Marcado para borrado"
+                : data.party.active
+                  ? "Activo"
+                  : "Inactivo"}
+            </span>
+          </div>
+          <div className="form-grid">
+            <label>
+              ID cliente
+              <input value={data.customer.id} readOnly />
+            </label>
+            <label>
+              Razón social *
+              <input
+                readOnly={!editing || deleted}
+                value={form.legal_name}
+                onChange={(e) =>
+                  setForm({ ...form, legal_name: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Nombre comercial
+              <input
+                readOnly={!editing || deleted}
+                value={form.trade_name}
+                onChange={(e) =>
+                  setForm({ ...form, trade_name: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              CIF/NIF *
+              <input
+                readOnly={!editing || deleted}
+                value={form.tax_id}
+                maxLength={32}
+                onChange={(e) =>
+                  setForm({ ...form, tax_id: e.target.value.toUpperCase() })
+                }
+              />
+            </label>
+            <label>
+              Email
+              <input
+                readOnly={!editing || deleted}
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </label>
+            <label>
+              Teléfono
+              <input
+                readOnly={!editing || deleted}
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </label>
+            <label>
+              Estado
+              <select
+                disabled={!editing || deleted}
+                value={form.active ? "1" : "0"}
+                onChange={(e) =>
+                  setForm({ ...form, active: e.target.value === "1" })
+                }
+              >
+                <option value="1">Activo</option>
+                <option value="0">Inactivo</option>
+              </select>
+            </label>
+          </div>
+          {editing && !deleted && (
+            <div className="actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setEditing(false);
+                  setError("");
+                  setMessage("");
+                  load();
+                }}
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+        </section>
+        <AddressSection
+          id="direcciones"
+          party={data.party}
+          addresses={data.addresses}
+          reload={load}
+          editable={editing && !deleted}
+          onError={reportError}
+        />
+        <ContactSection
+          id="contactos"
+          party={data.party}
+          contacts={data.contacts}
+          reload={load}
+          editable={editing && !deleted}
+          onError={reportError}
+        />
+        <CustomerCommercialSection
+          id="descuentos"
+          companyId={data.party.company_id}
+          customerPartyId={data.party.id}
+          editable={editing && !deleted}
+        />
+      </form>
+      {editing && !deleted && (
+        <ProfileSaveBar onSave={saveProfile} saving={saving} />
+      )}
+    </div>
+  );
+}
+
+function AddressSection({
+  id,
+  party,
+  addresses,
+  reload,
+  editable,
+  onError,
+}: {
+  id: string;
+  party: Party;
+  addresses: Address[];
+  reload: () => Promise<void>;
+  editable: boolean;
+  onError: (message: string) => void;
+}) {
+  const [form, setForm] = useState<AddressForm>(emptyAddress);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  async function save() {
+    if (!form.street.trim() && !form.city.trim()) {
+      const message = "Introduce al menos la dirección o la localidad.";
+      setError(message);
+      onError(message);
+      return;
+    }
+    setError("");
+    try {
+      if (editing !== null) await updateAddress(editing, form);
+      else await createAddress(party.id, form);
+      setEditing(null);
+      setOpen(false);
+      setForm(emptyAddress);
+      await reload();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "No se pudo guardar la dirección.";
+      setError(message);
+      onError(message);
+    }
+  }
+  async function remove(addressId: number) {
+    if (!window.confirm("¿Eliminar esta dirección?")) return;
+    try {
+      await deleteAddress(addressId);
+      await reload();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "No se pudo eliminar la dirección.";
+      setError(message);
+      onError(message);
+    }
+  }
+  const countryOptions = COUNTRY_OPTIONS.some(
+    ([code]) => code === form.country_code,
+  )
+    ? COUNTRY_OPTIONS
+    : [
+        [form.country_code, getCountryName(form.country_code)],
+        ...COUNTRY_OPTIONS,
+      ];
+  return (
+    <section id={id} className="panel customer-detail-anchor">
+      <div className="panel-head">
+        <div>
+          <h2>Direcciones</h2>
+          <p>Fiscal, facturación e instalación.</p>
+        </div>
+        {editable && (
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setForm(emptyAddress);
+              setError("");
+              setOpen(true);
+            }}
+          >
+            <Plus size={15} /> Añadir
+          </button>
+        )}
+      </div>
+      {error && <div className="inline-error">{error}</div>}
+      <div className="nested-list">
+        {addresses.length === 0 ? (
+          <div className="empty-substate">
+            <MapPin size={22} />
+            No hay direcciones.
+          </div>
+        ) : (
+          addresses.map((a) => (
+            <div className="nested-item" key={a.id}>
+              <div>
+                <strong>{a.address_type}</strong>
+                <span>
+                  {[a.street, a.postal_code, a.city, a.region]
+                    .filter(Boolean)
+                    .join(", ") || "Sin detalle"}
+                </span>
+              </div>
+              {editable && (
+                <div className="item-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(a.id);
+                      setForm({
+                        address_type: a.address_type,
+                        street: a.street ?? "",
+                        postal_code: a.postal_code ?? "",
+                        city: a.city ?? "",
+                        region: a.region ?? "",
+                        country_code: a.country_code ?? "ES",
+                      });
+                      setError("");
+                      setOpen(true);
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button type="button" onClick={() => remove(a.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      {open && (
+        <div className="subform">
+          <div className="form-grid address-editor-grid">
+            <AddressLookup value={form} onChange={setForm} />
+            <label>
+              Tipo
+              <select
+                value={form.address_type}
+                onChange={(e) =>
+                  setForm({ ...form, address_type: e.target.value })
+                }
+              >
+                <option value="FISCAL">Fiscal</option>
+                <option value="FACTURACION">Facturación</option>
+                <option value="ALTERNATIVA">Alternativa</option>
+                <option value="INSTALACION">Instalación</option>
+              </select>
+            </label>
+            <label>
+              País
+              <select
+                value={form.country_code}
+                onChange={(e) =>
+                  setForm({ ...form, country_code: e.target.value })
+                }
+              >
+                {countryOptions.map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="wide">
+              Dirección
+              <input
+                value={form.street}
+                onChange={(e) => setForm({ ...form, street: e.target.value })}
+              />
+            </label>
+            <label>
+              Código postal
+              <input
+                value={form.postal_code}
+                onChange={(e) =>
+                  setForm({ ...form, postal_code: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Localidad
+              <input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+              />
+            </label>
+            <label className="wide">
+              Provincia
+              <input
+                value={form.region}
+                onChange={(e) => setForm({ ...form, region: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setOpen(false)}
+            >
+              Cancelar
+            </button>
+            <button type="button" className="primary-button" onClick={save}>
+              Guardar dirección
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ContactSection({
+  id,
+  party,
+  contacts,
+  reload,
+  editable,
+  onError,
+}: {
+  id: string;
+  party: Party;
+  contacts: Contact[];
+  reload: () => Promise<void>;
+  editable: boolean;
+  onError: (message: string) => void;
+}) {
+  const [form, setForm] = useState<ContactForm>(emptyContact);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  async function save() {
+    const ee = validateEmail(form.email);
+    const pe = validatePhone(form.phone);
+    if (ee || pe) {
+      const message = ee || pe || "Datos del contacto no válidos.";
+      setError(message);
+      onError(message);
+      return;
+    }
+    setError("");
+    try {
+      if (editing !== null) await updateContact(editing, form);
+      else await createContact(party.id, form);
+      setEditing(null);
+      setOpen(false);
+      setForm(emptyContact);
+      await reload();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "No se pudo guardar el contacto";
+      setError(message);
+      onError(message);
+    }
+  }
+  async function remove(contactId: number) {
+    if (!window.confirm("¿Eliminar este contacto?")) return;
+    try {
+      await deleteContact(contactId);
+      await reload();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "No se pudo eliminar el contacto";
+      setError(message);
+      onError(message);
+    }
+  }
+  return (
+    <section id={id} className="panel customer-detail-anchor">
+      <div className="panel-head">
+        <div>
+          <h2>Contactos</h2>
+          <p>Personas de contacto del cliente.</p>
+        </div>
+        {editable && (
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setForm(emptyContact);
+              setError("");
+              setOpen(true);
+            }}
+          >
+            <Plus size={15} /> Añadir
+          </button>
+        )}
+      </div>
+      {error && <div className="inline-error">{error}</div>}
+      <div className="nested-list">
+        {contacts.length === 0 ? (
+          <div className="empty-substate">
+            <UserRound size={22} />
+            No hay contactos.
+          </div>
+        ) : (
+          contacts.map((c) => (
+            <div className="nested-item" key={c.id}>
+              <div>
+                <strong>
+                  {[c.first_name, c.last_name].filter(Boolean).join(" ") ||
+                    "Sin nombre"}
+                </strong>
+                <span>
+                  {[c.department, c.job_title, c.phone, c.email]
+                    .filter(Boolean)
+                    .join(" · ") || "Sin información"}
+                </span>
+              </div>
+              {editable && (
+                <div className="item-actions">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditing(c.id);
+                      setForm({
+                        first_name: c.first_name ?? "",
+                        last_name: c.last_name ?? "",
+                        job_title: c.job_title ?? "",
+                        department: c.department ?? "",
+                        phone: c.phone ?? "",
+                        mobile: c.mobile ?? "",
+                        email: c.email ?? "",
+                        notes: c.notes ?? "",
+                        active: c.active,
+                      });
+                      setError("");
+                      setOpen(true);
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button type="button" onClick={() => remove(c.id)}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+      {open && (
+        <div className="subform">
+          <div className="form-grid">
+            <label>
+              Nombre
+              <input
+                value={form.first_name}
+                onChange={(e) =>
+                  setForm({ ...form, first_name: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Apellidos
+              <input
+                value={form.last_name}
+                onChange={(e) =>
+                  setForm({ ...form, last_name: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Cargo
+              <input
+                value={form.job_title}
+                onChange={(e) =>
+                  setForm({ ...form, job_title: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Departamento
+              <input
+                value={form.department}
+                onChange={(e) =>
+                  setForm({ ...form, department: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Teléfono
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </label>
+            <label>
+              Móvil
+              <input
+                type="tel"
+                value={form.mobile}
+                onChange={(e) => setForm({ ...form, mobile: e.target.value })}
+              />
+            </label>
+            <label className="wide">
+              Email
+              <div className="input-with-icon">
+                <Mail size={15} />
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+            </label>
+            <label className="wide">
+              Observaciones
+              <textarea
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setOpen(false)}
+            >
+              Cancelar
+            </button>
+            <button type="button" className="primary-button" onClick={save}>
+              Guardar contacto
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

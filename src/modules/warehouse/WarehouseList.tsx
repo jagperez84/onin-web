@@ -1,0 +1,420 @@
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Edit3,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+  Undo2,
+} from "lucide-react";
+import { getActiveCompanies } from "../../services/core/coreRepository";
+import {
+  createWarehouse,
+  getWarehouse,
+  listWarehouses,
+  markWarehouseForDeletion,
+  restoreWarehouse,
+  updateWarehouse,
+  type Warehouse,
+  type WarehouseForm,
+  type WarehouseStatus,
+} from "../../services/warehouse/warehouseRepository";
+import "./warehouse.css";
+
+const emptyForm = (): WarehouseForm => ({
+  code: "",
+  name: "",
+  description: "",
+  active: true,
+});
+const isDeleted = (w: Warehouse) => !!w.deleted_at;
+
+export function WarehouseList() {
+  const navigate = useNavigate();
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [rows, setRows] = useState<Warehouse[]>([]);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<WarehouseStatus>("active");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    getActiveCompanies()
+      .then((c) => setCompanyId(c[0]?.id ?? null))
+      .catch((e) =>
+        setError(
+          e instanceof Error ? e.message : "No se pudo cargar la empresa.",
+        ),
+      );
+  }, []);
+  async function load() {
+    if (companyId === null) return;
+    setLoading(true);
+    setError("");
+    try {
+      setRows(await listWarehouses(companyId, search, status));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar almacenes.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    void load();
+  }, [companyId, status]);
+  return (
+    <div className="warehouse-page">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">ALMACÉN</div>
+          <h1>Almacenes</h1>
+          <p>
+            Maestro de almacenes disponible para la futura gestión de
+            existencias.
+          </p>
+        </div>
+        <button
+          className="btn primary"
+          onClick={() => navigate("/almacen/almacenes/nuevo")}
+        >
+          <Plus size={16} />
+          Nuevo almacén
+        </button>
+      </div>
+      <div className="toolbar">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void load();
+          }}
+          placeholder="Buscar por código o nombre..."
+          autoFocus
+        />
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as WarehouseStatus)}
+        >
+          <option value="active">Activos</option>
+          <option value="inactive">Inactivos</option>
+          <option value="deleted">Marcados para borrado</option>
+          <option value="all">Todos</option>
+        </select>
+        <button className="btn" onClick={() => void load()}>
+          Buscar
+        </button>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <div className="panel">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Descripción</th>
+                <th>Estado</th>
+                <th className="actions-col"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5}>Cargando...</td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>No hay almacenes.</td>
+                </tr>
+              ) : (
+                rows.map((w) => (
+                  <tr key={w.id} className={isDeleted(w) ? "row-deleted" : ""}>
+                    <td>
+                      <Link to={`/almacen/almacenes/${w.id}`}>{w.code}</Link>
+                    </td>
+                    <td>{w.name}</td>
+                    <td>{w.description || "—"}</td>
+                    <td>
+                      <span
+                        className={`status-pill ${isDeleted(w) ? "deleted" : w.active ? "active" : "inactive"}`}
+                      >
+                        {isDeleted(w)
+                          ? "Marcado para borrado"
+                          : w.active
+                            ? "Activo"
+                            : "Inactivo"}
+                      </span>
+                    </td>
+                    <td className="actions-col">
+                      <Link
+                        className="icon-btn"
+                        title="Consultar"
+                        to={`/almacen/almacenes/${w.id}`}
+                      >
+                        <Edit3 size={15} />
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function WarehouseDetail() {
+  const { id } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isNew = id === "nuevo" || location.pathname.endsWith("/nuevo");
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [data, setData] = useState<Warehouse | null>(null);
+  const [form, setForm] = useState<WarehouseForm>(emptyForm());
+  const [editing, setEditing] = useState(isNew);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    getActiveCompanies()
+      .then((c) => setCompanyId(c[0]?.id ?? null))
+      .catch((e) =>
+        setError(
+          e instanceof Error ? e.message : "No se pudo cargar la empresa.",
+        ),
+      );
+  }, []);
+  useEffect(() => {
+    if (isNew || companyId === null) {
+      setLoading(false);
+      return;
+    }
+    if (!id || !/^[0-9]+$/.test(id)) {
+      setLoading(false);
+      setError("Identificador de almacén no válido.");
+      return;
+    }
+    getWarehouse(companyId, Number(id))
+      .then((w) => {
+        setData(w);
+        setForm({
+          code: w.code,
+          name: w.name,
+          description: w.description,
+          active: w.active,
+        });
+      })
+      .catch((e) =>
+        setError(
+          e instanceof Error ? e.message : "No se pudo cargar el almacén.",
+        ),
+      )
+      .finally(() => setLoading(false));
+  }, [companyId, id, isNew]);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (companyId === null) return;
+    setSaving(true);
+    setError("");
+    try {
+      if (isNew) {
+        const newId = await createWarehouse(companyId, form);
+        navigate(`/almacen/almacenes/${newId}`, { replace: true });
+      } else {
+        if (!id) return;
+        await updateWarehouse(companyId, Number(id), form);
+        setData(await getWarehouse(companyId, Number(id)));
+        setEditing(false);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function markDelete() {
+    if (!data || companyId === null || !editing) return;
+    if (
+      !confirm(
+        "El almacén se marcará para borrado lógico. No se eliminará físicamente. ¿Continuar?",
+      )
+    )
+      return;
+    try {
+      await markWarehouseForDeletion(companyId, data.id);
+      setData(await getWarehouse(companyId, data.id));
+      setEditing(false);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "No se pudo marcar para borrado.",
+      );
+    }
+  }
+  async function restore() {
+    if (!data || companyId === null || !editing) return;
+    if (!confirm("¿Recuperar el almacén?")) return;
+    try {
+      await restoreWarehouse(companyId, data.id);
+      setData(await getWarehouse(companyId, data.id));
+      setForm((f) => ({ ...f, active: true }));
+      setEditing(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo recuperar.");
+    }
+  }
+  if (loading)
+    return (
+      <div className="warehouse-page">
+        <div className="panel">Cargando...</div>
+      </div>
+    );
+  const deleted = !!data?.deleted_at;
+  return (
+    <div className="warehouse-page">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">ALMACÉN</div>
+          <h1>{isNew ? "Nuevo almacén" : data?.name || "Almacén"}</h1>
+          <p>
+            {isNew
+              ? "Alta de un nuevo almacén."
+              : deleted
+                ? "Almacén marcado para borrado lógico."
+                : editing
+                  ? "Edición del almacén."
+                  : "Consulta del almacén."}
+          </p>
+        </div>
+        <div className="page-actions">
+          <button
+            className="btn"
+            onClick={() => navigate("/almacen/almacenes")}
+          >
+            <ArrowLeft size={16} />
+            Volver
+          </button>
+          {!isNew && !editing && (
+            <button className="btn primary" onClick={() => setEditing(true)}>
+              <Edit3 size={16} />
+              Editar
+            </button>
+          )}
+        </div>
+      </div>
+      {error && <div className="error-box">{error}</div>}
+      <form className="panel warehouse-form" onSubmit={submit}>
+        <div className="form-grid">
+          <label>
+            <span>Código</span>
+            <input
+              className={!editing ? "readonly-field" : ""}
+              value={form.code}
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              disabled={!editing}
+              required
+              maxLength={30}
+            />
+          </label>
+          <label>
+            <span>Nombre</span>
+            <input
+              className={!editing ? "readonly-field" : ""}
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              disabled={!editing}
+              required
+              maxLength={120}
+            />
+          </label>
+          <label className="field-wide">
+            <span>Descripción</span>
+            <input
+              className={!editing ? "readonly-field" : ""}
+              value={form.description || ""}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
+              disabled={!editing}
+              maxLength={255}
+            />
+          </label>
+          <label>
+            <span>Estado</span>
+            <select
+              className={!editing ? "readonly-field" : ""}
+              value={form.active ? "active" : "inactive"}
+              onChange={(e) =>
+                setForm({ ...form, active: e.target.value === "active" })
+              }
+              disabled={!editing || deleted}
+            >
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+            </select>
+          </label>
+        </div>
+        <div className="form-footer">
+          <div>
+            {!isNew &&
+              editing &&
+              (deleted ? (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={restore}
+                >
+                  <RotateCcw size={15} />
+                  Recuperar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={markDelete}
+                >
+                  <Trash2 size={15} />
+                  Marcar para borrado
+                </button>
+              ))}
+          </div>
+          <div className="page-actions">
+            {editing && (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() =>
+                  isNew
+                    ? navigate("/almacen/almacenes")
+                    : (setEditing(false),
+                      data &&
+                        setForm({
+                          code: data.code,
+                          name: data.name,
+                          description: data.description,
+                          active: data.active,
+                        }))
+                }
+              >
+                <Undo2 size={15} />
+                Cancelar
+              </button>
+            )}
+            {editing && (
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={saving}
+              >
+                <Save size={15} />
+                Guardar
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}

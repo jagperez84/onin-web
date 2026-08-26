@@ -1,0 +1,3 @@
+import { supabase } from '../../lib/supabase';
+export type AddressLookupResult={display_name:string;lat:string;lon:string;address?:{road?:string;house_number?:string;postcode?:string;city?:string;town?:string;village?:string;municipality?:string;county?:string;state_district?:string;province?:string;state?:string;country_code?:string;country?:string}};
+export async function searchAddress(query:string):Promise<AddressLookupResult[]>{const term=query.trim();if(term.length<4)return[];if(!supabase)throw new Error('Supabase no está configurado.');const {data,error}=await supabase.functions.invoke('address-lookup',{body:{q:term}});if(error)throw new Error(`No se pudo consultar OpenStreetMap: ${error.message}`);return (data??[]) as AddressLookupResult[];}
