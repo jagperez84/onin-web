@@ -128,12 +128,12 @@ export function LonaConfectionModal({ line, companyId, reference, onClose }: Pro
 
             <div className="lona-content">
               {displayResult.components.map((component, index) => {
-                const width = component.line;
-                const height = component.output;
+                const manual = getManual(index, component);
+                const width = mode === 'manual' ? (manual.line === '' ? null : Number(manual.line)) : component.line;
+                const height = mode === 'manual' ? (manual.output === '' ? null : Number(manual.output)) : component.output;
                 const ratio = width && height ? width / height : 1;
                 const visualWidth = ratio >= 1 ? 360 : Math.max(140, 360 * ratio);
                 const visualHeight = ratio >= 1 ? Math.max(100, 360 / ratio) : 260;
-                const manual = getManual(index, component);
                 return (
                   <section className="lona-cut-card" key={`${component.productId}-${index}`}>
                     <div className="lona-cut-info">
@@ -164,7 +164,7 @@ export function LonaConfectionModal({ line, companyId, reference, onClose }: Pro
                     </div>
                     <div className="lona-diagram-wrap">
                       <div className="lona-diagram-label"><Ruler size={13} /> {mode === 'visual' ? 'Vista previa dimensional' : 'Previsualización manual'}</div>
-                      {width && height ? (
+                      {width && height && Number.isFinite(width) && Number.isFinite(height) ? (
                         <div className="lona-diagram-stage">
                           <div className="lona-diagram-piece" style={{ width: visualWidth, height: visualHeight }}>
                             <span>{width} {component.lineUnit || ''}</span>
