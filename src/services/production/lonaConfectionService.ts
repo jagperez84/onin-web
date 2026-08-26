@@ -13,6 +13,8 @@ export type LonaConfectionComponent = {
   output: number | null;
   lineUnit: string | null;
   outputUnit: string | null;
+  lineDimensionCode: string | null;
+  outputDimensionCode: string | null;
   sourceComponent: OtdComponentSnapshot;
   productConfiguration: MasterProductConfiguration;
 };
@@ -78,8 +80,6 @@ function componentDimensions(component: OtdComponentSnapshot, snapshot: OtdSnaps
 
 function resolveDimensionUnit(dimension: DimensionValue | undefined, configuration: MasterProductConfiguration): string | null {
   if (!dimension) return null;
-
-  // The OTD snapshot is authoritative when it already contains the dimension unit.
   if (dimension.unit_symbol) return dimension.unit_symbol;
   if (dimension.unit_code) return dimension.unit_code;
   if (dimension.unit_id != null) {
@@ -87,10 +87,7 @@ function resolveDimensionUnit(dimension: DimensionValue | undefined, configurati
     if (unit) return unit.code || unit.name;
   }
 
-  // If the snapshot only contains the dimension value, resolve the unit from the
-  // measurement type of the component article. This deliberately does NOT use
-  // the article base unit: dimensions have their own measurement units.
-  const dimensionDefinition = configuration.dimensions.find((candidate) =>
+  const dimensionDefinition = configuration.dimensions.find(candidate =>
     (dimension.code && candidate.code === dimension.code) ||
     (dimension.name && candidate.name === dimension.name)
   );
@@ -102,22 +99,39 @@ function resolveDimensionUnit(dimension: DimensionValue | undefined, configurati
   return null;
 }
 
+function dimensionText(dimension: DimensionValue | undefined): string {
+  return `${dimension?.code ?? ''} ${dimension?.name ?? ''}`.trim().toLowerCase();
+}
+
+function resolveCutDimensions(dimensions: DimensionValue[]): { line: DimensionValue | undefined; output: DimensionValue | undefined } {
+  if (dimensions.length < 2) return { line: dimensions[0], output: undefined };
+
+  // Prefer semantic names when the OTD defines them. This keeps the process
+  // dynamic while preserving the existing dimension order as the fallback.
+  const lineIndex = dimensions.findIndex(d => /(^|\b)(linea|línea|ancho|width)(\b|$)/i.test(dimensionText(d)));
+  const outputIndex = dimensions.findIndex(d => /(^|\b)(salida|alto|altura|height)(\b|$)/i.test(dimensionText(d)));
+
+  if (lineIndex >= 0 && outputIndex >= 0 && lineIndex !== outputIndex) {
+    return { line: dimensions[lineIndex], output: dimensions[outputIndex] };
+  }
+
+  return { line: dimensions[0], output: dimensions[1] };
+}
+
 function getGeometry(component: LonaConfectionComponent): LonaCutGeometry | null {
-  const list = Array.isArray(component.sourceComponent.dimension_list)
+  const dimensions = component.sourceComponent.dimension_list?.length
     ? component.sourceComponent.dimension_list
     : Object.entries(component.sourceComponent.dimensions ?? {}).map(([code, value]) => ({ code, value } as OtdDimensionSnapshot));
-
-  const first = list[0];
-  const second = list[1];
-  const width = numeric(first?.value);
-  const height = numeric(second?.value);
+  const { line, output } = resolveCutDimensions(dimensions);
+  const width = numeric(line?.value);
+  const height = numeric(output?.value);
   if (width == null || height == null || width <= 0 || height <= 0) return null;
 
   return {
     width,
     height,
-    widthLabel: `${first?.code ?? 'Dimensión 1'}${component.lineUnit ? ` (${component.lineUnit})` : ''}`,
-    heightLabel: `${second?.code ?? 'Dimensión 2'}${component.outputUnit ? ` (${component.outputUnit})` : ''}`,
+    widthLabel: `${line?.code ?? line?.name ?? 'Línea'}${component.lineUnit ? ` (${component.lineUnit})` : ''}`,
+    heightLabel: `${output?.code ?? output?.name ?? 'Salida'}${component.outputUnit ? ` (${component.outputUnit})` : ''}`,
   };
 }
 
@@ -138,30 +152,30 @@ export async function resolveLonaConfectionComponents(input: {
     .map((component, index) => ({ component, index }))
     .filter(({ component }) => Number(component.product_id) > 0);
 
-  const resolved: LonaConfectionComponent[] = [];
-  for (const { component, index } of candidates) {
+  const resolved = (await Promise.all(candidates.map(async ({ component, index }) => {
     const productId = Number(component.product_id);
     const configuration = await loadMasterProductConfiguration(productId, input.companyId);
-    if (!configuration.family?.confectionable) continue;
+    if (!configuration.family?.confectionable) return null;
 
     const dimensions = componentDimensions(component, snapshot);
-    const first = dimensions[0];
-    const second = dimensions[1];
-    resolved.push({
+    const { line, output } = resolveCutDimensions(dimensions);
+    return {
       index,
       productId,
       productCode: String(component.product_code ?? configuration.product.code ?? ''),
       productName: String(component.product_name ?? configuration.product.commercial_description ?? configuration.product.technical_description ?? ''),
       characteristicName: component.characteristic_name ? String(component.characteristic_name) : null,
       quantity: numeric(component.quantity) ?? 0,
-      line: numeric(first?.value),
-      output: numeric(second?.value),
-      lineUnit: resolveDimensionUnit(first, configuration),
-      outputUnit: resolveDimensionUnit(second, configuration),
+      line: numeric(line?.value),
+      output: numeric(output?.value),
+      lineUnit: resolveDimensionUnit(line, configuration),
+      outputUnit: resolveDimensionUnit(output, configuration),
+      lineDimensionCode: line?.code ?? null,
+      outputDimensionCode: output?.code ?? null,
       sourceComponent: component,
       productConfiguration: configuration,
-    });
-  }
+    } satisfies LonaConfectionComponent;
+  }))).filter((component): component is LonaConfectionComponent => component !== null);
 
   if (resolved.length === 0) {
     throw new CoreRepositoryError('La línea de pedido no contiene componentes confeccionables.');
