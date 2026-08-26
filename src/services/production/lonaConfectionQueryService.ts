@@ -1,0 +1,21 @@
+import { supabase } from '../../lib/supabase';
+import { CoreRepositoryError } from '../core/coreRepository';
+import { getLonaConfectionWorkSheet, type LonaConfectionWorkSheet } from './lonaConfectionService';
+
+export async function getLonaConfectionWorkSheetBySalesOrderLine(orderLineId: number): Promise<LonaConfectionWorkSheet | null> {
+  if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+
+  const { data, error } = await supabase
+    .from('production_work_sheet')
+    .select('id')
+    .eq('sales_order_line_id', orderLineId)
+    .eq('document_type', 'LONA_CONFECTION')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new CoreRepositoryError(error.message);
+  if (!data) return null;
+
+  return getLonaConfectionWorkSheet(Number(data.id));
+}
