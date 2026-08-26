@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { ClipboardCheck, FileText, X } from 'lucide-react';
+import { ClipboardCheck, X } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
-import { downloadLonaConfectionPdf } from '../../services/production/lonaConfectionPdfService';
 import './lona-confection.css';
 
 type Props = { line:any; reference?:string; onClose:()=>void };
@@ -85,7 +84,6 @@ export function LonaConfectionViewModal({line,reference,onClose}:Props){
         </div>
 
         <footer className="lona-modal-actions">
-          <button type="button" className="secondary-button" onClick={()=>void downloadLonaConfectionPdf({reference:reference||null,otdCode:null,components:[]} as any)}><FileText size={15}/> Informe</button>
           <button type="button" className="primary-button" onClick={onClose}>Cerrar</button>
         </footer>
       </>}
