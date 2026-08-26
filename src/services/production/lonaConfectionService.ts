@@ -67,7 +67,7 @@ function componentDimensions(component: OtdComponentSnapshot, snapshot: OtdSnaps
   if (list.length) return list;
 
   const entries = component.dimensions && typeof component.dimensions === 'object'
-    ? Object.entries(component.dimensions).map(([code, value]) => ({ code, value }))
+    ? Object.entries(component.dimensions).map(([code, value]) => ({ code, value } as OtdDimensionSnapshot))
     : [];
   if (entries.length) return entries;
 
@@ -77,7 +77,7 @@ function componentDimensions(component: OtdComponentSnapshot, snapshot: OtdSnaps
 function getGeometry(component: LonaConfectionComponent): LonaCutGeometry | null {
   const list = Array.isArray(component.sourceComponent.dimension_list)
     ? component.sourceComponent.dimension_list
-    : Object.entries(component.sourceComponent.dimensions ?? {}).map(([code, value]) => ({ code, value }));
+    : Object.entries(component.sourceComponent.dimensions ?? {}).map(([code, value]) => ({ code, value } as OtdDimensionSnapshot));
 
   const first = list[0];
   const second = list[1];
