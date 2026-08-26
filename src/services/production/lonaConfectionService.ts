@@ -34,7 +34,9 @@ export type LonaConfectionResult = {
 
 type OtdDimensionSnapshot = {
   code?: string | null;
+  name?: string | null;
   value?: unknown;
+  unit_id?: number | null;
   unit_symbol?: string | null;
   unit_code?: string | null;
 };
@@ -74,6 +76,32 @@ function componentDimensions(component: OtdComponentSnapshot, snapshot: OtdSnaps
   return Array.isArray(snapshot.dimensions) ? snapshot.dimensions : [];
 }
 
+function resolveDimensionUnit(dimension: DimensionValue | undefined, configuration: MasterProductConfiguration): string | null {
+  if (!dimension) return null;
+
+  // The OTD snapshot is authoritative when it already contains the dimension unit.
+  if (dimension.unit_symbol) return dimension.unit_symbol;
+  if (dimension.unit_code) return dimension.unit_code;
+  if (dimension.unit_id != null) {
+    const unit = configuration.unitsMap.get(Number(dimension.unit_id));
+    if (unit) return unit.code || unit.name;
+  }
+
+  // If the snapshot only contains the dimension value, resolve the unit from the
+  // measurement type of the component article. This deliberately does NOT use
+  // the article base unit: dimensions have their own measurement units.
+  const dimensionDefinition = configuration.dimensions.find((candidate) =>
+    (dimension.code && candidate.code === dimension.code) ||
+    (dimension.name && candidate.name === dimension.name)
+  );
+  if (dimensionDefinition?.unit_id != null) {
+    const unit = configuration.unitsMap.get(Number(dimensionDefinition.unit_id));
+    if (unit) return unit.code || unit.name;
+  }
+
+  return null;
+}
+
 function getGeometry(component: LonaConfectionComponent): LonaCutGeometry | null {
   const list = Array.isArray(component.sourceComponent.dimension_list)
     ? component.sourceComponent.dimension_list
@@ -88,8 +116,8 @@ function getGeometry(component: LonaConfectionComponent): LonaCutGeometry | null
   return {
     width,
     height,
-    widthLabel: `${first?.code ?? 'Dimensión 1'}${first?.unit_symbol ? ` (${first.unit_symbol})` : ''}`,
-    heightLabel: `${second?.code ?? 'Dimensión 2'}${second?.unit_symbol ? ` (${second.unit_symbol})` : ''}`,
+    widthLabel: `${first?.code ?? 'Dimensión 1'}${component.lineUnit ? ` (${component.lineUnit})` : ''}`,
+    heightLabel: `${second?.code ?? 'Dimensión 2'}${component.outputUnit ? ` (${component.outputUnit})` : ''}`,
   };
 }
 
@@ -128,8 +156,8 @@ export async function resolveLonaConfectionComponents(input: {
       quantity: numeric(component.quantity) ?? 0,
       line: numeric(first?.value),
       output: numeric(second?.value),
-      lineUnit: first?.unit_symbol ?? first?.unit_code ?? null,
-      outputUnit: second?.unit_symbol ?? second?.unit_code ?? null,
+      lineUnit: resolveDimensionUnit(first, configuration),
+      outputUnit: resolveDimensionUnit(second, configuration),
       sourceComponent: component,
       productConfiguration: configuration,
     });
