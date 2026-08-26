@@ -22,7 +22,48 @@ function resolveCutDimensions(dimensions:DimensionValue[]):{line:DimensionValue|
 function getGeometry(component:LonaConfectionComponent):LonaCutGeometry|null{const dimensions=component.sourceComponent.dimension_list?.length?component.sourceComponent.dimension_list:Object.entries(component.sourceComponent.dimensions??{}).map(([code,value])=>({code,value} as OtdDimensionSnapshot));const{line,output}=resolveCutDimensions(dimensions);const width=numeric(line?.value);const height=numeric(output?.value);if(width==null||height==null||width<=0||height<=0)return null;return{width,height,widthLabel:`${line?.code??line?.name??'Línea'}${component.lineUnit?` (${component.lineUnit})`:''}`,heightLabel:`${output?.code??output?.name??'Salida'}${component.outputUnit?` (${component.outputUnit})`:''}`}}
 export function getLonaCutGeometry(component:LonaConfectionComponent):LonaCutGeometry|null{return getGeometry(component)}
 
-export async function listLonaStockCandidates(input:{companyId:number;productId:number;characteristicCode?:string|null;requiredLine:number;requiredOutput:number}):Promise<LonaStockCandidate[]>{const c=client();const{data,error}=await c.from('warehouse_stock_item').select('id,product_id,characteristic_id,quantity,dimension_values,status,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse(code,name)),characteristic:product_characteristic(code)').eq('product_id',input.productId).gt('quantity',0).eq('status','AVAILABLE').order('created_at',{ascending:true}).limit(500);if(error)throw new CoreRepositoryError(error.message);const requestedCharacteristic=input.characteristicCode??null;const result:LonaStockCandidate[]=[];for(const row of data??[]){const r=row as any;const characteristicCode=r.characteristic?.code??null;if(characteristicCode!==requestedCharacteristic)continue;const dimensions=Array.isArray(r.dimension_values)?r.dimension_values.map(Number).filter(Number.isFinite):[];if(dimensions.length<2)continue;const direct=dimensions[0]>=input.requiredLine&&dimensions[1]>=input.requiredOutput;const rotated=dimensions[0]>=input.requiredOutput&&dimensions[1]>=input.requiredLine;if(!direct&&!rotated)continue;const useRotated=!direct&&rotated;const cut:[number,number]=useRotated?[input.requiredOutput,input.requiredLine]:[input.requiredLine,input.requiredOutput];const remainder:[number,number]=[Math.max(0,dimensions[0]-cut[0]),Math.max(0,dimensions[1]-cut[1])];const waste=remainder[0]*remainder[1];const score=(useRotated?100000:0)+waste;result.push({stockItemId:Number(r.id),warehouseId:Number(r.warehouse_stock?.warehouse_id),warehouseCode:r.warehouse_stock?.warehouse?.code??'—',warehouseName:r.warehouse_stock?.warehouse?.name??'—',productId:Number(r.product_id),characteristicId:r.characteristic_id==null?null:Number(r.characteristic_id),characteristicCode,quantity:Number(r.quantity||0),sourceDimensions:dimensions,cutDimensions:cut,remainderDimensions:remainder,rotated:useRotated,score,reason:useRotated?'Material compatible girando la pieza.':'Material compatible en la orientación original.'})}return result.sort((a,b)=>a.score-b.score||a.sourceDimensions.reduce((x,y)=>x+y,0)-b.sourceDimensions.reduce((x,y)=>x+y,0))}
+export async function listLonaStockCandidates(input:{companyId:number;productId:number;characteristicCode?:string|null;requiredLine:number;requiredOutput:number}):Promise<LonaStockCandidate[]>{
+ const c=client();
+ const {data:itemData,error:itemError}=await c.from('warehouse_stock_item').select('id,product_id,warehouse_stock_id,characteristic_id,quantity,dimension_values,status').eq('product_id',input.productId).gt('quantity',0).eq('status','AVAILABLE').order('created_at',{ascending:true}).limit(500);
+ if(itemError)throw new CoreRepositoryError(itemError.message);
+ const items=itemData??[];
+ const stockIds=[...new Set(items.map((row:any)=>Number(row.warehouse_stock_id)).filter(Number.isFinite))];
+ const characteristicIds=[...new Set(items.map((row:any)=>row.characteristic_id==null?null:Number(row.characteristic_id)).filter((id):id is number=>id!=null))];
+ const [stocksResult,characteristicsResult]=await Promise.all([
+   stockIds.length?c.from('warehouse_stock').select('id,warehouse_id').in('id',stockIds):Promise.resolve({data:[],error:null} as any),
+   characteristicIds.length?c.from('product_characteristic').select('id,code').in('id',characteristicIds):Promise.resolve({data:[],error:null} as any),
+ ]);
+ if(stocksResult.error)throw new CoreRepositoryError(stocksResult.error.message);
+ if(characteristicsResult.error)throw new CoreRepositoryError(characteristicsResult.error.message);
+ const warehouseIds=[...new Set((stocksResult.data??[]).map((row:any)=>Number(row.warehouse_id)).filter(Number.isFinite))];
+ const warehousesResult=warehouseIds.length?await c.from('warehouse').select('id,code,name').in('id',warehouseIds):{data:[],error:null} as any;
+ if(warehousesResult.error)throw new CoreRepositoryError(warehousesResult.error.message);
+ const stockById=new Map((stocksResult.data??[]).map((row:any)=>[Number(row.id),row]));
+ const characteristicById=new Map((characteristicsResult.data??[]).map((row:any)=>[Number(row.id),row]));
+ const warehouseById=new Map((warehousesResult.data??[]).map((row:any)=>[Number(row.id),row]));
+ const requestedCharacteristic=input.characteristicCode??null;
+ const result:LonaStockCandidate[]=[];
+ for(const row of items){
+   const r=row as any;
+   const characteristicId=r.characteristic_id==null?null:Number(r.characteristic_id);
+   const characteristicCode=characteristicId==null?null:characteristicById.get(characteristicId)?.code??null;
+   if(characteristicCode!==requestedCharacteristic)continue;
+   const dimensions=Array.isArray(r.dimension_values)?r.dimension_values.map(Number).filter(Number.isFinite):[];
+   if(dimensions.length<2)continue;
+   const direct=dimensions[0]>=input.requiredLine&&dimensions[1]>=input.requiredOutput;
+   const rotated=dimensions[0]>=input.requiredOutput&&dimensions[1]>=input.requiredLine;
+   if(!direct&&!rotated)continue;
+   const useRotated=!direct&&rotated;
+   const cut:[number,number]=useRotated?[input.requiredOutput,input.requiredLine]:[input.requiredLine,input.requiredOutput];
+   const remainder:[number,number]=[Math.max(0,dimensions[0]-cut[0]),Math.max(0,dimensions[1]-cut[1])];
+   const waste=remainder[0]*remainder[1];
+   const stock=stockById.get(Number(r.warehouse_stock_id));
+   const warehouse=stock?warehouseById.get(Number(stock.warehouse_id)):null;
+   if(!warehouse)continue;
+   result.push({stockItemId:Number(r.id),warehouseId:Number(stock.warehouse_id),warehouseCode:warehouse.code??'—',warehouseName:warehouse.name??'—',productId:Number(r.product_id),characteristicId,characteristicCode,quantity:Number(r.quantity||0),sourceDimensions:dimensions,cutDimensions:cut,remainderDimensions:remainder,rotated:useRotated,score:(useRotated?100000:0)+waste,reason:useRotated?'Material compatible girando la pieza.':'Material compatible en la orientación original.'});
+ }
+ return result.sort((a,b)=>a.score-b.score||a.sourceDimensions.reduce((x,y)=>x+y,0)-b.sourceDimensions.reduce((x,y)=>x+y,0));
+}
 
 export async function resolveLonaConfectionComponents(input:{companyId:number;orderLineId:number;orderLineNo:number;reference?:string|null;snapshot:OtdSnapshot}):Promise<LonaConfectionResult>{const snapshot=input.snapshot??{};const rawComponents=Array.isArray(snapshot.components)?snapshot.components:[];const candidates=rawComponents.map((component,index)=>({component,index})).filter(({component})=>Number(component.product_id)>0);const resolved=(await Promise.all(candidates.map(async({component,index})=>{const productId=Number(component.product_id);const configuration=await loadMasterProductConfiguration(productId,input.companyId);if(!configuration.family?.confectionable)return null;const dimensions=componentDimensions(component,snapshot);const{line,output}=resolveCutDimensions(dimensions);return{index,productId,productCode:String(component.product_code??configuration.product.code??''),productName:String(component.product_name??configuration.product.commercial_description??configuration.product.technical_description??''),characteristicName:component.characteristic_name?String(component.characteristic_name):null,quantity:numeric(component.quantity)??0,line:numeric(line?.value),output:numeric(output?.value),lineUnit:resolveDimensionUnit(line,configuration),outputUnit:resolveDimensionUnit(output,configuration),lineDimensionCode:line?.code??null,outputDimensionCode:output?.code??null,sourceComponent:component,productConfiguration:configuration} satisfies LonaConfectionComponent;}))).filter((component):component is LonaConfectionComponent=>component!==null);if(resolved.length===0)throw new CoreRepositoryError('La línea de pedido no contiene componentes confeccionables.');return{orderLineId:input.orderLineId,orderLineNo:input.orderLineNo,reference:input.reference??null,otdCode:snapshot.otd_code?String(snapshot.otd_code):null,components:resolved}}
 
