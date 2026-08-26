@@ -28,11 +28,12 @@ export function SalesOrderList(){
   {error&&<div className="inline-error">{error}</div>}
   <div className="sales-order-table-card">
    <div className="sales-order-table-wrap"><table>
-    <thead><tr><th>Pedido</th><th>Presupuesto</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th className="numeric">Total</th><th></th></tr></thead>
+    <thead><tr><th>Pedido</th><th>Presupuesto</th><th>Referencia</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th className="numeric">Total</th><th></th></tr></thead>
     <tbody>
-     {loading?<tr><td colSpan={7} className="sales-order-empty">Cargando pedidos…</td></tr>:rows.length===0?<tr><td colSpan={7} className="sales-order-empty">No hay pedidos.</td></tr>:rows.map(r=><tr key={r.id}>
+     {loading?<tr><td colSpan={8} className="sales-order-empty">Cargando pedidos…</td></tr>:rows.length===0?<tr><td colSpan={8} className="sales-order-empty">No hay pedidos.</td></tr>:rows.map(r=><tr key={r.id}>
       <td><Link className="sales-order-code" to={`/ventas/pedidos/${r.id}`}>{r.code}</Link></td>
       <td><Link className="sales-order-document-link" to={`/ventas/presupuestos/${r.quotation_id}`}>{r.quotation_code||r.quotation_id}</Link></td>
+      <td>{r.reference||'—'}</td>
       <td><strong>{r.customer_name||'—'}</strong></td>
       <td>{date(r.issue_date)}</td>
       <td><span className={`status-pill ${r.status.toLowerCase()}`}>{statusLabel[r.status]||r.status}</span></td>
