@@ -1,90 +1,10 @@
 import jsPDF from 'jspdf';
-import type { LonaConfectionComponent, LonaConfectionResult } from './lonaConfectionService';
+import type { LonaConfectionComponent, LonaConfectionResult, LonaConfectionWorkSheet } from './lonaConfectionService';
 import { getLonaCutGeometry } from './lonaConfectionService';
 
-function formatNumber(value: number | null) {
-  return value == null ? '—' : value.toLocaleString('es-ES', { maximumFractionDigits: 2 });
-}
+function formatNumber(value: number | null) { return value == null ? '—' : value.toLocaleString('es-ES', { maximumFractionDigits: 2 }); }
+function drawCutDiagram(pdf: jsPDF, component: LonaConfectionComponent, x: number, y: number, maxWidth: number, maxHeight: number) { const geometry=getLonaCutGeometry(component); if(!geometry){pdf.setFontSize(8);pdf.text('No hay dos dimensiones resueltas para representar el corte.',x,y+8);return y+16;} const scale=Math.min(maxWidth/geometry.width,maxHeight/geometry.height),width=geometry.width*scale,height=geometry.height*scale,rectX=x+(maxWidth-width)/2,rectY=y+10+(maxHeight-height)/2;pdf.setDrawColor(90,90,90);pdf.setFillColor(245,247,250);pdf.rect(rectX,rectY,width,height,'FD');pdf.setDrawColor(30,30,30);pdf.line(rectX,rectY-4,rectX+width,rectY-4);pdf.line(rectX-4,rectY,rectX-4,rectY+height);pdf.setFontSize(7);pdf.text(`${formatNumber(geometry.width)} ${component.lineUnit??''}`.trim(),rectX+width/2,rectY-7,{align:'center'});pdf.text(`${formatNumber(geometry.height)} ${component.outputUnit??''}`.trim(),rectX-7,rectY+height/2,{angle:90,align:'center'});return Math.max(y+maxHeight+12,rectY+height+18); }
 
-function drawCutDiagram(pdf: jsPDF, component: LonaConfectionComponent, x: number, y: number, maxWidth: number, maxHeight: number) {
-  const geometry = getLonaCutGeometry(component);
-  if (!geometry) {
-    pdf.setFontSize(8);
-    pdf.text('No hay dos dimensiones resueltas para representar el corte.', x, y + 8);
-    return y + 16;
-  }
+export function downloadLonaConfectionPdf(result:LonaConfectionResult,cutDetails?:Record<number,{cutType?:string;hem?:string;overlap?:string}>) { const pdf=new jsPDF({unit:'mm',format:'a4'}),w=pdf.internal.pageSize.getWidth(),h=pdf.internal.pageSize.getHeight(),m=14;pdf.setFontSize(9);pdf.text('ONIN · PRODUCCIÓN',m,15);pdf.setFontSize(8);pdf.text('DOCUMENTO TÉCNICO · CONFECCIÓN DE LONAS',w-m,15,{align:'right'});pdf.setFontSize(18);pdf.text('INFORME DE CORTE DE LONA',m,25);pdf.setFontSize(10);pdf.text(`Pedido: ${result.reference??'—'}`,m,34);pdf.text(`Línea: ${result.orderLineNo}`,m,40);pdf.text(`OTD: ${result.otdCode??'—'}`,w-m,34,{align:'right'});pdf.line(m,45,w-m,45);let y=54;result.components.forEach((component,index)=>{if(index>0&&y>h-85){pdf.addPage();y=20;}const detail=cutDetails?.[index],cutType=detail?.cutType||'Asimétrico',hem=detail?.hem||'3',overlap=detail?.overlap||'2.7';pdf.setFontSize(12);pdf.text(`${index+1}. ${component.productCode}`,m,y);pdf.setFontSize(9);pdf.text(component.productName,m,y+6);pdf.text(`Cantidad: ${formatNumber(component.quantity)} · Característica: ${component.characteristicName??'Sin característica'}`,m,y+12);pdf.text(`Línea: ${formatNumber(component.line)} ${component.lineUnit??''} · Salida: ${formatNumber(component.output)} ${component.outputUnit??''}`,m,y+18);y=drawCutDiagram(pdf,component,m,y+23,w-m*2,65)+12;pdf.setFontSize(8);pdf.text(`Tipo de corte: ${cutType} · Dobladillo: ${hem} ${component.lineUnit??''} · Solape: ${overlap} ${component.lineUnit??''}`,m,y);y+=19;});pdf.setFontSize(8);pdf.text('Documento técnico generado por ONIN.',m,h-10);pdf.save(`confeccion-lona-linea-${result.orderLineNo}.pdf`); }
 
-  const scale = Math.min(maxWidth / geometry.width, maxHeight / geometry.height);
-  const width = geometry.width * scale;
-  const height = geometry.height * scale;
-  const rectX = x + (maxWidth - width) / 2;
-  const rectY = y + 10 + (maxHeight - height) / 2;
-
-  pdf.setDrawColor(90, 90, 90);
-  pdf.setFillColor(245, 247, 250);
-  pdf.rect(rectX, rectY, width, height, 'FD');
-  pdf.setDrawColor(30, 30, 30);
-  pdf.line(rectX, rectY - 4, rectX + width, rectY - 4);
-  pdf.line(rectX - 4, rectY, rectX - 4, rectY + height);
-  pdf.setFontSize(7);
-  pdf.text(`${formatNumber(geometry.width)} ${component.lineUnit ?? ''}`.trim(), rectX + width / 2, rectY - 7, { align: 'center' });
-  pdf.text(`${formatNumber(geometry.height)} ${component.outputUnit ?? ''}`.trim(), rectX - 7, rectY + height / 2, { angle: 90, align: 'center' });
-  pdf.setFontSize(7);
-  pdf.text(geometry.widthLabel, rectX + width / 2, rectY + height + 9, { align: 'center' });
-  pdf.text(geometry.heightLabel, rectX + width + 9, rectY + height / 2, { angle: 90, align: 'center' });
-  return Math.max(y + maxHeight + 12, rectY + height + 18);
-}
-
-export function downloadLonaConfectionPdf(
-  result: LonaConfectionResult,
-  cutDetails?: Record<number, { cutType?: string; hem?: string; overlap?: string }>
-) {
-  const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 14;
-
-  pdf.setFontSize(9);
-  pdf.text('ONIN · PRODUCCIÓN', margin, 15);
-  pdf.setFontSize(8);
-  pdf.text('DOCUMENTO TÉCNICO · CONFECCIÓN DE LONAS', pageWidth - margin, 15, { align: 'right' });
-  pdf.setFontSize(18);
-  pdf.text('INFORME DE CORTE DE LONA', margin, 25);
-  pdf.setFontSize(10);
-  pdf.text(`Pedido: ${result.reference ?? '—'}`, margin, 34);
-  pdf.text(`Línea: ${result.orderLineNo}`, margin, 40);
-  pdf.text(`OTD: ${result.otdCode ?? '—'}`, pageWidth - margin, 34, { align: 'right' });
-  pdf.line(margin, 45, pageWidth - margin, 45);
-
-  let y = 54;
-  result.components.forEach((component, index) => {
-    if (index > 0 && y > pageHeight - 85) {
-      pdf.addPage();
-      y = 20;
-    }
-
-    const detail = cutDetails?.[index];
-    const cutType = detail?.cutType || 'Asimétrico';
-    const hem = detail?.hem || '3';
-    const overlap = detail?.overlap || '2.7';
-
-    pdf.setFontSize(12);
-    pdf.text(`${index + 1}. ${component.productCode}`, margin, y);
-    pdf.setFontSize(9);
-    pdf.text(component.productName, margin, y + 6);
-    pdf.text(`Cantidad: ${formatNumber(component.quantity)} · Característica: ${component.characteristicName ?? 'Sin característica'}`, margin, y + 12);
-    pdf.text(`Línea: ${formatNumber(component.line)} ${component.lineUnit ?? ''} · Salida: ${formatNumber(component.output)} ${component.outputUnit ?? ''}`, margin, y + 18);
-
-    y = drawCutDiagram(pdf, component, margin, y + 23, pageWidth - margin * 2, 65) + 12;
-    pdf.setFontSize(8);
-    pdf.text(`Tipo de corte: ${cutType} · Dobladillo: ${hem} ${component.lineUnit ?? ''} · Solape: ${overlap} ${component.lineUnit ?? ''}`, margin, y);
-    y += 9;
-    pdf.setDrawColor(210, 210, 210);
-    pdf.line(margin, y, pageWidth - margin, y);
-    y += 10;
-  });
-
-  pdf.setFontSize(8);
-  pdf.text('Documento técnico generado por ONIN. La representación gráfica utiliza las dimensiones resueltas de la configuración del OTD.', margin, pageHeight - 10);
-  pdf.save(`confeccion-lona-linea-${result.orderLineNo}.pdf`);
-}
+export function downloadLonaWorkSheetsPdf(sheets:LonaConfectionWorkSheet[],orderCode:string,reference?:string|null){if(!sheets.length)return;const pdf=new jsPDF({unit:'mm',format:'a4'}),w=pdf.internal.pageSize.getWidth(),h=pdf.internal.pageSize.getHeight(),m=14;pdf.setFontSize(9);pdf.text('ONIN · PRODUCCIÓN / TALLER',m,15);pdf.setFontSize(17);pdf.text('HOJAS DE CONFECCIÓN DE LONA',m,25);pdf.setFontSize(10);pdf.text(`Pedido: ${orderCode}`,m,34);pdf.text(`Referencia: ${reference||'—'}`,m,40);pdf.line(m,45,w-m,45);let y=54;sheets.forEach((sheet,index)=>{if(index>0&&y>h-65){pdf.addPage();y=20;}pdf.setFontSize(12);pdf.text(`${sheet.code} · Línea ${sheet.orderLineId}`,m,y);pdf.setFontSize(9);pdf.text(`${sheet.productCode||'Lona'} · ${sheet.productName||''}`,m,y+6);pdf.text(`Cantidad: ${sheet.quantity} · Característica: ${sheet.characteristicName||'Sin característica'}`,m,y+12);pdf.text(`Necesidad: ${sheet.requiredDimensions.map((v,i)=>`${formatNumber(v)} ${sheet.requiredDimensionUnits[i]||''}`.trim()).join(' × ')}`,m,y+18);pdf.text(`Estado: ${sheet.status==='COMPLETED'?'Completada':sheet.status==='ISSUED'?'Emitida':sheet.status}`,m,y+24);y+=34;sheet.lines.forEach(line=>{if(y>h-25){pdf.addPage();y=20;}pdf.setFontSize(8);pdf.text(`Material: ${line.warehouseCode||line.warehouseName||'—'} · Stock: ${line.sourceDimensions.map((v,i)=>`${formatNumber(v)} ${line.sourceDimensionUnits[i]||''}`.trim()).join(' × ')}`,m,y);pdf.text(`Corte: ${line.cutDimensions.map((v,i)=>`${formatNumber(v)} ${line.cutDimensionUnits[i]||''}`.trim()).join(' × ')} · Resto: ${line.remainderDimensions.length?line.remainderDimensions.map((v,i)=>`${formatNumber(v)} ${line.remainderDimensionUnits[i]||''}`.trim()).join(' × '):'Descarte'}`,m,y+5);y+=12;});y+=8;});pdf.setFontSize(8);pdf.text('Documento técnico generado por ONIN.',m,h-10);pdf.save(`HOJAS-CONFECCION-${orderCode.replace(/\//g,'-')}.pdf`);}
