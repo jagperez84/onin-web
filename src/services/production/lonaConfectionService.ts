@@ -3,18 +3,18 @@ import { loadMasterProductConfiguration } from '../catalog/productConfigurationS
 import type { MasterProductConfiguration } from '../catalog/productConfigurationService';
 import { CoreRepositoryError } from '../core/coreRepository';
 
-export type LonaConfectionComponent = { index:number; productId:number; productCode:string; productName:string; characteristicName:string|null; quantity:number; line:number|null; output:number|null; lineUnit:string|null; outputUnit:string|null; lineDimensionCode:string|null; outputDimensionCode:string|null; sourceComponent:OtdComponentSnapshot; productConfiguration:MasterProductConfiguration; };
+export type LonaConfectionComponent = { index:number; productId:number; productCode:string; productName:string; characteristicId:number|null; characteristicCode:string|null; characteristicName:string|null; quantity:number; line:number|null; output:number|null; lineUnit:string|null; outputUnit:string|null; lineDimensionCode:string|null; outputDimensionCode:string|null; sourceComponent:OtdComponentSnapshot; productConfiguration:MasterProductConfiguration; };
 export type LonaCutGeometry = { width:number; height:number; widthLabel:string; heightLabel:string };
 export type LonaStockCandidate = { stockItemId:number; warehouseId:number; warehouseCode:string; warehouseName:string; productId:number; characteristicId:number|null; characteristicCode:string|null; quantity:number; sourceDimensions:number[]; sourceDimensionUnits:string[]; cutDimensions:[number,number]; cutDimensionUnits:string[]; remainderDimensions:[number,number]|null; remainderDimensionUnits:string[]; rotated:boolean; score:number; reason:string; };
 export type LonaConfectionResult = { orderLineId:number; orderLineNo:number; reference:string|null; otdCode:string|null; components:LonaConfectionComponent[]; };
 export type LonaConfectionWorkSheet = { id:number; code:string; issueDate:string; status:string; orderLineId:number; productCode:string|null; productName:string|null; characteristicName:string|null; quantity:number; requiredDimensions:number[]; requiredDimensionUnits:string[]; unitSymbol:string|null; selectionMode:string|null; selectionReason:string|null; lines:Array<{id:number;lineNo:number;warehouseCode:string|null;warehouseName:string|null;stockItemId:number|null;sourceDimensions:number[];sourceDimensionUnits:string[];cutDimensions:number[];cutDimensionUnits:string[];quantity:number;remainderDimensions:number[];remainderDimensionUnits:string[]}>; };
 
 type OtdDimensionSnapshot={code?:string|null;name?:string|null;value?:unknown;unit_id?:number|null;unit_symbol?:string|null;unit_code?:string|null};
-type OtdComponentSnapshot={product_id?:unknown;product_code?:unknown;product_name?:unknown;characteristic_name?:unknown;characteristic_code?:unknown;quantity?:unknown;dimension_list?:OtdDimensionSnapshot[];dimensions?:Record<string,unknown>};
-type OtdSnapshot={otd_code?:unknown;components?:OtdComponentSnapshot[];dimensions?:OtdDimensionSnapshot[]};
+type OtdComponentSnapshot={product_id?:unknown;product_code?:unknown;product_name?:unknown;characteristic_id?:unknown;characteristic_name?:unknown;characteristic_code?:unknown;characteristic?:{id?:unknown;code?:unknown;description?:unknown};quantity?:unknown;dimension_list?:OtdDimensionSnapshot[];dimensions?:Record<string,unknown>};
+type OtdSnapshot={otd_code?:unknown;characteristic_id?:unknown;characteristic_code?:unknown;characteristic_name?:unknown;characteristic?:{id?:unknown;code?:unknown;description?:unknown};components?:OtdComponentSnapshot[];dimensions?:OtdDimensionSnapshot[]};
 type DimensionValue=OtdDimensionSnapshot;
 type StockHeaderRow={id:number;warehouse_id:number};
-type CharacteristicRow={id:number;code:string|null};
+type CharacteristicRow={id:number;code:string|null;description:string|null};
 type WarehouseRow={id:number;code:string|null;name:string|null};
 type StockItemRow={id:number;product_id:number;warehouse_stock_id:number;characteristic_id:number|null;quantity:number;dimension_values:unknown;dimension_units:unknown;status:string};
 
@@ -31,21 +31,48 @@ const LENGTH_FACTORS_MM:Record<string,number>={mm:1,millimeter:1,millimetre:1,cm
 function normalizeLength(value:number,unit:string|null):number|null{if(!unit)return null;const factor=LENGTH_FACTORS_MM[unit.trim().toLowerCase()];return factor==null?null:value*factor}
 function asStringArray(value:unknown):string[]{return Array.isArray(value)?value.map(v=>String(v??'')):[]}
 
-export async function listLonaStockCandidates(input:{companyId:number;productId:number;characteristicCode?:string|null;requiredLine:number;requiredOutput:number;requiredLineUnit?:string|null;requiredOutputUnit?:string|null}):Promise<LonaStockCandidate[]>{
+export async function listLonaStockCandidates(input:{companyId:number;productId:number;characteristicId?:number|null;characteristicCode?:string|null;requiredLine:number;requiredOutput:number;requiredLineUnit?:string|null;requiredOutputUnit?:string|null}):Promise<LonaStockCandidate[]>{
  const c=client();
  const {data:itemData,error:itemError}=await c.from('warehouse_stock_item').select('id,product_id,warehouse_stock_id,characteristic_id,quantity,dimension_values,dimension_units,status').eq('product_id',input.productId).gt('quantity',0).eq('status','AVAILABLE').order('created_at',{ascending:true}).limit(500);
  if(itemError)throw new CoreRepositoryError(itemError.message);
  const items=(itemData??[]) as StockItemRow[];
  const stockIds=[...new Set(items.map(row=>Number(row.warehouse_stock_id)).filter(Number.isFinite))];
  const characteristicIds=[...new Set(items.map(row=>row.characteristic_id==null?null:Number(row.characteristic_id)).filter((id):id is number=>id!=null))];
- const [stocksResult,characteristicsResult]=await Promise.all([stockIds.length?c.from('warehouse_stock').select('id,warehouse_id').in('id',stockIds):Promise.resolve({data:[],error:null}),characteristicIds.length?c.from('product_characteristic').select('id,code').in('id',characteristicIds):Promise.resolve({data:[],error:null})]);
+ const [stocksResult,characteristicsResult]=await Promise.all([stockIds.length?c.from('warehouse_stock').select('id,warehouse_id').in('id',stockIds):Promise.resolve({data:[],error:null}),characteristicIds.length?c.from('product_characteristic').select('id,code,description').in('id',characteristicIds):Promise.resolve({data:[],error:null})]);
  if(stocksResult.error)throw new CoreRepositoryError(stocksResult.error.message);if(characteristicsResult.error)throw new CoreRepositoryError(characteristicsResult.error.message);
  const stocks=(stocksResult.data??[]) as StockHeaderRow[];const characteristics=(characteristicsResult.data??[]) as CharacteristicRow[];const warehouseIds=[...new Set(stocks.map(row=>Number(row.warehouse_id)).filter(Number.isFinite))];const warehousesResult=warehouseIds.length?await c.from('warehouse').select('id,code,name').in('id',warehouseIds):{data:[],error:null};if(warehousesResult.error)throw new CoreRepositoryError(warehousesResult.error.message);
- const stockById=new Map(stocks.map(row=>[Number(row.id),row]));const characteristicById=new Map(characteristics.map(row=>[Number(row.id),row]));const warehouseById=new Map(((warehousesResult.data??[]) as WarehouseRow[]).map(row=>[Number(row.id),row]));const requestedCharacteristic=input.characteristicCode??null;
+ const stockById=new Map(stocks.map(row=>[Number(row.id),row]));const characteristicById=new Map(characteristics.map(row=>[Number(row.id),row]));const warehouseById=new Map(((warehousesResult.data??[]) as WarehouseRow[]).map(row=>[Number(row.id),row]));
+
+ const reqCharId = input.characteristicId != null && Number(input.characteristicId) > 0 ? Number(input.characteristicId) : null;
+ const reqCharCode = (typeof input.characteristicCode === 'string' && input.characteristicCode.trim().length > 0)
+   ? input.characteristicCode.trim().toLowerCase()
+   : null;
+
  const requiredLineMm=normalizeLength(input.requiredLine,input.requiredLineUnit??null);const requiredOutputMm=normalizeLength(input.requiredOutput,input.requiredOutputUnit??null);if(requiredLineMm==null||requiredOutputMm==null)throw new CoreRepositoryError('No se puede comparar el material porque falta una unidad de longitud compatible.');
  const result:LonaStockCandidate[]=[];
  for(const row of items){
-   const characteristicId=row.characteristic_id==null?null:Number(row.characteristic_id);const characteristicCode=characteristicId==null?null:characteristicById.get(characteristicId)?.code??null;if(characteristicCode!==requestedCharacteristic)continue;
+   const characteristicId=row.characteristic_id==null?null:Number(row.characteristic_id);
+   const charObj=characteristicId==null?null:characteristicById.get(characteristicId);
+   const characteristicCode=charObj?.code??null;
+   const charCodeLower=charObj?.code ? charObj.code.trim().toLowerCase() : null;
+   const charDescLower=charObj?.description ? charObj.description.trim().toLowerCase() : null;
+
+   // Exact matching rule:
+   if (reqCharId !== null || reqCharCode !== null) {
+     let match = false;
+     if (reqCharId !== null && characteristicId !== null && characteristicId === reqCharId) {
+       match = true;
+     }
+     if (reqCharCode !== null) {
+       if (charCodeLower && charCodeLower === reqCharCode) match = true;
+       if (charDescLower && charDescLower === reqCharCode) match = true;
+     }
+     if (!match) continue;
+   } else {
+     // Must NOT have any characteristic
+     if (characteristicId !== null || characteristicCode !== null) continue;
+   }
+
    const dimensions=Array.isArray(row.dimension_values)?row.dimension_values.map(Number).filter(Number.isFinite):[];const units=asStringArray(row.dimension_units);if(dimensions.length<2||units.length!==dimensions.length)continue;
    const d0=normalizeLength(dimensions[0],units[0]);const d1=normalizeLength(dimensions[1],units[1]);if(d0==null||d1==null)continue;
    const direct=d0>=requiredLineMm&&d1>=requiredOutputMm;const rotated=d0>=requiredOutputMm&&d1>=requiredLineMm;if(!direct&&!rotated)continue;const useRotated=!direct&&rotated;
@@ -57,7 +84,28 @@ export async function listLonaStockCandidates(input:{companyId:number;productId:
  return result.sort((a,b)=>a.score-b.score||a.sourceDimensions.reduce((x,y)=>x+y,0)-b.sourceDimensions.reduce((x,y)=>x+y,0));
 }
 
-export async function resolveLonaConfectionComponents(input:{companyId:number;orderLineId:number;orderLineNo:number;reference?:string|null;snapshot:OtdSnapshot}):Promise<LonaConfectionResult>{const snapshot=input.snapshot??{};const rawComponents=Array.isArray(snapshot.components)?snapshot.components:[];const candidates=rawComponents.map((component,index)=>({component,index})).filter(({component})=>Number(component.product_id)>0);const resolved=(await Promise.all(candidates.map(async({component,index})=>{const productId=Number(component.product_id);const configuration=await loadMasterProductConfiguration(productId,input.companyId);if(!configuration.family?.confectionable)return null;const dimensions=componentDimensions(component,snapshot);const{line,output}=resolveCutDimensions(dimensions);return{index,productId,productCode:String(component.product_code??configuration.product.code??''),productName:String(component.product_name??configuration.product.commercial_description??configuration.product.technical_description??''),characteristicName:component.characteristic_name?String(component.characteristic_name):null,quantity:numeric(component.quantity)??0,line:numeric(line?.value),output:numeric(output?.value),lineUnit:unitText(line,configuration),outputUnit:unitText(output,configuration),lineDimensionCode:line?.code??null,outputDimensionCode:output?.code??null,sourceComponent:component,productConfiguration:configuration} satisfies LonaConfectionComponent;}))).filter((component):component is LonaConfectionComponent=>component!==null);if(resolved.length===0)throw new CoreRepositoryError('La línea de pedido no contiene componentes confeccionables.');return{orderLineId:input.orderLineId,orderLineNo:input.orderLineNo,reference:input.reference??null,otdCode:snapshot.otd_code?String(snapshot.otd_code):null,components:resolved}}
+export async function resolveLonaConfectionComponents(input:{companyId:number;orderLineId:number;orderLineNo:number;reference?:string|null;snapshot:OtdSnapshot}):Promise<LonaConfectionResult>{const snapshot=input.snapshot??{};const rawComponents=Array.isArray(snapshot.components)?snapshot.components:[];const candidates=rawComponents.map((component,index)=>({component,index})).filter(({component})=>Number(component.product_id)>0);const resolved=(await Promise.all(candidates.map(async({component,index})=>{const productId=Number(component.product_id);const configuration=await loadMasterProductConfiguration(productId,input.companyId);if(!configuration.family?.confectionable)return null;const dimensions=componentDimensions(component,snapshot);const{line,output}=resolveCutDimensions(dimensions);
+const characteristicId =
+  (component.characteristic_id ? Number(component.characteristic_id) : undefined) ||
+  (component.characteristic?.id ? Number(component.characteristic?.id) : undefined) ||
+  (snapshot.characteristic_id ? Number(snapshot.characteristic_id) : undefined) ||
+  (snapshot.characteristic?.id ? Number(snapshot.characteristic?.id) : undefined) ||
+  null;
+const characteristicCode =
+  (component.characteristic_code ? String(component.characteristic_code) : undefined) ||
+  (component.characteristic?.code ? String(component.characteristic?.code) : undefined) ||
+  (snapshot.characteristic_code ? String(snapshot.characteristic_code) : undefined) ||
+  (snapshot.characteristic?.code ? String(snapshot.characteristic?.code) : undefined) ||
+  null;
+const characteristicName =
+  (component.characteristic_name ? String(component.characteristic_name) : undefined) ||
+  (component.characteristic?.description ? String(component.characteristic?.description) : undefined) ||
+  (snapshot.characteristic_name ? String(snapshot.characteristic_name) : undefined) ||
+  (snapshot.characteristic?.description ? String(snapshot.characteristic?.description) : undefined) ||
+  characteristicCode ||
+  (characteristicId ? `Característica #${characteristicId}` : null);
+
+return{index,productId,productCode:String(component.product_code??configuration.product.code??''),productName:String(component.product_name??configuration.product.commercial_description??configuration.product.technical_description??''),characteristicId,characteristicCode,characteristicName,quantity:numeric(component.quantity)??0,line:numeric(line?.value),output:numeric(output?.value),lineUnit:unitText(line,configuration),outputUnit:unitText(output,configuration),lineDimensionCode:line?.code??null,outputDimensionCode:output?.code??null,sourceComponent:component,productConfiguration:configuration} satisfies LonaConfectionComponent;}))).filter((component):component is LonaConfectionComponent=>component!==null);if(resolved.length===0)throw new CoreRepositoryError('La línea de pedido no contiene componentes confeccionables.');return{orderLineId:input.orderLineId,orderLineNo:input.orderLineNo,reference:input.reference??null,otdCode:snapshot.otd_code?String(snapshot.otd_code):null,components:resolved}}
 
 export async function createLonaConfectionWorkSheet(input:{companyId:number;salesOrderId:number;salesOrderLineId:number;salesOrderLineNo:number;component:LonaConfectionComponent;candidate:LonaStockCandidate;reference?:string|null;selectionMode?:'AUTOMATIC'|'MANUAL';selectionReason?:string|null}):Promise<LonaConfectionWorkSheet>{const c=client();if(input.component.line==null||input.component.output==null)throw new CoreRepositoryError('La pieza no tiene dimensiones válidas para generar la hoja de confección.');const cut=input.candidate.cutDimensions;const source=input.candidate.sourceDimensions;const remainder=input.candidate.remainderDimensions??[];const{data,error}=await c.rpc('create_lona_confection_work_sheet',{p_company_id:input.companyId,p_sales_order_id:input.salesOrderId,p_sales_order_line_id:input.salesOrderLineId,p_sales_order_line_no:input.salesOrderLineNo,p_product_id:input.component.productId,p_product_code:input.component.productCode,p_product_name:input.component.productName,p_characteristic_id:input.candidate.characteristicId,p_characteristic_code:input.candidate.characteristicCode,p_characteristic_name:input.component.characteristicName,p_required_dimension_values:[input.component.line,input.component.output],p_required_dimension_units:[input.component.lineUnit,input.component.outputUnit],p_quantity:input.component.quantity,p_unit_symbol:input.component.lineUnit,p_unit_code:input.component.outputUnit,p_reference:input.reference??null,p_notes:'Hoja de confección generada a partir del OTD. Pendiente de ejecución de consumo dimensional 2D.',p_selection_mode:input.selectionMode??'AUTOMATIC',p_selection_reason:input.selectionReason??input.candidate.reason,p_selections:[{stock_item_id:input.candidate.stockItemId,warehouse_id:input.candidate.warehouseId,source_dimension_values:source,source_dimension_units:input.candidate.sourceDimensionUnits,cut_dimension_values:cut,cut_dimension_units:input.candidate.cutDimensionUnits,remainder_dimension_values:remainder,remainder_dimension_units:input.candidate.remainderDimensionUnits,quantity:input.component.quantity}]});if(error)throw new CoreRepositoryError(error.message);const sheet=await getLonaConfectionWorkSheet(Number(data));if(!sheet)throw new CoreRepositoryError('La hoja de confección se ha creado pero no se ha podido recuperar.');return sheet}
 

@@ -203,22 +203,23 @@ export function OtdSelectionsSection({
                 )}
 
                 {s.options.map((o, oi) => (
-                  <div className="otd-option-row" key={oi}>
+                  <div className="otd-option-row" key={o.id ?? oi}>
                     <input
                       placeholder="Nombre visible (ej. No, Sí, Motor 50Nm, Blanco...)"
                       value={o.label}
                       onChange={(e) => {
-                        const updatedOptions = [...s.options];
                         const newLabel = e.target.value;
-                        updatedOptions[oi].label = newLabel;
-                        if (
-                          !updatedOptions[oi].value &&
-                          !updatedOptions[oi].code
-                        ) {
-                          updatedOptions[oi].code = newLabel
-                            .toUpperCase()
-                            .replace(/\s+/g, "_");
-                        }
+                        const updatedOptions = s.options.map((item, i) => {
+                          if (i !== oi) return item;
+                          return {
+                            ...item,
+                            label: newLabel,
+                            code:
+                              !item.value && !item.code
+                                ? newLabel.toUpperCase().replace(/\s+/g, "_")
+                                : item.code,
+                          };
+                        });
                         updateSelection(si, { options: updatedOptions });
                       }}
                     />
@@ -226,14 +227,17 @@ export function OtdSelectionsSection({
                       placeholder="Valor numérico (ej. 0, 1, 50, RAL9010...)"
                       value={o.value ?? o.code ?? ""}
                       onChange={(e) => {
-                        const updatedOptions = [...s.options];
                         const newVal = e.target.value;
-                        updatedOptions[oi].value = newVal;
-                        updatedOptions[oi].code =
-                          newVal ||
-                          updatedOptions[oi].label
-                            .toUpperCase()
-                            .replace(/\s+/g, "_");
+                        const updatedOptions = s.options.map((item, i) => {
+                          if (i !== oi) return item;
+                          return {
+                            ...item,
+                            value: newVal,
+                            code:
+                              newVal ||
+                              item.label.toUpperCase().replace(/\s+/g, "_"),
+                          };
+                        });
                         updateSelection(si, { options: updatedOptions });
                       }}
                     />

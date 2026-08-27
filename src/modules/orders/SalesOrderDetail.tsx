@@ -3,9 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, FileText, Ruler, Scissors, Hammer, CheckCircle2 } from 'lucide-react';
 import { getSalesOrder, type SalesOrder } from '../../services/sales/salesOrderService';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
-import { getWorkSheetBySalesOrderLine, type WorkSheet } from '../../services/production/workSheetService';
+import { getWorkSheetsBySalesOrderLine, type WorkSheet } from '../../services/production/workSheetService';
 import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
-import { ProfileCutModal } from './ProfileCutModal';
+import { ProfileCutModal, isProfileComponent } from './ProfileCutModal';
 import { LonaConfectionModal } from './LonaConfectionModal';
 import { LonaConfectionViewModal } from './LonaConfectionViewModal';
 import { QuotationLineSnapshotModal } from '../quotations/QuotationLineSnapshotModal';
@@ -13,19 +13,373 @@ import './sales-order.css';
 import './sales-order-cut.css';
 import './lona-confection.css';
 
-const statusLabel:Record<string,string>={PENDING_MANUFACTURING:'Pendiente de fabricación',PREPARED:'Preparado',FABRICATING:'Fabricando',CONFECTIONED:'Confeccionado',MANUFACTURED:'Fabricado',INSTALLED:'Instalado',CANCELLED:'Cancelado'};
-const date=(v:string|null)=>v?new Date(`${v}T00:00:00`).toLocaleDateString('es-ES'):'—';
-export function SalesOrderDetail(){
- const{id}=useParams();const[data,setData]=useState<SalesOrder|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState('');const[cutLine,setCutLine]=useState<any|null>(null);const[lonaLine,setLonaLine]=useState<any|null>(null);const[lonaViewLine,setLonaViewLine]=useState<any|null>(null);const[cutSheets,setCutSheets]=useState<Record<number,WorkSheet>>({});const[lonaSheets,setLonaSheets]=useState<Record<number,LonaConfectionWorkSheet>>({});const[otdSnapshot,setOtdSnapshot]=useState<any|null>(null);const[otdLineNo,setOtdLineNo]=useState(1);
- useEffect(()=>{let active=true;(async()=>{try{const row=await getSalesOrder(Number(id));if(!active)return;if(!row){setData(null);setError('Pedido no encontrado.');return}setData(row);const lines=row.lines||[];const sheets=await Promise.all(lines.map(async(line:any)=>[Number(line.id),await getWorkSheetBySalesOrderLine(Number(line.id))] as const));const lonaSheetsResult=await Promise.all(lines.map(async(line:any)=>[Number(line.id),await getLonaConfectionWorkSheetBySalesOrderLine(Number(line.id)).catch(()=>null)] as const));if(active){setCutSheets(Object.fromEntries(sheets.filter(([,sheet])=>sheet).map(([lineId,sheet])=>[lineId,sheet as WorkSheet])));setLonaSheets(Object.fromEntries(lonaSheetsResult.filter(([,sheet])=>sheet).map(([lineId,sheet])=>[lineId,sheet as LonaConfectionWorkSheet])))} }catch(e){if(active)setError(e instanceof CoreRepositoryError?e.message:'No se pudo cargar el pedido.')}finally{if(active)setLoading(false)}})();return()=>{active=false}},[id]);
- if(loading)return <div className="loading-block">Cargando pedido…</div>;if(error||!data)return <div className="module-page"><div className="inline-error">{error||'Pedido no encontrado.'}</div></div>;
- const companyId=Number((data as any).company_id||0);
- return <div className="module-page sales-order-detail-page"><div className="quotation-detail-head"><div className="quotation-detail-title"><div className="quotation-detail-nav-row"><Link className="secondary-button" to="/ventas/pedidos"><ArrowLeft size={15}/> Volver a pedidos</Link><span className="quotation-breadcrumb-code">Ventas / Pedidos / <strong>{data.code}</strong></span></div><div className="quotation-title-row"><h1>{data.code}</h1><span className={`quotation-status ${data.status.toLowerCase()}`}>{statusLabel[data.status]||data.status}</span></div><div className="quotation-subtitle-meta"><span>Presupuesto: <Link to={`/ventas/presupuestos/${data.quotation_id}`}>{data.quotation_code||data.quotation_id}</Link></span>{data.measurement_id&&<><span className="dot-sep">·</span><span>Medición: <Link to={`/gestion/mediciones/${data.measurement_id}`}>{data.measurement_id}</Link></span></>}</div></div></div>
- <div className="quotation-section-grid"><section className="quotation-card"><h2>Cliente</h2><p className="detail-value">{data.customer_name||'—'}</p><div className="detail-grid"><div><span>Contacto</span><strong>{data.contact_name||'—'}</strong></div><div><span>Email</span><strong>{data.contact_email||'—'}</strong></div><div><span>Teléfono</span><strong>{data.contact_phone||'—'}</strong></div></div></section><section className="quotation-card"><h2>Datos del pedido</h2><div className="detail-grid"><div><span>Fecha</span><strong>{date(data.issue_date)}</strong></div><div><span>Entrega solicitada</span><strong>{date(data.requested_delivery_date)}</strong></div><div><span>Referencia</span><strong>{data.reference||'—'}</strong></div></div></section></div>
- <section className="quotation-card"><h2>Líneas</h2><div className="card-table"><table><thead><tr><th>#</th><th>Artículo / descripción</th><th>Cantidad</th><th>Acciones</th></tr></thead><tbody>{(data.lines||[]).map((l:any)=>{const snapshot=(l.specific_data?.configuration_snapshot||l.specific_data?.otd_snapshot) as any;const hasOtd=Boolean(snapshot?.otd_code||snapshot?.otd_id||snapshot?.inputs_display||snapshot?.components);const cutSheet=cutSheets[Number(l.id)];const lonaSheet=lonaSheets[Number(l.id)];const isCut=Boolean(cutSheet);const isLona=Boolean(lonaSheet);return <tr key={l.id}><td>{l.line_no}</td><td><strong>{l.description||'—'}</strong>{l.product_id&&<div className="muted">Artículo #{l.product_id}</div>}{snapshot?.otd_code&&<div className="muted">OTD: {snapshot.otd_code}</div>}</td><td>{l.quantity}</td><td><div className="quotation-line-actions">{hasOtd&&<button type="button" className="line-action-button" onClick={()=>{setOtdSnapshot(snapshot);setOtdLineNo(Number(l.line_no)||1)}} title="Ver configuración específica del OTD"><FileText size={13}/> Detalle OTD</button>}{isCut?<><span className="line-cut-status" title={`Corte realizado: ${cutSheet.code}`}><CheckCircle2 size={13}/> Cortada</span><button type="button" className="line-action-button" onClick={()=>setCutLine(l)} title="Visualizar el corte previamente realizado"><Hammer size={13}/> Ver corte</button></>:<button type="button" className="line-action-button" onClick={()=>setCutLine(l)} title="Preparar corte de perfil"><Hammer size={13}/> Corte perfil</button>}{isLona?<><span className="line-cut-status" title={`Confección realizada: ${lonaSheet.code}`}><CheckCircle2 size={13}/> Confeccionada</span><button type="button" className="line-action-button" onClick={()=>setLonaViewLine(l)} title="Visualizar la confección previamente realizada"><Scissors size={13}/> Ver confección</button></>:<button type="button" className="line-action-button" onClick={()=>setLonaLine(l)} title="Preparar confección de lona"><Scissors size={13}/> Confección lona</button>}</div></td></tr>})}</tbody></table></div></section>
- <div className="quotation-actions"><Link className="secondary-button" to={`/ventas/presupuestos/${data.quotation_id}`}><FileText size={15}/> Ver presupuesto</Link>{data.measurement_id&&<Link className="secondary-button" to={`/gestion/mediciones/${data.measurement_id}`}><Ruler size={15}/> Ver medición</Link>}<Link className="secondary-button" to="/produccion/hojas"><Hammer size={15}/> Hojas de corte</Link></div>
- {cutLine&&<ProfileCutModal line={cutLine} companyId={companyId} salesOrderId={data.id} reference={`${data.code} · Línea ${cutLine.line_no}`} onClose={async()=>{setCutLine(null);const sheet=await getWorkSheetBySalesOrderLine(Number(cutLine.id)).catch(()=>null);if(sheet)setCutSheets(current=>({...current,[Number(cutLine.id)]:sheet}))}}/>}
- {lonaLine&&<LonaConfectionModal line={lonaLine} companyId={companyId} salesOrderId={Number(data.id)} reference={`${data.code} · Línea ${lonaLine.line_no}`} onClose={async()=>{setLonaLine(null);const sheet=await getLonaConfectionWorkSheetBySalesOrderLine(Number(lonaLine.id)).catch(()=>null);if(sheet)setLonaSheets(current=>({...current,[Number(lonaLine.id)]:sheet}))}}/>}
- {lonaViewLine&&<LonaConfectionViewModal line={lonaViewLine} reference={`${data.code} · Línea ${lonaViewLine.line_no}`} onClose={()=>setLonaViewLine(null)}/>} 
- <QuotationLineSnapshotModal isOpen={Boolean(otdSnapshot)} onClose={()=>setOtdSnapshot(null)} snapshot={otdSnapshot} lineNo={otdLineNo}/></div>;
+const statusLabel: Record<string, string> = {
+  PENDING_MANUFACTURING: 'Pendiente de fabricación',
+  PREPARED: 'Preparado',
+  FABRICATING: 'Fabricando',
+  CONFECTIONED: 'Confeccionado',
+  MANUFACTURED: 'Fabricado',
+  INSTALLED: 'Instalado',
+  CANCELLED: 'Cancelado'
+};
+
+const date = (v: string | null) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('es-ES') : '—');
+
+export function SalesOrderDetail() {
+  const { id } = useParams();
+  const [data, setData] = useState<SalesOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [cutLine, setCutLine] = useState<any | null>(null);
+  const [lonaLine, setLonaLine] = useState<any | null>(null);
+  const [lonaViewLine, setLonaViewLine] = useState<any | null>(null);
+  const [cutSheets, setCutSheets] = useState<Record<number, WorkSheet[]>>({});
+  const [lonaSheets, setLonaSheets] = useState<Record<number, LonaConfectionWorkSheet>>({});
+  const [otdSnapshot, setOtdSnapshot] = useState<any | null>(null);
+  const [otdLineNo, setOtdLineNo] = useState(1);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const row = await getSalesOrder(Number(id));
+        if (!active) return;
+        if (!row) {
+          setData(null);
+          setError('Pedido no encontrado.');
+          return;
+        }
+        setData(row);
+        const lines = row.lines || [];
+        const sheets = await Promise.all(
+          lines.map(async (line: any) => [
+            Number(line.id),
+            await getWorkSheetsBySalesOrderLine(Number(line.id)).catch(() => [])
+          ] as const)
+        );
+        const lonaSheetsResult = await Promise.all(
+          lines.map(async (line: any) => [
+            Number(line.id),
+            await getLonaConfectionWorkSheetBySalesOrderLine(Number(line.id)).catch(() => null)
+          ] as const)
+        );
+        if (active) {
+          setCutSheets(
+            Object.fromEntries(sheets.map(([lineId, lineSheets]) => [lineId, lineSheets as WorkSheet[]]))
+          );
+          setLonaSheets(
+            Object.fromEntries(
+              lonaSheetsResult
+                .filter(([, sheet]) => sheet)
+                .map(([lineId, sheet]) => [lineId, sheet as LonaConfectionWorkSheet])
+            )
+          );
+        }
+      } catch (e) {
+        if (active) setError(e instanceof CoreRepositoryError ? e.message : 'No se pudo cargar el pedido.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading) return <div className="loading-block">Cargando pedido…</div>;
+  if (error || !data)
+    return (
+      <div className="module-page">
+        <div className="inline-error">{error || 'Pedido no encontrado.'}</div>
+      </div>
+    );
+
+  const companyId = Number((data as any).company_id || 0);
+
+  return (
+    <div className="module-page sales-order-detail-page">
+      <div className="quotation-detail-head">
+        <div className="quotation-detail-title">
+          <div className="quotation-detail-nav-row">
+            <Link className="secondary-button" to="/ventas/pedidos">
+              <ArrowLeft size={15} /> Volver a pedidos
+            </Link>
+            <span className="quotation-breadcrumb-code">
+              Ventas / Pedidos / <strong>{data.code}</strong>
+            </span>
+          </div>
+          <div className="quotation-title-row">
+            <h1>{data.code}</h1>
+            <span className={`quotation-status ${data.status.toLowerCase()}`}>
+              {statusLabel[data.status] || data.status}
+            </span>
+          </div>
+          <div className="quotation-subtitle-meta">
+            <span>
+              Presupuesto:{' '}
+              <Link to={`/ventas/presupuestos/${data.quotation_id}`}>
+                {data.quotation_code || data.quotation_id}
+              </Link>
+            </span>
+            {data.measurement_id && (
+              <>
+                <span className="dot-sep">·</span>
+                <span>
+                  Medición:{' '}
+                  <Link to={`/gestion/mediciones/${data.measurement_id}`}>
+                    {data.measurement_id}
+                  </Link>
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="quotation-section-grid">
+        <section className="quotation-card">
+          <h2>Cliente</h2>
+          <p className="detail-value">{data.customer_name || '—'}</p>
+          <div className="detail-grid">
+            <div>
+              <span>Contacto</span>
+              <strong>{data.contact_name || '—'}</strong>
+            </div>
+            <div>
+              <span>Email</span>
+              <strong>{data.contact_email || '—'}</strong>
+            </div>
+            <div>
+              <span>Teléfono</span>
+              <strong>{data.contact_phone || '—'}</strong>
+            </div>
+          </div>
+        </section>
+        <section className="quotation-card">
+          <h2>Datos del pedido</h2>
+          <div className="detail-grid">
+            <div>
+              <span>Fecha</span>
+              <strong>{date(data.issue_date)}</strong>
+            </div>
+            <div>
+              <span>Entrega solicitada</span>
+              <strong>{date(data.requested_delivery_date)}</strong>
+            </div>
+            <div>
+              <span>Referencia</span>
+              <strong>{data.reference || '—'}</strong>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section className="quotation-card">
+        <h2>Líneas</h2>
+        <div className="card-table">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Artículo / descripción</th>
+                <th>Cantidad</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data.lines || []).map((l: any) => {
+                const snapshot = (l.specific_data?.configuration_snapshot ||
+                  l.specific_data?.otd_snapshot) as any;
+                const hasOtd = Boolean(
+                  snapshot?.otd_code ||
+                    snapshot?.otd_id ||
+                    snapshot?.inputs_display ||
+                    snapshot?.components
+                );
+
+                const rawComponents = Array.isArray(snapshot?.components) ? snapshot.components : [];
+                const profileComponents = rawComponents.filter(isProfileComponent);
+
+                const totalProfilesInLine =
+                  profileComponents.length > 0
+                    ? profileComponents.length
+                    : 1;
+
+                const lineSheets = cutSheets[Number(l.id)] || [];
+                const lonaSheet = lonaSheets[Number(l.id)];
+                const isFullyCut = lineSheets.length > 0 && lineSheets.length >= totalProfilesInLine;
+                const isPartiallyCut = lineSheets.length > 0 && lineSheets.length < totalProfilesInLine;
+                const isLona = Boolean(lonaSheet);
+
+                return (
+                  <tr key={l.id}>
+                    <td>{l.line_no}</td>
+                    <td>
+                      <strong>{l.description || '—'}</strong>
+                      {l.product_id && <div className="muted">Artículo #{l.product_id}</div>}
+                      {snapshot?.otd_code && <div className="muted">OTD: {snapshot.otd_code}</div>}
+                    </td>
+                    <td>{l.quantity}</td>
+                    <td>
+                      <div className="quotation-line-actions">
+                        {hasOtd && (
+                          <button
+                            type="button"
+                            className="line-action-button"
+                            onClick={() => {
+                              setOtdSnapshot(snapshot);
+                              setOtdLineNo(Number(l.line_no) || 1);
+                            }}
+                            title="Ver configuración específica del OTD"
+                          >
+                            <FileText size={13} /> Detalle OTD
+                          </button>
+                        )}
+
+                        {isFullyCut ? (
+                          <>
+                            <span
+                              className="line-cut-status"
+                              title={`Corte realizado (${lineSheets.length}/${totalProfilesInLine}): ${lineSheets
+                                .map(s => s.code)
+                                .join(', ')}`}
+                            >
+                              <CheckCircle2 size={13} /> Cortada
+                              {totalProfilesInLine > 1 ? ` (${lineSheets.length}/${totalProfilesInLine})` : ''}
+                            </span>
+                            <button
+                              type="button"
+                              className="line-action-button"
+                              onClick={() => setCutLine(l)}
+                              title="Visualizar los cortes de perfiles realizados"
+                            >
+                              <Hammer size={13} /> Ver corte{totalProfilesInLine > 1 ? 's' : ''}
+                            </button>
+                          </>
+                        ) : isPartiallyCut ? (
+                          <>
+                            <span
+                              className="line-cut-status partial"
+                              title={`Corte parcial: ${lineSheets.length} de ${totalProfilesInLine} perfiles cortados`}
+                            >
+                              <Hammer size={13} /> Corte parcial ({lineSheets.length}/{totalProfilesInLine})
+                            </span>
+                            <button
+                              type="button"
+                              className="line-action-button"
+                              onClick={() => setCutLine(l)}
+                              title="Continuar corte de perfiles pendientes"
+                            >
+                              <Hammer size={13} /> Corte perfil
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="line-action-button"
+                            onClick={() => setCutLine(l)}
+                            title="Preparar corte de perfil"
+                          >
+                            <Hammer size={13} /> Corte perfil
+                          </button>
+                        )}
+
+                        {isLona ? (
+                          <>
+                            <span
+                              className="line-cut-status"
+                              title={`Confección realizada: ${lonaSheet.code}`}
+                            >
+                              <CheckCircle2 size={13} /> Confeccionada
+                            </span>
+                            <button
+                              type="button"
+                              className="line-action-button"
+                              onClick={() => setLonaViewLine(l)}
+                              title="Visualizar la confección previamente realizada"
+                            >
+                              <Scissors size={13} /> Ver confección
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="line-action-button"
+                            onClick={() => setLonaLine(l)}
+                            title="Preparar confección de lona"
+                          >
+                            <Scissors size={13} /> Confección lona
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div className="quotation-actions">
+        <Link className="secondary-button" to={`/ventas/presupuestos/${data.quotation_id}`}>
+          <FileText size={15} /> Ver presupuesto
+        </Link>
+        {data.measurement_id && (
+          <Link className="secondary-button" to={`/gestion/mediciones/${data.measurement_id}`}>
+            <Ruler size={15} /> Ver medición
+          </Link>
+        )}
+        <Link className="secondary-button" to="/produccion/hojas">
+          <Hammer size={15} /> Hojas de corte
+        </Link>
+      </div>
+
+      {cutLine && (
+        <ProfileCutModal
+          line={cutLine}
+          companyId={companyId}
+          salesOrderId={data.id}
+          reference={`${data.code} · Línea ${cutLine.line_no}`}
+          onClose={async () => {
+            const lineId = Number(cutLine.id);
+            setCutLine(null);
+            const updatedSheets = await getWorkSheetsBySalesOrderLine(lineId).catch(() => []);
+            setCutSheets(current => ({ ...current, [lineId]: updatedSheets }));
+          }}
+        />
+      )}
+
+      {lonaLine && (
+        <LonaConfectionModal
+          line={lonaLine}
+          companyId={companyId}
+          salesOrderId={Number(data.id)}
+          reference={`${data.code} · Línea ${lonaLine.line_no}`}
+          onClose={async () => {
+            setLonaLine(null);
+            const sheet = await getLonaConfectionWorkSheetBySalesOrderLine(Number(lonaLine.id)).catch(
+              () => null
+            );
+            if (sheet) setLonaSheets(current => ({ ...current, [Number(lonaLine.id)]: sheet }));
+          }}
+        />
+      )}
+
+      {lonaViewLine && (
+        <LonaConfectionViewModal
+          line={lonaViewLine}
+          reference={`${data.code} · Línea ${lonaViewLine.line_no}`}
+          onClose={() => setLonaViewLine(null)}
+        />
+      )}
+
+      <QuotationLineSnapshotModal
+        isOpen={Boolean(otdSnapshot)}
+        onClose={() => setOtdSnapshot(null)}
+        snapshot={otdSnapshot}
+        lineNo={otdLineNo}
+      />
+    </div>
+  );
 }

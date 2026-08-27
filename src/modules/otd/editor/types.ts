@@ -4,6 +4,8 @@ import type { OtdScaleRow } from "../../../services/otd/otdScaleRepository";
 
 export interface SelectionOption {
   id?: number;
+  selection_id?: number;
+  otd_selection_id?: number;
   code: string;
   label: string;
   value?: string | null;

@@ -42,6 +42,7 @@ import type {
   ProductCharacteristic,
 } from "../../services/catalog/productRepository";
 import { Toast } from "../../components/ui/Toast";
+import { FormulaPredictiveInput } from "./FormulaPredictiveInput";
 import "./otd-runtime.css";
 
 const euro = (n: number) =>
@@ -225,6 +226,23 @@ export function OtdRuntime() {
       const details = await fetchProductForOtdComponent(product.id);
       if (!editingCompModal) return;
 
+      const initialDimExprs: Record<string, string> = {
+        ...(editingCompModal.comp.dimension_expressions || {}),
+      };
+      if (details.dimensions && details.dimensions.length > 0) {
+        details.dimensions.forEach((d) => {
+          const matchingSelection = (runtimeData?.selections || []).find(
+            (s) =>
+              s.is_dimension &&
+              (s.code.toUpperCase() === d.code.toUpperCase() ||
+                s.name.toLowerCase() === (d.name || "").toLowerCase()),
+          );
+          initialDimExprs[d.code] = matchingSelection
+            ? matchingSelection.code
+            : d.code;
+        });
+      }
+
       const updatedComp: OtdComponentDef = {
         ...editingCompModal.comp,
         product_id: product.id,
@@ -241,6 +259,7 @@ export function OtdRuntime() {
           details.characteristics.length > 0
             ? details.characteristics[0].id
             : null,
+        dimension_expressions: initialDimExprs,
       };
 
       setEditingCompModal({
@@ -257,7 +276,7 @@ export function OtdRuntime() {
     }
   }
 
-  const handleOpenEditComponent = (index: number) => {
+  const handleOpenEditComponent = async (index: number) => {
     const comp = customComponents[index];
     setEditingCompModal({
       comp: { ...comp },
@@ -265,6 +284,55 @@ export function OtdRuntime() {
     });
     setProductSearch("");
     setProductResults([]);
+
+    if (comp.product_id && (!comp.dimensions || comp.dimensions.length === 0)) {
+      try {
+        setLoadingProductDetails(true);
+        const details = await fetchProductForOtdComponent(comp.product_id);
+        const initialDimExprs: Record<string, string> = {
+          ...(comp.dimension_expressions || {}),
+        };
+        if (details.dimensions && details.dimensions.length > 0) {
+          details.dimensions.forEach((d) => {
+            if (initialDimExprs[d.code] === undefined) {
+              const matchingSelection = (runtimeData?.selections || []).find(
+                (s) =>
+                  s.is_dimension &&
+                  (s.code.toUpperCase() === d.code.toUpperCase() ||
+                    s.name.toLowerCase() === (d.name || "").toLowerCase()),
+              );
+              initialDimExprs[d.code] = matchingSelection
+                ? matchingSelection.code
+                : d.code;
+            }
+          });
+        }
+
+        setEditingCompModal((prev) => {
+          if (!prev || prev.index !== index) return prev;
+          return {
+            ...prev,
+            comp: {
+              ...prev.comp,
+              product: details.product,
+              dimensions: details.dimensions,
+              scales: details.scales,
+              characteristics: details.characteristics,
+              characteristic_id:
+                prev.comp.characteristic_id ??
+                (details.characteristics.length > 0
+                  ? details.characteristics[0].id
+                  : null),
+              dimension_expressions: initialDimExprs,
+            },
+          };
+        });
+      } catch (err) {
+        console.error("Error cargando dimensiones del componente:", err);
+      } finally {
+        setLoadingProductDetails(false);
+      }
+    }
   };
 
   const handleOpenAddNewComponent = () => {
@@ -1330,6 +1398,119 @@ export function OtdRuntime() {
                   />
                 </label>
               </div>
+
+              {/* Cutting / Manufacturing Dimensions (Only if the article has dimensions) */}
+              {editingCompModal.comp.dimensions &&
+                editingCompModal.comp.dimensions.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 16,
+                      padding: 14,
+                      background: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#334155",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <Ruler size={14} style={{ color: "#0284c7" }} />
+                      <span>
+                        Dimensiones y Fórmulas de Corte del Artículo (
+                        {editingCompModal.comp.dimensions.length})
+                      </span>
+                    </div>
+                    <p
+                      style={{
+                        fontSize: 11.5,
+                        color: "#64748b",
+                        margin: "0 0 10px",
+                      }}
+                    >
+                      Indica la dimensión o fórmula de corte para cada medida requerida por este artículo (ej. <code>ANCHO</code>, <code>ALTO - 50</code>, o valor numérico).
+                    </p>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          editingCompModal.comp.dimensions.length > 1
+                            ? "1fr 1fr"
+                            : "1fr",
+                        gap: 10,
+                      }}
+                    >
+                      {editingCompModal.comp.dimensions.map((d) => {
+                        const dimUnitSymbol =
+                          d.unit_symbol || d.unit_code || "mm";
+                        const workUnitSymbol =
+                          runtimeData?.workUnit?.symbol ||
+                          runtimeData?.workUnit?.code ||
+                          "mm";
+                        const isDifferent =
+                          dimUnitSymbol.toLowerCase() !==
+                          workUnitSymbol.toLowerCase();
+
+                        return (
+                          <div
+                            key={d.code}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 4,
+                            }}
+                          >
+                            <FormulaPredictiveInput
+                              label={`${d.name || d.code} (${dimUnitSymbol})`}
+                              value={
+                                editingCompModal.comp.dimension_expressions?.[
+                                  d.code
+                                ] ?? ""
+                              }
+                              onChange={(val) =>
+                                setEditingCompModal({
+                                  ...editingCompModal,
+                                  comp: {
+                                    ...editingCompModal.comp,
+                                    dimension_expressions: {
+                                      ...editingCompModal.comp
+                                        .dimension_expressions,
+                                      [d.code]: val,
+                                    },
+                                  },
+                                })
+                              }
+                              placeholder={`Ej. ${d.code} o ${d.code} - 50`}
+                              availableInputs={runtimeData?.selections || []}
+                              availableVariables={runtimeData?.variables || []}
+                              compact
+                            />
+                            {isDifferent && (
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  color: "#0284c7",
+                                  marginTop: 2,
+                                }}
+                              >
+                                Requerido en {dimUnitSymbol} (OTD en{" "}
+                                {workUnitSymbol}). Conversión automática.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
             </div>
 
             <div className="otd-modal-footer">

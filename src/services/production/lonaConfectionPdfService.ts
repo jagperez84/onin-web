@@ -35,7 +35,10 @@ function drawCutDiagram(pdf: jsPDF, component: LonaConfectionComponent, x: numbe
   return Math.max(y + maxHeight + 12, rectY + height + 18);
 }
 
-export function downloadLonaConfectionPdf(result: LonaConfectionResult) {
+export function downloadLonaConfectionPdf(
+  result: LonaConfectionResult,
+  cutDetails?: Record<number, { cutType?: string; hem?: string; overlap?: string }>
+) {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
@@ -60,16 +63,21 @@ export function downloadLonaConfectionPdf(result: LonaConfectionResult) {
       y = 20;
     }
 
+    const detail = cutDetails?.[index];
+    const cutType = detail?.cutType || 'Asimétrico';
+    const hem = detail?.hem || '3';
+    const overlap = detail?.overlap || '2.7';
+
     pdf.setFontSize(12);
     pdf.text(`${index + 1}. ${component.productCode}`, margin, y);
     pdf.setFontSize(9);
     pdf.text(component.productName, margin, y + 6);
-    pdf.text(`Cantidad: ${formatNumber(component.quantity)} · Característica: ${component.characteristicName ?? '—'}`, margin, y + 12);
+    pdf.text(`Cantidad: ${formatNumber(component.quantity)} · Característica: ${component.characteristicName ?? 'Sin característica'}`, margin, y + 12);
     pdf.text(`Línea: ${formatNumber(component.line)} ${component.lineUnit ?? ''} · Salida: ${formatNumber(component.output)} ${component.outputUnit ?? ''}`, margin, y + 18);
 
     y = drawCutDiagram(pdf, component, margin, y + 23, pageWidth - margin * 2, 65) + 12;
     pdf.setFontSize(8);
-    pdf.text('Tipo de corte: pendiente de regla específica', margin, y);
+    pdf.text(`Tipo de corte: ${cutType} · Dobladillo: ${hem} ${component.lineUnit ?? ''} · Solape: ${overlap} ${component.lineUnit ?? ''}`, margin, y);
     y += 9;
     pdf.setDrawColor(210, 210, 210);
     pdf.line(margin, y, pageWidth - margin, y);

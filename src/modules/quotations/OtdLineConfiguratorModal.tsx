@@ -637,6 +637,13 @@ export function OtdLineConfiguratorModal({
               comp: updatedComp,
             })
           }
+          selections={runtimeData?.selections || []}
+          variables={runtimeData?.variables || []}
+          workUnitSymbol={
+            runtimeData?.workUnit?.symbol ||
+            runtimeData?.workUnit?.code ||
+            "mm"
+          }
         />
       )}
     </div>,

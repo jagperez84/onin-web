@@ -1450,3 +1450,75 @@
     align-items: flex-start;
   }
 }
+
+/* OTD Confirmation Modal */
+.otd-confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.otd-confirmation-dialog {
+  width: min(460px, 100%);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.otd-confirmation-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.otd-confirmation-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+
+.otd-confirmation-dialog p {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.5;
+}
+
+.otd-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.otd-confirmation-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.otd-confirmation-danger-btn:hover {
+  background: #b91c1c;
+}
+

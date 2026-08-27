@@ -1,20 +1,26 @@
-import React, { useState } from "react";
-import { CheckCircle2, Package, Search, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckCircle2, Package, Search, X, Ruler, Loader2 } from "lucide-react";
 import {
   searchOninProducts,
   fetchProductForOtdComponent,
+  type OtdSelection,
+  type OtdVariable,
 } from "../../../services/otd/otdCalculationService";
 import type {
   Product,
   ProductCharacteristic,
 } from "../../../services/catalog/productRepository";
 import type { EditingCompModalState } from "./types";
+import { FormulaPredictiveInput } from "../../otd/FormulaPredictiveInput";
 
 export type OtdComponentEditModalProps = {
   editingCompModal: NonNullable<EditingCompModalState>;
   onClose: () => void;
   onSave: () => void;
   onUpdateComp: (comp: NonNullable<EditingCompModalState>["comp"]) => void;
+  selections?: OtdSelection[];
+  variables?: OtdVariable[];
+  workUnitSymbol?: string;
 };
 
 export function OtdComponentEditModal({
@@ -22,11 +28,73 @@ export function OtdComponentEditModal({
   onClose,
   onSave,
   onUpdateComp,
+  selections = [],
+  variables = [],
+  workUnitSymbol = "mm",
 }: OtdComponentEditModalProps) {
   const [productSearch, setProductSearch] = useState("");
   const [searchingProducts, setSearchingProducts] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [productResults, setProductResults] = useState<Product[]>([]);
   const [compFeedback, setCompFeedback] = useState<string>("");
+
+  const comp = editingCompModal.comp;
+
+  // If component already has a product_id but missing dimensions/characteristics metadata, load them
+  useEffect(() => {
+    let active = true;
+    if (
+      comp.product_id &&
+      (!comp.dimensions || comp.dimensions.length === 0)
+    ) {
+      setLoadingDetails(true);
+      fetchProductForOtdComponent(comp.product_id)
+        .then((loaded) => {
+          if (!active) return;
+          const initialDimExprs: Record<string, string> = {
+            ...(comp.dimension_expressions || {}),
+          };
+          if (loaded.dimensions && loaded.dimensions.length > 0) {
+            loaded.dimensions.forEach((d) => {
+              if (initialDimExprs[d.code] === undefined) {
+                const matchingSelection = selections.find(
+                  (s) =>
+                    s.is_dimension &&
+                    (s.code.toUpperCase() === d.code.toUpperCase() ||
+                      s.name.toLowerCase() === (d.name || "").toLowerCase()),
+                );
+                initialDimExprs[d.code] = matchingSelection
+                  ? matchingSelection.code
+                  : d.code;
+              }
+            });
+          }
+
+          onUpdateComp({
+            ...comp,
+            product: loaded.product,
+            dimensions: loaded.dimensions,
+            scales: loaded.scales,
+            characteristics: loaded.characteristics,
+            characteristic_id:
+              comp.characteristic_id ??
+              (loaded.characteristics.length > 0
+                ? loaded.characteristics[0].id
+                : null),
+            dimension_expressions: initialDimExprs,
+          });
+        })
+        .catch((err) => {
+          console.error("Error cargando detalles del producto:", err);
+        })
+        .finally(() => {
+          if (active) setLoadingDetails(false);
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [comp.product_id]);
 
   const searchCatalog = async (query: string) => {
     setProductSearch(query);
@@ -46,17 +114,41 @@ export function OtdComponentEditModal({
   };
 
   const handleSelectProductForComp = async (prod: Product) => {
+    setLoadingDetails(true);
     try {
       const loaded = await fetchProductForOtdComponent(prod.id);
+      const initialDimExprs: Record<string, string> = {
+        ...(comp.dimension_expressions || {}),
+      };
+      if (loaded.dimensions && loaded.dimensions.length > 0) {
+        loaded.dimensions.forEach((d) => {
+          const matchingSelection = selections.find(
+            (s) =>
+              s.is_dimension &&
+              (s.code.toUpperCase() === d.code.toUpperCase() ||
+                s.name.toLowerCase() === (d.name || "").toLowerCase()),
+          );
+          initialDimExprs[d.code] = matchingSelection
+            ? matchingSelection.code
+            : d.code;
+        });
+      }
+
       onUpdateComp({
-        ...editingCompModal.comp,
+        ...comp,
         product_id: prod.id,
         code: prod.code,
-        description: prod.commercial_description || prod.technical_description || null,
+        description:
+          prod.commercial_description || prod.technical_description || null,
         product: loaded.product,
+        dimensions: loaded.dimensions,
+        scales: loaded.scales,
         characteristics: loaded.characteristics,
         characteristic_id:
-          loaded.characteristics.length > 0 ? loaded.characteristics[0].id : null,
+          loaded.characteristics.length > 0
+            ? loaded.characteristics[0].id
+            : null,
+        dimension_expressions: initialDimExprs,
       });
       setProductResults([]);
       setProductSearch("");
@@ -64,13 +156,18 @@ export function OtdComponentEditModal({
       setTimeout(() => setCompFeedback(""), 3000);
     } catch {
       onUpdateComp({
-        ...editingCompModal.comp,
+        ...comp,
         product_id: prod.id,
         code: prod.code,
-        description: prod.commercial_description || prod.technical_description || null,
+        description:
+          prod.commercial_description || prod.technical_description || null,
+        dimensions: [],
+        dimension_expressions: {},
       });
       setProductResults([]);
       setProductSearch("");
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
@@ -488,6 +585,102 @@ export function OtdComponentEditModal({
                     fontSize: "13px",
                   }}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Cutting / Manufacturing Dimensions (Only if the article has dimensions) */}
+          {comp.dimensions && comp.dimensions.length > 0 && (
+            <div
+              style={{
+                marginTop: "14px",
+                padding: "12px",
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "8px",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#334155",
+                  marginBottom: "6px",
+                }}
+              >
+                <Ruler size={14} style={{ color: "#0284c7" }} />
+                <span>
+                  Dimensiones y Fórmulas de Corte del Artículo ({comp.dimensions.length})
+                </span>
+              </div>
+              <p
+                style={{
+                  fontSize: "11.5px",
+                  color: "#64748b",
+                  margin: "0 0 10px",
+                }}
+              >
+                Indica la dimensión o fórmula de corte para cada medida requerida por este artículo (ej. <code>ANCHO</code>, <code>ALTO - 50</code>, o valor numérico).
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    comp.dimensions.length > 1 ? "1fr 1fr" : "1fr",
+                  gap: "10px",
+                }}
+              >
+                {comp.dimensions.map((d) => {
+                  const dimUnitSymbol = d.unit_symbol || d.unit_code || "mm";
+                  const isDifferent =
+                    workUnitSymbol &&
+                    dimUnitSymbol.toLowerCase() !==
+                      workUnitSymbol.toLowerCase();
+
+                  return (
+                    <div
+                      key={d.code}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "4px",
+                      }}
+                    >
+                      <FormulaPredictiveInput
+                        label={`${d.name || d.code} (${dimUnitSymbol})`}
+                        value={comp.dimension_expressions?.[d.code] ?? ""}
+                        onChange={(val) =>
+                          onUpdateComp({
+                            ...comp,
+                            dimension_expressions: {
+                              ...comp.dimension_expressions,
+                              [d.code]: val,
+                            },
+                          })
+                        }
+                        placeholder={`Ej. ${d.code} o ${d.code} - 50`}
+                        availableInputs={selections}
+                        availableVariables={variables}
+                        compact
+                      />
+                      {isDifferent && (
+                        <div
+                          style={{
+                            fontSize: "10px",
+                            color: "#0284c7",
+                            marginTop: "2px",
+                          }}
+                        >
+                          Requerido en {dimUnitSymbol} (OTD en {workUnitSymbol}). Conversión automática.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

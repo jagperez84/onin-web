@@ -1,87 +1,1174 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Hammer, PackageSearch, Printer, FlaskConical } from 'lucide-react';
+import {
+  CheckCircle2,
+  Hammer,
+  PackageSearch,
+  Printer,
+  FlaskConical,
+  ArrowRight,
+  Layers,
+  Sparkles,
+  Info
+} from 'lucide-react';
 import { listProfileStockPieces, type ProfileStockPiece } from '../../services/warehouse/stockRepository';
-import { executeManualProfileCutWithWorkSheet, getWorkSheetBySalesOrderLine, type WorkSheet } from '../../services/production/workSheetService';
-import { downloadWorkSheetPdf } from '../../services/production/workSheetPdfService';
+import {
+  executeManualProfileCutWithWorkSheet,
+  getWorkSheetsBySalesOrderLine,
+  type WorkSheet
+} from '../../services/production/workSheetService';
+import { downloadWorkSheetPdf, downloadBatchWorkSheetsPdf } from '../../services/production/workSheetPdfService';
 import { loadMasterProductConfiguration } from '../../services/catalog/productConfigurationService';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import './sales-order.css';
 import './sales-order-cut.css';
 
-type CutMode='manual'|'automatic'|'simulation';
-type CutStep='mode'|'manual'|'review'|'simulation'|'completed';
-type CutNeed={lineNo:number;profile:string;profileId?:number;profileName:string;length:number;quantity:number;characteristic:string;characteristicCode?:string};
-type StockPiece=ProfileStockPiece&{selected:boolean;selectedQuantity:number};
+export type CutNeed = {
+  id: string;
+  componentIndex: number;
+  lineNo: number;
+  profile: string;
+  profileId?: number;
+  profileName: string;
+  length: number;
+  quantity: number;
+  characteristic: string;
+  characteristicCode?: string;
+  characteristicId?: number;
+  unit: string;
+};
 
-export function ProfileCutModal({line,companyId,salesOrderId,reference,onClose}:{line:any;companyId:number;salesOrderId:number;reference?:string;onClose:()=>void}){
- const [step,setStep]=useState<CutStep>('mode'); const [mode,setMode]=useState<CutMode>('manual'); const [stockPieces,setStockPieces]=useState<StockPiece[]>([]); const [stockLoading,setStockLoading]=useState(false); const [saving,setSaving]=useState(false); const [existingLoading,setExistingLoading]=useState(true); const [existingWorkSheet,setExistingWorkSheet]=useState<WorkSheet|null>(null); const [stockError,setStockError]=useState(''); const [cutError,setCutError]=useState(''); const [automaticReason,setAutomaticReason]=useState('');
- const snapshot=(line.specific_data?.configuration_snapshot||line.specific_data?.otd_snapshot||{}) as any; const components=Array.isArray(snapshot.components)?snapshot.components:[]; const profileComponent=components.find((c:any)=>/perfil|profile/i.test(`${c.product_code||''} ${c.product_name||''}`))||components[0]||null; const profile=String(profileComponent?.product_code||snapshot.profile_code||line.product?.code||'Perfil'); const profileId=Number(profileComponent?.product_id||profileComponent?.article_id||line.product_id||0)||undefined; const profileName=String(profileComponent?.product_name||line.product?.commercial_description||line.description||profile); const characteristicCode=profileComponent?.characteristic_code?String(profileComponent.characteristic_code):undefined; const characteristic=String(profileComponent?.characteristic_name||characteristicCode||'—'); const dimensions=profileComponent?.dimension_list||profileComponent?.dimensions||snapshot.dimensions||line.specific_data?.dimensions||[]; const length=Number(dimensions?.find((d:any)=>/long|largo|length/i.test(String(d.name||d.code)))?.value||dimensions?.[0]?.value||0); const need:CutNeed={lineNo:Number(line.line_no),profile,profileId,profileName,length,quantity:Number(line.quantity||1),characteristic,characteristicCode};
+type StockPiece = ProfileStockPiece & { selected: boolean; selectedQuantity: number };
 
- const initialDimensionUnit =
-   dimensions?.find((d: any) => /long|largo|length/i.test(String(d.name || d.code)))?.unit_symbol ||
-   dimensions?.find((d: any) => /long|largo|length/i.test(String(d.name || d.code)))?.unit_code ||
-   dimensions?.[0]?.unit_symbol ||
-   dimensions?.[0]?.unit_code ||
-   profileComponent?.dimension_list?.[0]?.unit_symbol ||
-   profileComponent?.dimension_list?.[0]?.unit_code ||
-   profileComponent?.dimensions?.[0]?.unit_symbol ||
-   profileComponent?.dimensions?.[0]?.unit_code ||
-   line.specific_data?.dimensions?.[0]?.unit_symbol ||
-   line.specific_data?.dimensions?.[0]?.unit_code ||
-   snapshot.work_unit?.symbol ||
-   snapshot.work_unit_symbol ||
-   snapshot.work_unit?.code ||
-   snapshot.work_unit_code ||
-   '';
+type BatchProposal = {
+  need: CutNeed;
+  pieces: StockPiece[];
+  remnant: number;
+  reason: string;
+};
 
- const [unit, setUnit] = useState<string>(initialDimensionUnit);
+/** Determina con precisión si un componente del OTD es un perfil cortable lineal (1D) y no una tela/lona (2D). */
+export function isProfileComponent(c: any): boolean {
+  if (!c) return false;
+  const nameStr = `${c.product_code || ''} ${c.product_name || ''} ${c.description || ''} ${c.code || ''}`.toLowerCase();
 
- useEffect(() => {
-   let active = true;
-   if (!profileId) {
-     if (initialDimensionUnit) setUnit(initialDimensionUnit);
-     return;
-   }
-   loadMasterProductConfiguration(profileId, companyId)
-     .then(conf => {
-       if (!active || !conf) return;
-       const targetDim =
-         conf.dimensions?.find((d: any) => /long|largo|length/i.test(String(d.name || d.code))) ||
-         conf.dimensions?.[0];
-       const dimUnitId = targetDim?.unit_id || conf.measurementType?.result_unit_id;
-       const dimUnitObj = dimUnitId ? conf.unitsMap.get(dimUnitId) : null;
-       const uStr = dimUnitObj?.code || dimUnitObj?.name || '';
-       if (uStr) {
-         setUnit(uStr);
-       } else if (initialDimensionUnit) {
-         setUnit(initialDimensionUnit);
-       }
-     })
-     .catch(() => {
-       if (active && initialDimensionUnit) {
-         setUnit(initialDimensionUnit);
-       }
-     });
-   return () => { active = false; };
- }, [profileId, companyId, initialDimensionUnit]);
+  // 1. Excluir explícitamente telas, lonas y superficies de confección (2D)
+  const isFabricOrLona =
+    /tela|lona|tejido|canvas|screen|acrilic|acrílic|pvc|confecci[oó]n|enrollable|cortina/i.test(nameStr) ||
+    /m2|m²|sqm/i.test(String(c.unit_symbol || c.unit_code || '')) ||
+    String(c.component_type || '').toUpperCase() === 'FABRIC' ||
+    String(c.component_type || '').toUpperCase() === 'LONA' ||
+    String(c.component_type || '').toUpperCase() === 'TELA';
 
- const u = (val: number | string) => unit ? `${val} ${unit}` : `${val}`;
- const uSheet = (val: number | string) => {
-   const sheetUnit = existingWorkSheet?.unit_symbol || existingWorkSheet?.unit_code || unit;
-   return sheetUnit ? `${val} ${sheetUnit}` : `${val}`;
- };
+  if (isFabricOrLona) return false;
 
- useEffect(()=>{let active=true;setExistingLoading(true);getWorkSheetBySalesOrderLine(Number(line.id)).then(sheet=>{if(!active)return;setExistingWorkSheet(sheet);if(sheet)setStep('completed')}).catch(()=>{if(active)setExistingWorkSheet(null)}).finally(()=>{if(active)setExistingLoading(false)});return()=>{active=false}},[line.id]);
- const loadStock=async()=>{if(!need.profileId||!need.length)return;setStockLoading(true);setStockError('');try{const rows=await listProfileStockPieces({companyId,productId:need.profileId,productCode:need.profile,characteristicCode:need.characteristicCode,requiredLength:need.length});setStockPieces(rows.map(row=>({...row,selected:false,selectedQuantity:0})))}catch(error){setStockError(error instanceof Error?error.message:'No se pudo consultar el stock compatible.')}finally{setStockLoading(false)}};
- useEffect(()=>{if(existingLoading||existingWorkSheet||step!=='manual'||!length)return;void loadStock()},[existingLoading,existingWorkSheet,step,length,need.profileId,need.profile,need.characteristicCode,companyId]);
- const grouped=stockPieces.reduce<Record<string,StockPiece[]>>((acc,piece)=>{const key=`${piece.length}`;(acc[key]??=[]).push(piece);return acc},{}); const pieceId=(piece:StockPiece,index:number)=>`${piece.warehouseId}-${piece.length}-${index}`; const toggle=(id:string)=>setStockPieces(rows=>rows.map((piece,index)=>pieceId(piece,index)!==id?piece:{...piece,selected:!piece.selected,selectedQuantity:!piece.selected?1:0})); const changeSelectedQuantity=(id:string,value:number)=>setStockPieces(rows=>rows.map((piece,index)=>pieceId(piece,index)===id?{...piece,selected:value>0,selectedQuantity:Math.min(Math.max(0,value),piece.quantity)}:piece)); const selected=stockPieces.filter(p=>p.selectedQuantity>0); const selectedCount=selected.reduce((sum,p)=>sum+p.selectedQuantity,0); const selectionMatchesNeed=selectedCount===need.quantity;
- const prepareAutomatic=async()=>{setStockLoading(true);setStockError('');setCutError('');try{const rows=await listProfileStockPieces({companyId,productId:need.profileId,productCode:need.profile,characteristicCode:need.characteristicCode,requiredLength:need.length});const pieces=rows.map(row=>({...row,selected:false,selectedQuantity:0})).sort((a,b)=>a.length-b.length||a.warehouseId-b.warehouseId);let remaining=need.quantity;const chosen:StockPiece[]=[];for(const piece of pieces){if(remaining<=0)break;const take=Math.min(piece.quantity,remaining);if(take>0){chosen.push({...piece,selected:true,selectedQuantity:take});remaining-=take}}if(remaining>0){setStockPieces(pieces);setCutError(`No hay stock compatible suficiente. Faltan ${remaining} pieza${remaining===1?'':'s'} de ${u(need.length)}.`);setStep('manual');return}const remnant=chosen.reduce((sum,p)=>sum+(p.length-need.length)*p.selectedQuantity,0);setStockPieces(chosen);setAutomaticReason(`Optimización automática: se selecciona siempre la menor longitud compatible disponible, priorizando el menor remanente total. Material previsto: ${chosen.map(p=>`${p.selectedQuantity} × ${u(p.length)}`).join(', ')}. Remanente total previsto: ${u(remnant)}.`);setStep('review')}catch(error){setStockError(error instanceof Error?error.message:'No se pudo calcular la propuesta automática.')}finally{setStockLoading(false)}};
- const executeCut=async()=>{if(!selectionMatchesNeed||!need.profileId||!need.length)return;setSaving(true);setCutError('');try{const reason=mode==='automatic'?automaticReason:'Selección manual realizada por el usuario.';const created=await executeManualProfileCutWithWorkSheet({companyId,salesOrderId,salesOrderLineId:Number(line.id),salesOrderLineNo:need.lineNo,productId:need.profileId,productCode:need.profile,productName:need.profileName,characteristicId:selected[0]?.characteristicId??null,characteristicCode:need.characteristicCode??selected[0]?.characteristicCode??null,characteristicName:need.characteristic,requiredLength:need.length,quantity:need.quantity,selections:selected.map(piece=>({warehouseId:piece.warehouseId,dimensionValues:[piece.length],quantity:piece.selectedQuantity})),reference:reference||`Corte línea ${need.lineNo}`,notes:`Cortar ${need.quantity} pieza(s) de ${u(need.length)}. ${reason}`,selectionMode:mode==='automatic'?'AUTOMATIC':'MANUAL',selectionReason:reason,unitSymbol:unit||undefined});setExistingWorkSheet(created);setStep('completed')}catch(error){setCutError(error instanceof CoreRepositoryError||error instanceof Error?error.message:'No se pudo realizar el corte.')}finally{setSaving(false)}};
- const simulateCut=()=>{if(selectionMatchesNeed)setStep('simulation')};
- return <div className="sales-order-modal-backdrop"><div className="sales-order-modal" role="dialog" aria-modal="true"><div className="sales-order-modal-head"><div><div className="eyebrow">FABRICACIÓN / CORTE DE PERFIL</div><h2>{step==='completed'?'Corte realizado':step==='simulation'?'Simulación de corte':'Corte de perfil'}</h2><p>Línea {need.lineNo} · {need.profile}</p></div><button className="icon-link" onClick={onClose} aria-label="Cerrar">×</button></div>
- {existingLoading?<div className="sales-order-cut-body"><div className="empty-cell">Comprobando si la línea ya tiene un corte realizado…</div></div>:existingWorkSheet?<div className="sales-order-cut-body"><div className="sales-order-cut-summary"><div><span>Estado</span><strong>Cortada</strong></div><div><span>Hoja de corte</span><strong>{existingWorkSheet.code}</strong></div><div><span>Fecha</span><strong>{new Date(existingWorkSheet.issue_date).toLocaleDateString('es-ES')}</strong></div></div><div className="sales-order-review-box"><h3>Corte previamente realizado</h3>{existingWorkSheet.selection_mode==='AUTOMATIC'&&<div className="sales-order-cut-note"><strong>Selección automática:</strong> {existingWorkSheet.selection_reason||existingWorkSheet.notes}</div>}<div className="sales-order-review-row"><span>{existingWorkSheet.product_code} · {existingWorkSheet.characteristic_name||existingWorkSheet.characteristic_code||'Sin característica'}</span><strong>{existingWorkSheet.quantity} × {uSheet(existingWorkSheet.required_length)}</strong></div>{existingWorkSheet.lines.map(item=><div className="sales-order-review-row" key={item.id}><span>{item.warehouse_code||item.warehouse_name} · origen {item.source_dimension_values.map(v => uSheet(v)).join(' × ')}</span><strong>Cortar {item.cut_dimension_values.map(v => uSheet(v)).join(' × ')} → resto {item.remainder_dimension_values.length?item.remainder_dimension_values.map(v => uSheet(v)).join(' × '):'descarte'}</strong></div>)}</div><div className="sales-order-modal-actions"><button className="secondary-button" type="button" onClick={()=>downloadWorkSheetPdf(existingWorkSheet)}><Printer size={15}/> Imprimir / PDF</button><button className="primary-button" onClick={onClose}>Cerrar</button></div></div>:step==='simulation'?<div className="sales-order-cut-body"><div className="sales-order-cut-note simulation-banner"><strong>SIMULACIÓN</strong> · No se modifica el stock, no se genera una hoja de corte y el pedido no cambia de estado.</div><div className="sales-order-cut-summary"><div><span>Necesidad</span><strong>{need.quantity} × {u(need.length)}</strong></div><div><span>Material seleccionado</span><strong>{selectedCount} piezas</strong></div><div><span>Característica</span><strong>{need.characteristic}</strong></div></div><div className="sales-order-review-box"><h3>Resultado previsto</h3>{selected.map((piece,index)=><div className="sales-order-review-row" key={`${piece.warehouseId}-${piece.length}-${index}`}><span>{piece.warehouseCode} · pieza de {u(piece.length)}</span><strong>{piece.selectedQuantity} ud. → corte {u(need.length)} · resto {u(Math.max(0,piece.length-need.length))}</strong></div>)}</div><div className="sales-order-modal-actions"><button className="secondary-button" onClick={()=>setStep('manual')}>Modificar selección</button><button className="primary-button" onClick={onClose}>Cerrar simulación</button></div></div>:<><div className="sales-order-cut-steps"><span className={step==='mode'?'active':''}>1. Método</span><span className={step==='manual'?'active':''}>2. Material</span><span className={step==='review'?'active':''}>3. Revisar</span><span className={step==='completed'?'active':''}>4. Hoja</span></div>
- {step==='mode'&&<div className="sales-order-cut-body"><div className="sales-order-cut-summary"><div><span>Necesidad</span><strong>{need.quantity} × {need.length?u(need.length):'Longitud pendiente'}</strong></div><div><span>Perfil</span><strong>{need.profile}</strong></div><div><span>Color / característica</span><strong>{need.characteristic}</strong></div></div><h3>¿Cómo quieres determinar el material?</h3><div className="sales-order-mode-grid"><button className={mode==='manual'?'selected':''} onClick={()=>setMode('manual')}><PackageSearch size={20}/><strong>Selección manual</strong><span>Selecciona las piezas o restos de stock que quieres utilizar.</span></button><button className={mode==='automatic'?'selected':''} onClick={()=>setMode('automatic')}><CheckCircle2 size={20}/><strong>Optimización automática</strong><span>Onin seleccionará las piezas compatibles minimizando el remanente.</span></button><button className={mode==='simulation'?'selected':''} onClick={()=>setMode('simulation')}><FlaskConical size={20}/><strong>Simulación</strong><span>Comprueba el resultado sin descontar stock ni generar documento.</span></button></div><div className="sales-order-modal-actions"><button className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={!need.length||stockLoading} onClick={()=>mode==='automatic'?void prepareAutomatic():setStep('manual')}>{stockLoading?'Calculando…':'Continuar'}</button></div></div>}
- {step==='manual'&&<div className="sales-order-cut-body"><div className="sales-order-cut-note">Se muestran únicamente piezas o restos compatibles con el perfil, característica y longitud requerida. <strong>Selecciona exactamente {need.quantity} pieza{need.quantity===1?'':'s'}.</strong></div><div className="sales-order-cut-summary"><div><span>Necesidad</span><strong>{need.quantity} × {u(need.length)}</strong></div><div><span>Característica</span><strong>{need.characteristic}</strong></div><div><span>Seleccionadas</span><strong>{selectedCount} / {need.quantity}</strong></div></div>{stockError&&<div className="inline-error">{stockError}</div>}{stockLoading?<div className="empty-cell">Consultando stock compatible…</div>:Object.keys(grouped).length===0?<div className="sales-order-cut-note">No hay piezas o restos disponibles que puedan proporcionar la longitud requerida.</div>:<div className="sales-order-stock-groups">{Object.entries(grouped).map(([measure,rows])=><div className="sales-order-stock-group" key={measure}><div className="sales-order-stock-group-head"><div><strong>{u(measure)}</strong><span>{rows.length} ubicaciones</span></div><span>Disponible: {rows.reduce((sum,row)=>sum+row.quantity,0)} ud.</span></div><div className="sales-order-stock-list">{rows.map((piece,index)=>{const id=pieceId(piece,index);return <label className={`sales-order-stock-piece ${piece.selected?'selected':''}`} key={id}><input type="checkbox" checked={piece.selected} onChange={()=>toggle(id)}/><span><strong>{piece.warehouseCode}</strong><small>{piece.warehouseName}</small></span><span><strong>{u(piece.length)}</strong><small>{piece.characteristicCode||'Sin característica'}</small></span><span className="stock-piece-quantity"><span className="stock-piece-quantity-label">Unidades a utilizar</span><span className="stock-piece-quantity-control"><button type="button" onClick={event=>{event.preventDefault();changeSelectedQuantity(id,piece.selectedQuantity-1)}}>−</button><input type="number" min="0" max={piece.quantity} step="1" value={piece.selectedQuantity} onChange={event=>changeSelectedQuantity(id,Number(event.target.value)||0)}/><button type="button" onClick={event=>{event.preventDefault();changeSelectedQuantity(id,piece.selectedQuantity+1)}}>+</button><em>ud.</em></span><small>Disponible: {piece.quantity} ud.</small></span></label>})}</div></div>)}</div>}{selectedCount>need.quantity&&<div className="inline-error">Has seleccionado más piezas de las necesarias.</div>}<div className="sales-order-modal-actions"><button className="secondary-button" onClick={()=>setStep('mode')}>Atrás</button><button className="primary-button" onClick={()=>setStep('review')} disabled={!selectionMatchesNeed}>Revisar corte</button></div></div>}
- {step==='review'&&<div className="sales-order-cut-body">{mode==='automatic'&&<div className="sales-order-cut-note"><strong>Optimización automática</strong><br/>{automaticReason}</div>}{cutError&&<div className="inline-error">{cutError}</div>}<div className="sales-order-cut-summary"><div><span>Necesidad</span><strong>{need.quantity} × {u(need.length)}</strong></div><div><span>Seleccionadas</span><strong>{selectedCount} / {need.quantity}</strong></div><div><span>Remanente previsto</span><strong>{u(selected.reduce((sum,p)=>sum+(p.length-need.length)*p.selectedQuantity,0))}</strong></div></div><div className="sales-order-review-box"><h3>Propuesta de corte</h3>{selected.map((piece,index)=><div className="sales-order-review-row" key={`${piece.warehouseId}-${piece.length}-${index}`}><span>{piece.warehouseCode} · {u(piece.length)}</span><strong>{piece.selectedQuantity} ud. → cortar {u(need.length)} · resto {u(Math.max(0,piece.length-need.length))}</strong></div>)}</div><div className="sales-order-cut-note"><Hammer size={15}/> Al realizar el corte se descontarán las piezas seleccionadas y se generarán los remanentes reutilizables.</div><div className="sales-order-modal-actions"><button className="secondary-button" onClick={()=>setStep(mode==='automatic'?'mode':'manual')} disabled={saving}>Modificar</button>{mode==='simulation'?<button className="primary-button" onClick={simulateCut}>Simular</button>:<button className="primary-button" disabled={saving||!selectionMatchesNeed} onClick={executeCut}>{saving?'Realizando corte…':'Realizar corte'}</button>}</div></div>}
- </>}</div></div>;
+  // 2. Comprobar dimensiones
+  const dims = c.dimension_list || c.dimensions || [];
+  const dimEntries: Array<{ code?: string; name?: string; value?: number }> = Array.isArray(dims)
+    ? dims
+    : (typeof dims === 'object' && dims !== null
+        ? Object.entries(dims).map(([code, value]) => ({ code, value: Number(value) }))
+        : []);
+
+  const validDims = dimEntries.filter((d: any) => Number(d.value) > 0);
+
+  // Si tiene múltiples dimensiones de superficie (ej. ANCHO y SALIDA o ANCHO y ALTO), es una tela/lona 2D
+  const has2DDimensions =
+    validDims.some((d: any) => /salida|alto|height/i.test(String(d.name || d.code))) &&
+    validDims.some((d: any) => /ancho|linea|línea|width/i.test(String(d.name || d.code)));
+
+  if (validDims.length > 1 && has2DDimensions) {
+    return false;
+  }
+
+  // 3. Palabras clave y características de perfil
+  const isProfileType =
+    String(c.component_type || '').toUpperCase() === 'PROFILE' ||
+    String(c.component_type || '').toUpperCase() === 'PERFIL';
+
+  const isProfileName =
+    /perfil|profile|tubo|gu[ií]a|eje|travesa[ñn]o|terminal|z[oó]calo|lama|carril|barra|junquillo|test-per/i.test(nameStr);
+
+  const hasLinearLength = validDims.some((d: any) =>
+    /long|largo|length|dim|medida|corte/i.test(String(d.name || d.code)) && Number(d.value) > 0
+  );
+
+  return isProfileType || isProfileName || (hasLinearLength && validDims.length <= 1);
+}
+
+export function ProfileCutModal({
+  line,
+  companyId,
+  salesOrderId,
+  reference,
+  onClose
+}: {
+  line: any;
+  companyId: number;
+  salesOrderId: number;
+  reference?: string;
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState<'mode' | 'manual' | 'review' | 'simulation' | 'completed'>('mode');
+  const [mode, setMode] = useState<'manual' | 'automatic' | 'simulation'>('automatic');
+  const [batchMode, setBatchMode] = useState<boolean>(true);
+  const [activeNeedIndex, setActiveNeedIndex] = useState<number>(0);
+
+  // Stock selection state per profile need (index -> StockPiece[])
+  const [manualSelections, setManualSelections] = useState<Record<number, StockPiece[]>>({});
+  const [batchProposals, setBatchProposals] = useState<BatchProposal[]>([]);
+  const [stockLoading, setStockLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [existingLoading, setExistingLoading] = useState(true);
+  const [existingWorkSheets, setExistingWorkSheets] = useState<WorkSheet[]>([]);
+  const [stockError, setStockError] = useState('');
+  const [cutError, setCutError] = useState('');
+  const [unitMap, setUnitMap] = useState<Record<number, string>>({});
+
+  // Extract snapshot & filter profile components
+  const snapshot = (line.specific_data?.configuration_snapshot ||
+    line.specific_data?.otd_snapshot ||
+    line.specific_data ||
+    {}) as any;
+  const rawComponents: any[] = Array.isArray(snapshot.components) ? snapshot.components : [];
+
+  const profileComponents = rawComponents.filter(isProfileComponent);
+
+  const candidates =
+    profileComponents.length > 0
+      ? profileComponents
+      : rawComponents.length > 0
+      ? rawComponents.filter(c => !isProfileComponent(c) ? false : true)
+      : [null];
+
+  const safeCandidates = candidates.length > 0 ? candidates : [null];
+
+  const needs: CutNeed[] = safeCandidates.map((comp: any, index: number) => {
+    const profile = String(
+      comp?.product_code ||
+        snapshot.profile_code ||
+        line.product?.code ||
+        (safeCandidates.length > 1 ? `Perfil ${index + 1}` : 'Perfil')
+    );
+    const profileId = Number(comp?.product_id || comp?.article_id || line.product_id || 0) || undefined;
+    const profileName = String(
+      comp?.product_name ||
+        comp?.name ||
+        line.product?.commercial_description ||
+        line.description ||
+        profile
+    );
+
+    const compCharacteristicCode =
+      comp?.characteristic_code ||
+      comp?.characteristic?.code ||
+      snapshot.characteristic_code ||
+      snapshot.characteristic?.code ||
+      line.characteristic_code ||
+      line.characteristic?.code ||
+      line.specific_data?.characteristic_code ||
+      undefined;
+
+    const compCharacteristicId =
+      (comp?.characteristic_id ? Number(comp.characteristic_id) : undefined) ||
+      (comp?.characteristic?.id ? Number(comp.characteristic?.id) : undefined) ||
+      (snapshot.characteristic_id ? Number(snapshot.characteristic_id) : undefined) ||
+      (snapshot.characteristic?.id ? Number(snapshot.characteristic?.id) : undefined) ||
+      (line.characteristic_id ? Number(line.characteristic_id) : undefined) ||
+      (line.characteristic?.id ? Number(line.characteristic?.id) : undefined) ||
+      (line.specific_data?.characteristic_id ? Number(line.specific_data?.characteristic_id) : undefined) ||
+      undefined;
+
+    const characteristicCode = compCharacteristicCode ? String(compCharacteristicCode) : undefined;
+    const characteristicId = compCharacteristicId ? Number(compCharacteristicId) : undefined;
+
+    const characteristicName =
+      comp?.characteristic_name ||
+      comp?.characteristic?.description ||
+      snapshot.characteristic_name ||
+      snapshot.characteristic?.description ||
+      line.characteristic?.description ||
+      line.characteristic_name ||
+      characteristicCode ||
+      undefined;
+
+    const characteristic = String(
+      characteristicName ||
+        (characteristicId ? `Característica #${characteristicId}` : 'Sin característica')
+    );
+
+    const dimensions =
+      comp?.dimension_list || comp?.dimensions || snapshot.dimensions || line.specific_data?.dimensions || [];
+    const dimEntries = Array.isArray(dimensions)
+      ? dimensions
+      : typeof dimensions === 'object' && dimensions !== null
+      ? Object.entries(dimensions).map(([code, value]) => ({ code, value }))
+      : [];
+
+    const length = Number(
+      dimEntries.find((d: any) => /long|largo|length|dim|medida|corte/i.test(String(d.name || d.code)))?.value ||
+        dimEntries[0]?.value ||
+        0
+    );
+
+    const compQty = Math.max(1, Number(comp?.quantity || 1));
+    const lineQty = Math.max(1, Number(line.quantity || 1));
+    const quantity = Math.max(1, Math.round(compQty * lineQty));
+
+    const initialDimensionUnit =
+      dimEntries.find((d: any) => /long|largo|length/i.test(String(d.name || d.code)))?.unit_symbol ||
+      dimEntries.find((d: any) => /long|largo|length/i.test(String(d.name || d.code)))?.unit_code ||
+      dimEntries[0]?.unit_symbol ||
+      dimEntries[0]?.unit_code ||
+      comp?.unit_symbol ||
+      comp?.unit_code ||
+      snapshot.work_unit?.symbol ||
+      snapshot.work_unit_symbol ||
+      snapshot.work_unit?.code ||
+      snapshot.work_unit_code ||
+      '';
+
+    return {
+      id: comp?.id ? String(comp.id) : `profile-need-${index}`,
+      componentIndex: index,
+      lineNo: Number(line.line_no),
+      profile,
+      profileId,
+      profileName,
+      length,
+      quantity,
+      characteristic,
+      characteristicCode,
+      characteristicId,
+      unit: initialDimensionUnit
+    };
+  });
+
+  const activeNeed = needs[activeNeedIndex] || needs[0];
+
+  // Match worksheet for a given need
+  const getSheetForNeed = (need: CutNeed, sheets: WorkSheet[]): WorkSheet | null => {
+    return (
+      sheets.find(ws => {
+        const prodMatch =
+          (need.profileId && ws.product_id === need.profileId) ||
+          (need.profile && ws.product_code === need.profile);
+        if (!prodMatch) return false;
+
+        // Check characteristic match
+        if (need.characteristicId || ws.characteristic_id) {
+          if (need.characteristicId && ws.characteristic_id && need.characteristicId === ws.characteristic_id) {
+            // match
+          } else if (
+            need.characteristicCode &&
+            ws.characteristic_code &&
+            need.characteristicCode.toLowerCase() === ws.characteristic_code.toLowerCase()
+          ) {
+            // match
+          } else {
+            return false;
+          }
+        } else if (need.characteristicCode || ws.characteristic_code) {
+          if (
+            need.characteristicCode &&
+            ws.characteristic_code &&
+            need.characteristicCode.toLowerCase() === ws.characteristic_code.toLowerCase()
+          ) {
+            // match
+          } else {
+            return false;
+          }
+        }
+
+        if (need.length && ws.required_length) {
+          return Number(ws.required_length) === Number(need.length);
+        }
+        return true;
+      }) || null
+    );
+  };
+
+  // Resolve units for all needs
+  useEffect(() => {
+    let active = true;
+    needs.forEach((need, idx) => {
+      if (!need.profileId) {
+        if (need.unit) setUnitMap(prev => ({ ...prev, [idx]: need.unit }));
+        return;
+      }
+      loadMasterProductConfiguration(need.profileId, companyId)
+        .then(conf => {
+          if (!active || !conf) return;
+          const targetDim =
+            conf.dimensions?.find((d: any) => /long|largo|length/i.test(String(d.name || d.code))) ||
+            conf.dimensions?.[0];
+          const dimUnitId = targetDim?.unit_id || conf.measurementType?.result_unit_id;
+          const dimUnitObj = dimUnitId ? conf.unitsMap.get(dimUnitId) : null;
+          const uStr = dimUnitObj?.code || dimUnitObj?.name || '';
+          if (uStr) {
+            setUnitMap(prev => ({ ...prev, [idx]: uStr }));
+          } else if (need.unit) {
+            setUnitMap(prev => ({ ...prev, [idx]: need.unit }));
+          }
+        })
+        .catch(() => {
+          if (active && need.unit) setUnitMap(prev => ({ ...prev, [idx]: need.unit }));
+        });
+    });
+    return () => {
+      active = false;
+    };
+  }, [companyId]);
+
+  const getUnit = (idx: number) => unitMap[idx] || needs[idx]?.unit || '';
+  const u = (val: number | string, idx = activeNeedIndex) => {
+    const un = getUnit(idx);
+    return un ? `${val} ${un}` : `${val}`;
+  };
+
+  const uSheet = (val: number | string, sheet?: WorkSheet | null) => {
+    const sheetUnit = sheet?.unit_symbol || sheet?.unit_code || getUnit(activeNeedIndex);
+    return sheetUnit ? `${val} ${sheetUnit}` : `${val}`;
+  };
+
+  // Load existing worksheets for this sales order line
+  useEffect(() => {
+    let active = true;
+    setExistingLoading(true);
+    getWorkSheetsBySalesOrderLine(Number(line.id))
+      .then(sheets => {
+        if (!active) return;
+        setExistingWorkSheets(sheets);
+        const allDone = needs.every(n => Boolean(getSheetForNeed(n, sheets)));
+        if (allDone) {
+          setStep('completed');
+        } else {
+          const firstPendingIdx = needs.findIndex(n => !getSheetForNeed(n, sheets));
+          if (firstPendingIdx !== -1) {
+            setActiveNeedIndex(firstPendingIdx);
+          }
+        }
+      })
+      .catch(() => {
+        if (active) setExistingWorkSheets([]);
+      })
+      .finally(() => {
+        if (active) setExistingLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [line.id]);
+
+  // Load stock pieces for a need
+  const loadStockForNeed = async (need: CutNeed, needIdx: number) => {
+    if (!need.profileId || !need.length) return [];
+    const rows = await listProfileStockPieces({
+      companyId,
+      productId: need.profileId,
+      productCode: need.profile,
+      characteristicId: need.characteristicId,
+      characteristicCode: need.characteristicCode,
+      requiredLength: need.length
+    });
+    const pieces: StockPiece[] = rows.map(row => ({ ...row, selected: false, selectedQuantity: 0 }));
+    setManualSelections(prev => ({ ...prev, [needIdx]: pieces }));
+    return pieces;
+  };
+
+  // Load manual stock on entering step 2
+  useEffect(() => {
+    if (existingLoading || step !== 'manual' || !activeNeed.length) return;
+    if (!manualSelections[activeNeedIndex]) {
+      setStockLoading(true);
+      loadStockForNeed(activeNeed, activeNeedIndex)
+        .catch(err => setStockError(err instanceof Error ? err.message : 'Error al cargar stock.'))
+        .finally(() => setStockLoading(false));
+    }
+  }, [step, activeNeedIndex, existingLoading]);
+
+  // Automatic calculation (single or batch)
+  const calculateAutomaticProposal = async (isBatch: boolean) => {
+    setStockLoading(true);
+    setStockError('');
+    setCutError('');
+    try {
+      const targets = isBatch
+        ? needs.map((n, idx) => ({ need: n, idx })).filter(({ need }) => !getSheetForNeed(need, existingWorkSheets))
+        : [{ need: activeNeed, idx: activeNeedIndex }];
+
+      const proposals: BatchProposal[] = [];
+
+      for (const { need, idx } of targets) {
+        if (!need.profileId || !need.length) {
+          throw new Error(`El perfil ${need.profile} no tiene una longitud de corte válida.`);
+        }
+        const rows = await listProfileStockPieces({
+          companyId,
+          productId: need.profileId,
+          productCode: need.profile,
+          characteristicId: need.characteristicId,
+          characteristicCode: need.characteristicCode,
+          requiredLength: need.length
+        });
+        const pieces = rows
+          .map(row => ({ ...row, selected: false, selectedQuantity: 0 }))
+          .sort((a, b) => a.length - b.length || a.warehouseId - b.warehouseId);
+
+        let remaining = need.quantity;
+        const chosen: StockPiece[] = [];
+        for (const piece of pieces) {
+          if (remaining <= 0) break;
+          const take = Math.min(piece.quantity, remaining);
+          if (take > 0) {
+            chosen.push({ ...piece, selected: true, selectedQuantity: take });
+            remaining -= take;
+          }
+        }
+
+        if (remaining > 0) {
+          throw new Error(
+            `Stock insuficiente para ${need.profile} (${need.characteristic}): Faltan ${remaining} pieza(s) de ${need.length} ${getUnit(idx)}.`
+          );
+        }
+
+        const remnant = chosen.reduce((sum, p) => sum + (p.length - need.length) * p.selectedQuantity, 0);
+        const reason = `Optimización automática: se selecciona la menor longitud compatible disponible. Material: ${chosen
+          .map(p => `${p.selectedQuantity} × ${p.length} ${getUnit(idx)}`)
+          .join(', ')}. Remanente: ${remnant} ${getUnit(idx)}.`;
+
+        proposals.push({ need, pieces: chosen, remnant, reason });
+      }
+
+      setBatchProposals(proposals);
+      setStep('review');
+    } catch (err) {
+      setStockError(err instanceof Error ? err.message : 'No se pudo calcular la propuesta automática.');
+    } finally {
+      setStockLoading(false);
+    }
+  };
+
+  // Execution: Cuts all proposals in batch (or single)
+  const executeBatchCut = async () => {
+    if (batchProposals.length === 0) return;
+    setSaving(true);
+    setCutError('');
+    try {
+      const createdSheets: WorkSheet[] = [];
+
+      for (const prop of batchProposals) {
+        const need = prop.need;
+        const reason = mode === 'automatic' ? prop.reason : 'Selección manual realizada por el usuario.';
+        const selectedPieces = prop.pieces.filter(p => p.selectedQuantity > 0);
+
+        const created = await executeManualProfileCutWithWorkSheet({
+          companyId,
+          salesOrderId,
+          salesOrderLineId: Number(line.id),
+          salesOrderLineNo: need.lineNo,
+          productId: need.profileId!,
+          productCode: need.profile,
+          productName: need.profileName,
+          characteristicId: selectedPieces[0]?.characteristicId ?? need.characteristicId ?? null,
+          characteristicCode: need.characteristicCode ?? selectedPieces[0]?.characteristicCode ?? null,
+          characteristicName: need.characteristic,
+          requiredLength: need.length,
+          quantity: need.quantity,
+          selections: selectedPieces.map(piece => ({
+            warehouseId: piece.warehouseId,
+            dimensionValues: [piece.length],
+            quantity: piece.selectedQuantity
+          })),
+          reference: reference || `Corte línea ${need.lineNo} · ${need.profile}`,
+          notes: `Cortar ${need.quantity} pieza(s) de ${need.length} ${need.unit}. ${reason}`,
+          selectionMode: mode === 'automatic' ? 'AUTOMATIC' : 'MANUAL',
+          selectionReason: reason,
+          unitSymbol: getUnit(need.componentIndex) || undefined
+        });
+
+        createdSheets.push(created);
+      }
+
+      setExistingWorkSheets(prev => [...createdSheets, ...prev]);
+      setStep('completed');
+    } catch (err) {
+      setCutError(err instanceof CoreRepositoryError || err instanceof Error ? err.message : 'Error al ejecutar corte.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Manual piece selection toggles
+  const currentPieces = manualSelections[activeNeedIndex] || [];
+  const groupedManual = currentPieces.reduce<Record<string, StockPiece[]>>((acc, piece) => {
+    const key = `${piece.length}`;
+    (acc[key] ??= []).push(piece);
+    return acc;
+  }, {});
+
+  const pieceKey = (piece: StockPiece) =>
+    `${piece.warehouseId}-${piece.length}-${piece.characteristicId ?? piece.characteristicCode ?? 'default'}`;
+
+  const toggleManualPiece = (id: string) => {
+    setManualSelections(prev => {
+      const list = prev[activeNeedIndex] || [];
+      const updated = list.map(piece => {
+        if (pieceKey(piece) !== id) return piece;
+        const nextSelected = !piece.selected;
+        return {
+          ...piece,
+          selected: nextSelected,
+          selectedQuantity: nextSelected ? (piece.selectedQuantity > 0 ? piece.selectedQuantity : 1) : 0
+        };
+      });
+      return { ...prev, [activeNeedIndex]: updated };
+    });
+  };
+
+  const changeManualQuantity = (id: string, value: number) => {
+    setManualSelections(prev => {
+      const list = prev[activeNeedIndex] || [];
+      const updated = list.map(piece => {
+        if (pieceKey(piece) !== id) return piece;
+        const bounded = Math.min(Math.max(0, value), piece.quantity);
+        return {
+          ...piece,
+          selected: bounded > 0,
+          selectedQuantity: bounded
+        };
+      });
+      return { ...prev, [activeNeedIndex]: updated };
+    });
+  };
+
+  const selectedForActive = (manualSelections[activeNeedIndex] || []).filter(p => p.selectedQuantity > 0);
+  const selectedCountForActive = selectedForActive.reduce((sum, p) => sum + p.selectedQuantity, 0);
+  const activeManualValid = selectedCountForActive === activeNeed.quantity;
+
+  const prepareManualReview = () => {
+    if (batchMode && needs.length > 1) {
+      // Check if all pending needs have valid manual selections
+      const pendingNeeds = needs.map((n, idx) => ({ n, idx })).filter(({ n }) => !getSheetForNeed(n, existingWorkSheets));
+      const allValid = pendingNeeds.every(({ n, idx }) => {
+        const sel = (manualSelections[idx] || []).filter(p => p.selectedQuantity > 0);
+        return sel.reduce((sum, p) => sum + p.selectedQuantity, 0) === n.quantity;
+      });
+
+      if (!allValid) {
+        setStockError('Por favor, selecciona las piezas necesarias para todos los perfiles del lote.');
+        return;
+      }
+
+      const proposals: BatchProposal[] = pendingNeeds.map(({ n, idx }) => {
+        const chosen = (manualSelections[idx] || []).filter(p => p.selectedQuantity > 0);
+        const remnant = chosen.reduce((sum, p) => sum + (p.length - n.length) * p.selectedQuantity, 0);
+        return {
+          need: n,
+          pieces: chosen,
+          remnant,
+          reason: 'Selección manual en lote realizada por el usuario.'
+        };
+      });
+
+      setBatchProposals(proposals);
+      setStep('review');
+    } else {
+      if (!activeManualValid) return;
+      const remnant = selectedForActive.reduce((sum, p) => sum + (p.length - activeNeed.length) * p.selectedQuantity, 0);
+      setBatchProposals([
+        {
+          need: activeNeed,
+          pieces: selectedForActive,
+          remnant,
+          reason: 'Selección manual realizada por el usuario.'
+        }
+      ]);
+      setStep('review');
+    }
+  };
+
+  const totalCutCount = existingWorkSheets.length;
+  const pendingCount = needs.filter(n => !getSheetForNeed(n, existingWorkSheets)).length;
+
+  return (
+    <div className="sales-order-modal-backdrop">
+      <div className="sales-order-modal" role="dialog" aria-modal="true">
+        <div className="sales-order-modal-head">
+          <div>
+            <div className="eyebrow">FABRICACIÓN / CORTE DE PERFILES</div>
+            <h2>
+              {step === 'completed'
+                ? 'Corte completado'
+                : step === 'simulation'
+                ? 'Simulación de corte'
+                : 'Corte de perfil'}
+            </h2>
+            <p>
+              Línea {line.line_no} · {needs.length} perfil{needs.length > 1 ? 'es' : ''} a cortar
+              {batchMode && needs.length > 1 ? ' (Procesamiento en lote)' : ''}
+            </p>
+          </div>
+          <button className="icon-link" onClick={onClose} aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+
+        {/* Perfiles de la línea Selector Tabs */}
+        {needs.length > 1 && (
+          <div className="profile-cut-tabs-container">
+            <div className="profile-cut-tabs-header">
+              <span>Perfiles a cortar en esta línea ({needs.length})</span>
+              <strong>
+                {totalCutCount} de {needs.length} cortados
+              </strong>
+            </div>
+            <div className="profile-cut-tabs">
+              {needs.map((n, idx) => {
+                const sheet = getSheetForNeed(n, existingWorkSheets);
+                const isSelected = idx === activeNeedIndex;
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    className={`profile-cut-tab ${isSelected ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveNeedIndex(idx);
+                      if (step === 'completed' && !sheet) {
+                        setStep('mode');
+                      }
+                    }}
+                  >
+                    <div className="profile-cut-tab-head">
+                      <strong title={n.profileName}>{n.profile}</strong>
+                      <span className="profile-cut-tab-index">Perfil {idx + 1}</span>
+                    </div>
+                    <div className="profile-cut-tab-meta">
+                      <span>
+                        {n.quantity} × {u(n.length, idx)}
+                      </span>
+                      {sheet ? (
+                        <span className="profile-cut-badge done">
+                          <CheckCircle2 size={11} /> {sheet.code}
+                        </span>
+                      ) : (
+                        <span className="profile-cut-badge pending">Pendiente</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {existingLoading ? (
+          <div className="sales-order-cut-body">
+            <div className="empty-cell">Comprobando cortes realizados de la línea…</div>
+          </div>
+        ) : step === 'completed' ? (
+          <div className="sales-order-cut-body">
+            <div className="sales-order-cut-summary">
+              <div>
+                <span>Estado general</span>
+                <strong>
+                  {pendingCount === 0 ? 'Corte completado' : `Parcial (${totalCutCount}/${needs.length})`}
+                </strong>
+              </div>
+              <div>
+                <span>Hojas generadas</span>
+                <strong>{existingWorkSheets.length}</strong>
+              </div>
+              <div>
+                <span>Línea de pedido</span>
+                <strong>Línea {line.line_no}</strong>
+              </div>
+            </div>
+
+            <div className="sales-order-review-box">
+              <h3>Informe consolidado de corte de la línea</h3>
+              {existingWorkSheets.map(ws => (
+                <div className="sales-order-review-row completed-sheet-row" key={ws.id}>
+                  <div>
+                    <strong style={{ color: 'var(--primary)', display: 'block', fontSize: '13.5px' }}>
+                      {ws.code} · {ws.product_code} ({ws.characteristic_name || 'Sin característica'})
+                    </strong>
+                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
+                      Necesidad: {ws.quantity} ud. × {uSheet(ws.required_length, ws)}
+                    </span>
+                    <div style={{ fontSize: '11.5px', marginTop: '4px' }}>
+                      {ws.lines.map(l => (
+                        <span key={l.id} style={{ display: 'inline-block', marginRight: '10px' }}>
+                          • {l.warehouse_code}: {l.source_dimension_values.join('×')} → corte{' '}
+                          {l.cut_dimension_values.join('×')} (resto:{' '}
+                          {l.remainder_dimension_values.length ? l.remainder_dimension_values.join('×') : '0'})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="profile-cut-badge done" style={{ fontSize: '11px', padding: '4px 8px' }}>
+                    <CheckCircle2 size={12} /> Cortado
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {pendingCount > 0 && (
+              <div className="next-profile-banner">
+                <div>
+                  <strong>Quedan {pendingCount} perfiles pendientes en esta línea</strong>
+                  <p>Puedes continuar con el corte del siguiente perfil.</p>
+                </div>
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={() => {
+                    const nextPending = needs.findIndex(n => !getSheetForNeed(n, existingWorkSheets));
+                    if (nextPending !== -1) setActiveNeedIndex(nextPending);
+                    setStep('mode');
+                  }}
+                >
+                  Cortar perfil pendiente <ArrowRight size={15} />
+                </button>
+              </div>
+            )}
+
+            <div className="sales-order-modal-actions">
+              {existingWorkSheets.length > 0 && (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => downloadBatchWorkSheetsPdf(existingWorkSheets, reference)}
+                >
+                  <Printer size={15} /> Descargar informe de corte (PDF)
+                </button>
+              )}
+              <button className="primary-button" onClick={onClose}>
+                Finalizar
+              </button>
+            </div>
+          </div>
+        ) : step === 'simulation' ? (
+          <div className="sales-order-cut-body">
+            <div className="sales-order-cut-note simulation-banner">
+              <strong>SIMULACIÓN DE CORTE</strong> · No se modifica el stock, no se genera hoja de corte y el pedido
+              no cambia de estado.
+            </div>
+            <div className="sales-order-review-box">
+              <h3>Resultado previsto del lote ({batchProposals.length} perfiles)</h3>
+              {batchProposals.map((prop, idx) => (
+                <div key={idx} style={{ marginBottom: '14px' }}>
+                  <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px', color: 'var(--text)' }}>
+                    Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic}) · {prop.need.quantity} ×{' '}
+                    {u(prop.need.length, prop.need.componentIndex)}
+                  </div>
+                  {prop.pieces.map((piece, pIdx) => (
+                    <div
+                      className="sales-order-review-row"
+                      key={`${piece.warehouseId}-${piece.length}-${pIdx}`}
+                    >
+                      <span>
+                        {piece.warehouseCode} · pieza de {u(piece.length, prop.need.componentIndex)}
+                      </span>
+                      <strong>
+                        {piece.selectedQuantity} ud. → corte {u(prop.need.length, prop.need.componentIndex)} · resto{' '}
+                        {u(Math.max(0, piece.length - prop.need.length), prop.need.componentIndex)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div className="sales-order-modal-actions">
+              <button className="secondary-button" onClick={() => setStep('mode')}>
+                Atrás
+              </button>
+              <button className="primary-button" onClick={onClose}>
+                Cerrar simulación
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="sales-order-cut-steps">
+              <span className={step === 'mode' ? 'active' : ''}>1. Método</span>
+              <span className={step === 'manual' ? 'active' : ''}>2. Material</span>
+              <span className={step === 'review' ? 'active' : ''}>3. Revisar</span>
+              <span className={(step as string) === 'completed' ? 'active' : ''}>4. Hoja</span>
+            </div>
+
+            {step === 'mode' && (
+              <div className="sales-order-cut-body">
+                {needs.length > 1 && (
+                  <div className="batch-scope-selector">
+                    <button
+                      type="button"
+                      className={`batch-scope-btn ${batchMode ? 'selected' : ''}`}
+                      onClick={() => setBatchMode(true)}
+                    >
+                      <Layers size={16} />
+                      <div>
+                        <strong>Cortar todos los perfiles en lote ({needs.length})</strong>
+                        <span>Procesa y corta todos los perfiles de la línea de una vez.</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className={`batch-scope-btn ${!batchMode ? 'selected' : ''}`}
+                      onClick={() => setBatchMode(false)}
+                    >
+                      <Hammer size={16} />
+                      <div>
+                        <strong>Cortar solo {activeNeed.profile} (individual)</strong>
+                        <span>Procesa únicamente el perfil seleccionado.</span>
+                      </div>
+                    </button>
+                  </div>
+                )}
+
+                {batchMode && needs.length > 1 ? (
+                  <div className="batch-profiles-overview">
+                    <div className="batch-profiles-overview-title">
+                      <Sparkles size={14} /> Resumen del lote de perfiles ({needs.length}):
+                    </div>
+                    <div className="batch-profiles-list">
+                      {needs.map((n, idx) => (
+                        <div className="batch-profile-item" key={n.id}>
+                          <strong>
+                            Perfil {idx + 1}: {n.profile}
+                          </strong>
+                          <span>
+                            {n.quantity} × {u(n.length, idx)}
+                          </span>
+                          <small>{n.characteristic}</small>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="sales-order-cut-summary">
+                    <div>
+                      <span>Necesidad</span>
+                      <strong>
+                        {activeNeed.quantity} × {activeNeed.length ? u(activeNeed.length) : 'Longitud pendiente'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Perfil ({activeNeedIndex + 1}/{needs.length})</span>
+                      <strong>{activeNeed.profile}</strong>
+                    </div>
+                    <div>
+                      <span>Característica</span>
+                      <strong>{activeNeed.characteristic}</strong>
+                    </div>
+                  </div>
+                )}
+
+                <h3>
+                  {batchMode && needs.length > 1
+                    ? '¿Cómo quieres determinar el material para el lote?'
+                    : `¿Cómo quieres determinar el material para ${activeNeed.profile}?`}
+                </h3>
+
+                <div className="sales-order-mode-grid">
+                  <button
+                    type="button"
+                    className={mode === 'automatic' ? 'selected' : ''}
+                    onClick={() => setMode('automatic')}
+                  >
+                    <CheckCircle2 size={20} />
+                    <strong>Optimización automática {batchMode && needs.length > 1 ? 'del lote' : ''}</strong>
+                    <span>
+                      Onin seleccionará las piezas de almacén óptimas minimizando los remanentes para{' '}
+                      {batchMode && needs.length > 1 ? 'todos los perfiles' : 'este perfil'}.
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={mode === 'manual' ? 'selected' : ''}
+                    onClick={() => setMode('manual')}
+                  >
+                    <PackageSearch size={20} />
+                    <strong>Selección manual</strong>
+                    <span>Selecciona manualmente las piezas o retales de stock que quieres utilizar.</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={mode === 'simulation' ? 'selected' : ''}
+                    onClick={() => setMode('simulation')}
+                  >
+                    <FlaskConical size={20} />
+                    <strong>Simulación de corte</strong>
+                    <span>Comprueba el resultado sin descontar stock ni generar documento.</span>
+                  </button>
+                </div>
+
+                {stockError && <div className="inline-error">{stockError}</div>}
+
+                <div className="sales-order-modal-actions">
+                  <button className="secondary-button" onClick={onClose}>
+                    Cancelar
+                  </button>
+                  <button
+                    className="primary-button"
+                    disabled={stockLoading}
+                    onClick={() => {
+                      if (mode === 'automatic' || mode === 'simulation') {
+                        void calculateAutomaticProposal(batchMode && needs.length > 1);
+                      } else {
+                        setStep('manual');
+                      }
+                    }}
+                  >
+                    {stockLoading ? 'Calculando propuesta…' : 'Continuar'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 'manual' && (
+              <div className="sales-order-cut-body">
+                {needs.length > 1 && (
+                  <div className="sales-order-cut-note">
+                    <Info size={15} /> Selecciona el material para cada perfil pendiente de la línea:
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                      {needs.map((n, idx) => {
+                        const sel = (manualSelections[idx] || []).filter(p => p.selectedQuantity > 0);
+                        const qty = sel.reduce((sum, p) => sum + p.selectedQuantity, 0);
+                        const isReady = qty === n.quantity;
+                        return (
+                          <button
+                            key={n.id}
+                            type="button"
+                            className={`secondary-button ${idx === activeNeedIndex ? 'active-manual-tab' : ''}`}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '11.5px',
+                              borderColor: isReady ? '#10b981' : undefined
+                            }}
+                            onClick={() => setActiveNeedIndex(idx)}
+                          >
+                            {isReady ? '✓ ' : ''}Perfil {idx + 1}: {n.profile} ({qty}/{n.quantity})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="sales-order-cut-summary">
+                  <div>
+                    <span>Perfil actual</span>
+                    <strong>{activeNeed.profile}</strong>
+                  </div>
+                  <div>
+                    <span>Necesidad</span>
+                    <strong>
+                      {activeNeed.quantity} × {u(activeNeed.length, activeNeedIndex)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Seleccionadas</span>
+                    <strong>
+                      {selectedCountForActive} / {activeNeed.quantity}
+                    </strong>
+                  </div>
+                </div>
+
+                {stockError && <div className="inline-error">{stockError}</div>}
+
+                {stockLoading ? (
+                  <div className="empty-cell">Consultando stock compatible…</div>
+                ) : Object.keys(groupedManual).length === 0 ? (
+                  <div className="sales-order-cut-note">
+                    No hay piezas o restos disponibles en stock que puedan proporcionar la longitud requerida (
+                    {u(activeNeed.length, activeNeedIndex)}).
+                  </div>
+                ) : (
+                  <div className="sales-order-stock-groups">
+                    {Object.entries(groupedManual).map(([measure, rows]) => (
+                      <div className="sales-order-stock-group" key={measure}>
+                        <div className="sales-order-stock-group-head">
+                          <div>
+                            <strong>{u(measure, activeNeedIndex)}</strong>
+                            <span>{rows.length} ubicaciones</span>
+                          </div>
+                          <span>Disponible: {rows.reduce((sum, row) => sum + row.quantity, 0)} ud.</span>
+                        </div>
+                        <div className="sales-order-stock-list">
+                          {rows.map(piece => {
+                            const id = pieceKey(piece);
+                            return (
+                              <div
+                                className={`sales-order-stock-piece ${piece.selected ? 'selected' : ''}`}
+                                key={id}
+                                onClick={() => toggleManualPiece(id)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={piece.selected}
+                                  onChange={() => toggleManualPiece(id)}
+                                  onClick={e => e.stopPropagation()}
+                                />
+                                <span>
+                                  <strong>{piece.warehouseCode}</strong>
+                                  <small>{piece.warehouseName}</small>
+                                </span>
+                                <span>
+                                  <strong>{u(piece.length, activeNeedIndex)}</strong>
+                                  <small>{piece.characteristicName || piece.characteristicCode || 'Sin característica'}</small>
+                                </span>
+                                <span className="stock-piece-quantity" onClick={e => e.stopPropagation()}>
+                                  <span className="stock-piece-quantity-label">Unidades</span>
+                                  <span className="stock-piece-quantity-control">
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        changeManualQuantity(id, piece.selectedQuantity - 1);
+                                      }}
+                                    >
+                                      −
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max={piece.quantity}
+                                      value={piece.selectedQuantity}
+                                      onChange={e => changeManualQuantity(id, Number(e.target.value) || 0)}
+                                      onClick={e => e.stopPropagation()}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={e => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        changeManualQuantity(id, piece.selectedQuantity + 1);
+                                      }}
+                                    >
+                                      +
+                                    </button>
+                                    <em>ud.</em>
+                                  </span>
+                                  <small>Disponible: {piece.quantity}</small>
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="sales-order-modal-actions">
+                  <button className="secondary-button" onClick={() => setStep('mode')}>
+                    Atrás
+                  </button>
+                  <button className="primary-button" onClick={prepareManualReview}>
+                    Revisar corte {batchMode && needs.length > 1 ? 'del lote' : ''}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step === 'review' && (
+              <div className="sales-order-cut-body">
+                {mode === 'automatic' && (
+                  <div className="sales-order-cut-note">
+                    <strong>Optimización automática</strong> · Se ha seleccionado la combinación con menor remanente
+                    total para {batchProposals.length} perfil{batchProposals.length > 1 ? 'es' : ''}.
+                  </div>
+                )}
+
+                {cutError && <div className="inline-error">{cutError}</div>}
+
+                <div className="sales-order-review-box">
+                  <h3>
+                    Propuesta de corte {batchProposals.length > 1 ? `en lote (${batchProposals.length} perfiles)` : ''}
+                  </h3>
+                  {batchProposals.map((prop, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        paddingBottom: idx < batchProposals.length - 1 ? '14px' : '0',
+                        marginBottom: idx < batchProposals.length - 1 ? '14px' : '0',
+                        borderBottom: idx < batchProposals.length - 1 ? '1px dashed var(--border)' : 'none'
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          color: 'var(--primary)',
+                          marginBottom: '6px'
+                        }}
+                      >
+                        <span>
+                          Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic})
+                        </span>
+                        <span>
+                          Necesidad: {prop.need.quantity} × {u(prop.need.length, prop.need.componentIndex)}
+                        </span>
+                      </div>
+                      {prop.pieces.map((piece, pIdx) => (
+                        <div
+                          className="sales-order-review-row"
+                          key={`${piece.warehouseId}-${piece.length}-${pIdx}`}
+                        >
+                          <span>
+                            {piece.warehouseCode} ({piece.warehouseName}) · pieza de{' '}
+                            {u(piece.length, prop.need.componentIndex)}
+                          </span>
+                          <strong>
+                            {piece.selectedQuantity} ud. → cortar {u(prop.need.length, prop.need.componentIndex)} ·
+                            resto{' '}
+                            {u(
+                              Math.max(0, piece.length - prop.need.length),
+                              prop.need.componentIndex
+                            )}
+                          </strong>
+                        </div>
+                      ))}
+                      <div style={{ fontSize: '11.5px', color: 'var(--muted)', marginTop: '4px' }}>
+                        Remanente previsto perfil: {u(prop.remnant, prop.need.componentIndex)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="sales-order-cut-note">
+                  <Hammer size={15} /> Al realizar el corte se consumirá el stock seleccionado y se generarán{' '}
+                  {batchProposals.length} hoja{batchProposals.length > 1 ? 's' : ''} de corte con los remanentes.
+                </div>
+
+                <div className="sales-order-modal-actions">
+                  <button className="secondary-button" onClick={() => setStep('mode')} disabled={saving}>
+                    Modificar
+                  </button>
+                  {mode === 'simulation' ? (
+                    <button className="primary-button" onClick={() => setStep('simulation')}>
+                      Ver simulación
+                    </button>
+                  ) : (
+                    <button
+                      className="primary-button"
+                      disabled={saving || batchProposals.length === 0}
+                      onClick={executeBatchCut}
+                    >
+                      {saving
+                        ? 'Realizando corte…'
+                        : `Realizar corte de todos los perfiles (${batchProposals.length})`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
