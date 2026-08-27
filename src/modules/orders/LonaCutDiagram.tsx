@@ -5,6 +5,7 @@ import './lona-cut-diagram.css';
 type Props = { calculation: LonaCutCalculationResult | null; type: LonaCutType; stockDimensions: number[]; stockUnits: string[]; cutLine: number; cutOutput: number; unit: string | null };
 
 type GeometryRectangle = { kind: 'PANEL' | 'REMAINDER'; x: number; y: number; width: number; length: number; label: string };
+type DiagramSegment = { kind: 'PANEL' | 'REMAINDER' | 'UNUSED'; length: number; label: string };
 
 function dimension(value: number, unit: string | null) {
   return `${Number.isInteger(value) ? value : value.toFixed(1)} ${unit || ''}`.trim();
@@ -87,9 +88,15 @@ export function LonaCutDiagram({ calculation, type, stockDimensions, stockUnits,
     );
   }
 
-  const segments = calculation.pieces.map(piece => ({ kind: piece.kind, length: piece.length, label: piece.label }));
+  const segments: DiagramSegment[] = calculation.pieces.map(piece => ({
+    kind: piece.kind,
+    length: piece.length,
+    label: piece.label,
+  }));
   const usedLength = segments.reduce((sum, segment) => sum + segment.length, 0);
-  if (usedLength < stockLength) segments.push({ kind: 'UNUSED', length: stockLength - usedLength, label: 'Margen disponible' });
+  if (usedLength < stockLength) {
+    segments.push({ kind: 'UNUSED', length: stockLength - usedLength, label: 'Margen disponible' });
+  }
   const total = Math.max(stockLength, usedLength);
 
   return (
