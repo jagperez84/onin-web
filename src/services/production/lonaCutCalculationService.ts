@@ -3,6 +3,7 @@ export type LonaCutType = 'Asimétrico' | 'Retal Maxi' | 'Retal Mini' | 'Degrade
 export interface LonaCutCalculationInput {
   type: LonaCutType;
   line: number;
+  output?: number;
   selectedWidth: number;
   hem: number;
   overlap: number;
@@ -49,9 +50,9 @@ export interface LonaCutCalculationResult {
   geometry?: LonaCutGeometry;
 }
 
-function panelPieces(fullPanels: number, width: number, label = 'Paño'): LonaCutPiece[] {
+function panelPieces(fullPanels: number, width: number, length = width, label = 'Paño'): LonaCutPiece[] {
   return Array.from({ length: Math.max(0, fullPanels) }, (_, index) => ({
-    kind: 'PANEL', width, length: width, side: 'CENTER', label: `${label} ${index + 1}`,
+    kind: 'PANEL', width, length, side: 'CENTER', label: `${label} ${index + 1}`,
   }));
 }
 
@@ -79,65 +80,48 @@ function result(input: LonaCutCalculationInput, fullPanels: number, remainder: n
   };
 }
 
-function buildRectangularGeometry(input: LonaCutCalculationInput): LonaCutGeometry | undefined {
+function buildAsymmetricGeometry(input: LonaCutCalculationInput): LonaCutGeometry | undefined {
+  if (input.stockWidth == null || input.stockLength == null || input.output == null) return undefined;
   const stockWidth = input.stockWidth;
   const stockLength = input.stockLength;
-  if (!(stockWidth && stockLength && stockWidth > 0 && stockLength > 0)) return undefined;
-
   const rotated = Boolean(input.rotated);
-  const cutWidth = rotated ? input.line : input.line === 0 ? 0 : input.line;
-  const cutLength = rotated ? input.line === 0 ? 0 : input.line : input.line;
-  // The stock-selection layer defines rotation against the source axes:
-  // source [width, length], requested [line, output].  The geometry below
-  // therefore uses the actual selected candidate orientation.
-  const requestedWidth = input.rotated ? input.line : input.line;
-  const requestedLength = input.rotated ? input.line : input.line;
-  void requestedWidth; void requestedLength;
-  return undefined;
+  const cutWidth = rotated ? input.output : input.line;
+  const cutLength = rotated ? input.line : input.output;
+  if (cutWidth <= 0 || cutLength <= 0 || cutWidth > stockWidth || cutLength > stockLength) return undefined;
+
+  const rectangles: LonaCutGeometryRectangle[] = [
+    { kind: 'PANEL', x: 0, y: 0, width: cutLength, length: cutWidth, label: 'Paño 1' },
+  ];
+  if (stockLength > cutLength) {
+    rectangles.push({
+      kind: 'REMAINDER', x: cutLength, y: 0, width: stockLength - cutLength, length: stockWidth, label: 'Resto longitudinal',
+    });
+  }
+  if (stockWidth > cutWidth) {
+    rectangles.push({
+      kind: 'REMAINDER', x: 0, y: cutWidth, width: cutLength, length: stockWidth - cutWidth, label: 'Resto lateral',
+    });
+  }
+
+  return { stockWidth, stockLength, cutWidth, cutLength, rotated, rectangles };
 }
 
 export function calculateLonaCut(input: LonaCutCalculationInput): LonaCutCalculationResult {
   if (input.selectedWidth <= 0 || input.line < 0) throw new Error('Las dimensiones de corte deben ser válidas.');
-
   if (input.type === 'Screen') return result(input, 0, 0, [], 'PENDING');
 
-  if (input.stockWidth != null && input.stockLength != null) {
-    const stockWidth = input.stockWidth;
-    const stockLength = input.stockLength;
-    const rotated = Boolean(input.rotated);
-    const cutWidth = rotated ? input.line : input.line;
-    const cutLength = rotated ? input.line === 0 ? 0 : input.line : input.line;
-    void cutWidth; void cutLength;
-
-    // Coordinates are x = roll length and y = roll width.  For a rotated
-    // candidate, the requested output occupies the roll width and line
-    // occupies the roll length. For the current asymmetrical cut this gives
-    // the exact physical two-region remainder (L-shaped waste).
-    const physicalCutLength = rotated ? input.line === 0 ? 0 : input.line : input.line;
-    const physicalCutWidth = rotated ? input.line : input.line;
-    const geometryWidth = rotated ? input.line : input.line;
-    const geometryLength = rotated ? input.line : input.line;
-    void physicalCutWidth; void geometryWidth; void geometryLength;
-
-    if (input.type === 'Asimétrico') {
-      const cutLengthAlongRoll = rotated ? input.line : input.line;
-      const cutWidthAcrossRoll = rotated ? input.selectedWidth : input.selectedWidth;
-      if (cutLengthAlongRoll <= stockLength && cutWidthAcrossRoll <= stockWidth) {
-        const rectangles: LonaCutGeometryRectangle[] = [{
-          kind: 'PANEL', x: 0, y: 0, width: cutLengthAlongRoll, length: cutWidthAcrossRoll, label: 'Paño 1',
-        }];
-        if (stockLength > cutLengthAlongRoll) rectangles.push({
-          kind: 'REMAINDER', x: cutLengthAlongRoll, y: 0, width: stockLength - cutLengthAlongRoll, length: stockWidth, label: 'Resto longitudinal',
-        });
-        if (stockWidth > cutWidthAcrossRoll) rectangles.push({
-          kind: 'REMAINDER', x: 0, y: cutWidthAcrossRoll, width: cutLengthAlongRoll, length: stockWidth - cutWidthAcrossRoll, label: 'Resto lateral',
-        });
-        return result(input, 1, Math.max(0, stockLength - cutLengthAlongRoll), [{
-          kind: 'PANEL', width: cutWidthAcrossRoll, length: cutLengthAlongRoll, side: 'CENTER', label: 'Paño 1',
-        }], 'CALCULATED', {
-          stockWidth, stockLength, cutWidth: cutWidthAcrossRoll, cutLength: cutLengthAlongRoll, rotated, rectangles,
-        });
-      }
+  if (input.type === 'Asimétrico' && input.output != null && input.stockWidth != null && input.stockLength != null) {
+    const geometry = buildAsymmetricGeometry(input);
+    if (geometry) {
+      const pieces = [{
+        kind: 'PANEL' as const,
+        width: geometry.cutWidth,
+        length: geometry.cutLength,
+        side: 'CENTER' as const,
+        label: 'Paño 1',
+      }];
+      const longitudinalRemainder = Math.max(0, geometry.stockLength - geometry.cutLength);
+      return result(input, 1, longitudinalRemainder, pieces, 'CALCULATED', geometry);
     }
   }
 
