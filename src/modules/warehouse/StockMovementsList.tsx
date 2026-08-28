@@ -94,7 +94,7 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
   );
 }
 
-function formatDimensions(value: Record<string, unknown> | null | undefined) {
-  if (!value || typeof value !== "object") return "—";
-  return Object.entries(value).map(([key, val]) => `${key}: ${val}`).join(" · ") || "—";
+function formatDimensions(value: number[] | null | undefined) {
+  if (!Array.isArray(value) || value.length === 0) return "—";
+  return value.join(" × ");
 }

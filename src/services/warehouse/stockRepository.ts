@@ -42,7 +42,7 @@ export type StockMovement = {
   reference: string | null;
   notes: string | null;
   transfer_group_id: string | null;
-  dimension_values: Record<string, unknown> | null;
+  dimension_values: number[] | null;
   movement_type?: { code: string; name: string; direction: number } | null;
   warehouse?: { code: string; name: string } | null;
   product?: { code: string; commercial_description: string | null } | null;
@@ -97,7 +97,7 @@ export type ProfileStockPiece = {
   warehouseName: string;
   length: number;
   quantity: number;
-  dimensionValues: Record<string, unknown>;
+  dimensionValues: number[];
 };
 
 function client() {
@@ -137,10 +137,8 @@ export async function syncWarehouseStockItems(companyId: number, productId: numb
 
   for (const m of (movements as any[])) {
     const dims = m.dimension_values;
-    if (!dims || typeof dims !== 'object' || Object.keys(dims).length === 0) continue;
-    const lengthEntry = Object.entries(dims).find(([k]) => /long|largo|length/i.test(k));
-    if (!lengthEntry) continue;
-    const length = Number(lengthEntry[1]);
+    if (!Array.isArray(dims) || dims.length === 0) continue;
+    const length = Number(dims[0]);
     if (!Number.isFinite(length) || length <= 0) continue;
 
     const key = [m.warehouse_id, m.characteristic_id ?? '', length].join('|');
@@ -290,16 +288,15 @@ export async function listProfileStockPieces(input: {
     characteristicCode: string | null;
     characteristicName: string | null;
     length: number;
-    dimensionValues: Record<string, unknown>;
+    dimensionValues: number[];
     quantity: number;
   };
 
   const groups = new Map<string, Aggregate>();
   for (const raw of (data ?? [])) {
     const r = raw as any;
-    const dims = (r.dimension_values && typeof r.dimension_values === 'object' ? r.dimension_values : {}) as Record<string, unknown>;
-    const lengthEntry = Object.entries(dims).find(([key]) => /long|largo|length/i.test(key));
-    const length = Number(lengthEntry?.[1]);
+    const dims: number[] = Array.isArray(r.dimension_values) ? r.dimension_values.map(Number) : [];
+    const length = Number(dims[0]);
     if (!Number.isFinite(length) || length < input.requiredLength) continue;
 
     const characteristicCode = r.characteristic?.code ?? null;
