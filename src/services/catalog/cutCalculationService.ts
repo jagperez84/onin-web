@@ -159,81 +159,89 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
     const smoothCutMargin = productCutSettings?.smooth_cut ? 4 : 2; // mm blade kerf
     const stdBarMm = 6000; // 6 meters bar length
 
-    // Cut 1: Front Load Profile (Perfil de carga / Terminal)
-    const loadProfileCutLength = Math.max(10, widthMm - 60); // 60mm deduction for end caps
-    const totalPieces1 = quantity;
-    const piecesPerBar1 = Math.floor(stdBarMm / (loadProfileCutLength + smoothCutMargin)) || 1;
-    const barsReq1 = Math.ceil(totalPieces1 / piecesPerBar1);
-    const scrapMm1 = (barsReq1 * stdBarMm) - (totalPieces1 * (loadProfileCutLength + smoothCutMargin));
-    const isReusable1 = scrapMm1 >= minRemainder;
+    // The despiece (BOM) evaluated for this exact article is the source of truth for which
+    // profiles it actually carries. Prefer it over any generic estimate.
+    const bomProfileComponents = bomComponents.filter(
+      comp =>
+        comp.unit_code === 'm' ||
+        comp.unit_code === 'ml' ||
+        comp.code.startsWith('PRF') ||
+        comp.code.startsWith('PERFIL')
+    );
 
-    profileCuts.push({
-      id: 'prof-load-1',
-      profile_code: 'PRF-CARGA',
-      profile_name: 'Perfil Frontal de Carga / Terminal',
-      color: characteristicColor || 'Aluminio estándar',
-      cut_length: loadProfileCutLength,
-      unit: 'mm',
-      quantity_pieces: totalPieces1,
-      standard_bar_length: stdBarMm,
-      bars_required: barsReq1,
-      waste_scrap_total: Math.max(0, scrapMm1),
-      scrap_remainder: Math.max(0, scrapMm1 % stdBarMm),
-      is_reusable_remainder: isReusable1,
-      smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
-      notes: `Deducción tapones: 60 mm · Longitud corte: ${loadProfileCutLength} mm`,
-    });
-
-    // Cut 2: Roller Tube (Tubo de enrolle)
-    const tubeCutLength = Math.max(10, widthMm - 75); // 75mm deduction for brackets and motor
-    const piecesPerBar2 = Math.floor(stdBarMm / (tubeCutLength + smoothCutMargin)) || 1;
-    const barsReq2 = Math.ceil(totalPieces1 / piecesPerBar2);
-    const scrapMm2 = (barsReq2 * stdBarMm) - (totalPieces1 * (tubeCutLength + smoothCutMargin));
-    const isReusable2 = scrapMm2 >= minRemainder;
-
-    profileCuts.push({
-      id: 'prof-tube-2',
-      profile_code: 'TUB-ENROLLE',
-      profile_name: 'Tubo de Enrolle Ranurado',
-      color: 'Galvanizado',
-      cut_length: tubeCutLength,
-      unit: 'mm',
-      quantity_pieces: totalPieces1,
-      standard_bar_length: stdBarMm,
-      bars_required: barsReq2,
-      waste_scrap_total: Math.max(0, scrapMm2),
-      scrap_remainder: Math.max(0, scrapMm2 % stdBarMm),
-      is_reusable_remainder: isReusable2,
-      smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
-      notes: `Deducción soportes y motor: 75 mm · Longitud corte: ${tubeCutLength} mm`,
-    });
-
-    // Also check if any evaluated BOM components represent cuttable profiles
-    for (const comp of bomComponents) {
-      if (comp.unit_code === 'm' || comp.unit_code === 'ml' || comp.code.startsWith('PRF') || comp.code.startsWith('PERFIL')) {
+    if (bomProfileComponents.length > 0) {
+      for (const comp of bomProfileComponents) {
         const compCutLengthMm = Math.round((comp.quantity / quantity) * 1000);
-        if (compCutLengthMm > 0 && !profileCuts.some(p => p.profile_code === comp.code)) {
-          const pPerBar = Math.floor(stdBarMm / (compCutLengthMm + smoothCutMargin)) || 1;
-          const bReq = Math.ceil(quantity / pPerBar);
-          const sc = (bReq * stdBarMm) - (quantity * (compCutLengthMm + smoothCutMargin));
-          profileCuts.push({
-            id: `prof-bom-${comp.id}`,
-            profile_code: comp.code,
-            profile_name: comp.description,
-            color: characteristicColor || 'Estándar',
-            cut_length: compCutLengthMm,
-            unit: 'mm',
-            quantity_pieces: quantity,
-            standard_bar_length: stdBarMm,
-            bars_required: bReq,
-            waste_scrap_total: Math.max(0, sc),
-            scrap_remainder: Math.max(0, sc % stdBarMm),
-            is_reusable_remainder: sc >= minRemainder,
-            smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
-            notes: `Componente de despiece con longitud unitaria de ${comp.quantity} m`,
-          });
-        }
+        if (compCutLengthMm <= 0) continue;
+        const piecesPerBar = Math.floor(stdBarMm / (compCutLengthMm + smoothCutMargin)) || 1;
+        const barsReq = Math.ceil(quantity / piecesPerBar);
+        const scrapMm = (barsReq * stdBarMm) - (quantity * (compCutLengthMm + smoothCutMargin));
+
+        profileCuts.push({
+          id: `prof-bom-${comp.id}`,
+          profile_code: comp.code,
+          profile_name: comp.description,
+          color: characteristicColor || 'Estándar',
+          cut_length: compCutLengthMm,
+          unit: 'mm',
+          quantity_pieces: quantity,
+          standard_bar_length: stdBarMm,
+          bars_required: barsReq,
+          waste_scrap_total: Math.max(0, scrapMm),
+          scrap_remainder: Math.max(0, scrapMm % stdBarMm),
+          is_reusable_remainder: scrapMm >= minRemainder,
+          smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
+          notes: `Componente de despiece con longitud unitaria de ${comp.quantity} m`,
+        });
       }
+    } else {
+      // No despiece configured for this article yet: show an approximate technical estimate
+      // (front load profile + roller tube) instead of leaving the quote without a cut preview.
+      // These are placeholder deductions, not article-specific data — replace with real BOM
+      // components as soon as this article's despiece is configured.
+      const loadProfileCutLength = Math.max(10, widthMm - 60); // 60mm deduction for end caps
+      const piecesPerBar1 = Math.floor(stdBarMm / (loadProfileCutLength + smoothCutMargin)) || 1;
+      const barsReq1 = Math.ceil(quantity / piecesPerBar1);
+      const scrapMm1 = (barsReq1 * stdBarMm) - (quantity * (loadProfileCutLength + smoothCutMargin));
+
+      profileCuts.push({
+        id: 'prof-load-1',
+        profile_code: 'PRF-CARGA',
+        profile_name: 'Perfil Frontal de Carga / Terminal (estimado)',
+        color: characteristicColor || 'Aluminio estándar',
+        cut_length: loadProfileCutLength,
+        unit: 'mm',
+        quantity_pieces: quantity,
+        standard_bar_length: stdBarMm,
+        bars_required: barsReq1,
+        waste_scrap_total: Math.max(0, scrapMm1),
+        scrap_remainder: Math.max(0, scrapMm1 % stdBarMm),
+        is_reusable_remainder: scrapMm1 >= minRemainder,
+        smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
+        notes: `Estimación genérica (sin despiece configurado) · Deducción tapones: 60 mm · Longitud corte: ${loadProfileCutLength} mm`,
+      });
+
+      const tubeCutLength = Math.max(10, widthMm - 75); // 75mm deduction for brackets and motor
+      const piecesPerBar2 = Math.floor(stdBarMm / (tubeCutLength + smoothCutMargin)) || 1;
+      const barsReq2 = Math.ceil(quantity / piecesPerBar2);
+      const scrapMm2 = (barsReq2 * stdBarMm) - (quantity * (tubeCutLength + smoothCutMargin));
+
+      profileCuts.push({
+        id: 'prof-tube-2',
+        profile_code: 'TUB-ENROLLE',
+        profile_name: 'Tubo de Enrolle Ranurado (estimado)',
+        color: 'Galvanizado',
+        cut_length: tubeCutLength,
+        unit: 'mm',
+        quantity_pieces: quantity,
+        standard_bar_length: stdBarMm,
+        bars_required: barsReq2,
+        waste_scrap_total: Math.max(0, scrapMm2),
+        scrap_remainder: Math.max(0, scrapMm2 % stdBarMm),
+        is_reusable_remainder: scrapMm2 >= minRemainder,
+        smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
+        notes: `Estimación genérica (sin despiece configurado) · Deducción soportes y motor: 75 mm · Longitud corte: ${tubeCutLength} mm`,
+      });
     }
   }
 
