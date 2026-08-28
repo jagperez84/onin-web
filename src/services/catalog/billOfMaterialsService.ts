@@ -25,6 +25,9 @@ export type EvaluatedBomComponent = {
   description: string;
   quantity_expression: string;
   quantity: number;
+  product_id: number | null;
+  product_code: string | null;
+  product_name: string | null;
   unit_id: number | null;
   unit_code: string;
   unit_price: number;
@@ -163,6 +166,9 @@ export function calculateBillOfMaterials(input: {
       description: comp.description || comp.product_name || `Componente ${comp.code}`,
       quantity_expression: expr,
       quantity: totalQty,
+      product_id: comp.product_id ?? null,
+      product_code: comp.product_code ?? null,
+      product_name: comp.product_name ?? null,
       unit_id: comp.unit_id,
       unit_code: comp.unit_code || 'ud',
       unit_price: unitPrice,
