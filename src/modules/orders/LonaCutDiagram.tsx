@@ -40,6 +40,12 @@ export function LonaCutDiagram({ calculation, stockDimensions, stockUnits, cutLi
   const chips: Array<LonaCutPiece | MarginChip> = panels.length > 0 ? [...remainders] : [];
   if (margin) chips.push(margin);
 
+  // Cuando no hay ningún paño entero, el "resto"/"retal" pasa a ser toda la pieza que se
+  // corta — no un sobrante — así que en la barra principal no se llama "Resto", igual que
+  // Degradee ya se llama "Pieza degradé" y no "Paño".
+  const protagonistLabel = (piece: LonaCutPiece, index: number) =>
+    panels.length > 0 ? piece.label : protagonists.length > 1 ? `Pieza ${index + 1}` : 'Pieza';
+
   return (
     <div className="lona-cut-diagram">
       <div className="lona-diagram-stage">
@@ -47,7 +53,7 @@ export function LonaCutDiagram({ calculation, stockDimensions, stockUnits, cutLi
           {protagonists.map((piece, index) => (
             <div key={`protagonist-${index}`} className="lona-roll-piece used" style={{ width: `${100 / protagonists.length}%` }} title={`${piece.label}: ${dimension(piece.width, widthUnit)} × ${dimension(piece.length, lengthUnit)}`}>
               <div className="lona-roll-piece-content">
-                <strong>{piece.label}</strong>
+                <strong>{protagonistLabel(piece, index)}</strong>
                 <small>{dimension(piece.width, widthUnit)} × {dimension(piece.length, lengthUnit)}</small>
               </div>
             </div>
