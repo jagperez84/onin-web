@@ -38,6 +38,6 @@ export const LONA_CUT_TYPES: Array<{ value: LonaCutType; label: string; descript
   { value: 'Retal Maxi', label: 'Retal Maxi', description: 'Resto repartido a ambos lados.' },
   { value: 'Retal Mini', label: 'Retal Mini', description: 'Resto repartido con un paño menos.' },
   { value: 'Degradee', label: 'Degradee', description: 'Un único paño; no utiliza selección automática de restos.' },
-  { value: 'Screen', label: 'Screen', description: 'Regla pendiente de definir en el legacy.' },
+  { value: 'Screen', label: 'Screen', description: 'Reparte los paños sobre la salida en vez de la línea.' },
   { value: 'Telón', label: 'Telón', description: 'Sin cálculo automático en el legacy: se resuelve manualmente.' },
 ];

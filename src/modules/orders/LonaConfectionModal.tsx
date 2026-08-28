@@ -311,9 +311,15 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                       ? calculateLonaCut({
                           type: cutType,
                           line: width,
-                          selectedWidth: chosen.sourceDimensions[1] ?? chosen.sourceDimensions[0],
+                          output: height,
+                          // El ancho de paño es el ancho real del material elegido (sourceDimensions[0]),
+                          // no la longitud del rollo — así lo usaba Toldos (Existencia.getCantidad2()).
+                          selectedWidth: chosen.sourceDimensions[0],
                           hem,
                           overlap,
+                          stockWidth: chosen.sourceDimensions[0],
+                          stockLength: chosen.sourceDimensions[1],
+                          rotated: chosen.rotated,
                         })
                       : null;
 
@@ -343,7 +349,7 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                               {CUT_TYPES.map(type => (
                                 <option key={type} value={type}>
                                   {type}
-                                  {type === 'Screen' || type === 'Telón' ? ' · pendiente' : ''}
+                                  {type === 'Telón' ? ' · pendiente' : ''}
                                 </option>
                               ))}
                             </select>

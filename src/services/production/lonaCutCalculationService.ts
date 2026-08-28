@@ -56,10 +56,22 @@ function panelPieces(count: number, width: number, length: number): LonaCutPiece
   }));
 }
 
-function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effectiveLength: number): Omit<LonaCutCalculationResult, 'geometry'> {
+/**
+ * Reparto en paños fiel a Toldos (auxiliar NuevaLineaCorteDeLona.realizarOperacion): siempre
+ * usa el ancho real del material elegido (nunca una pieza rotada) como incremento de paño, y
+ * acumula contra `target` — la línea para Asimétrico/Retal Maxi/Retal Mini, la salida para
+ * Screen (que reparte paños sobre la salida en vez de la línea; mismas fórmulas, ejes
+ * intercambiados). `effectiveLength` es la medida del lado corto de cada paño.
+ *
+ * Cuando el resto calculado sobrepasa el ancho de material disponible, no cabe físicamente
+ * tal cual: Toldos añade un paño entero más y recalcula un resto real, más pequeño. Ese paso
+ * de corrección solo se aplica dentro de la rama en la que el acumulado supera `target` (la
+ * rama de encaje exacto no lo necesita: por construcción su resto nunca excede el ancho).
+ */
+function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effectiveLength: number, target: number): Omit<LonaCutCalculationResult, 'geometry'> {
   let accumulated = 0;
   let panels = 0;
-  while (accumulated < input.line) {
+  while (accumulated < target) {
     accumulated += effectiveWidth;
     panels += 1;
   }
@@ -67,15 +79,10 @@ function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effec
   let remainder = 0;
   const pieces: LonaCutPiece[] = [];
 
-  // Nota de fidelidad con Toldos (auxiliar de corte NuevaLineaCorteDeLona.realizarOperacion):
-  // cuando el resto sobrepasa el ancho de material disponible, no cabe físicamente tal cual —
-  // Toldos añadía un paño entero más y recalculaba el resto real, más pequeño. Ese paso de
-  // corrección solo se aplica dentro de la rama en la que el acumulado supera la línea pedida
-  // (la rama de encaje exacto no lo necesita: por construcción su resto nunca excede el ancho).
-  if (input.type === 'Asimétrico') {
-    if (accumulated > input.line) {
+  if (input.type === 'Asimétrico' || input.type === 'Screen') {
+    if (accumulated > target) {
       panels -= 1;
-      remainder = input.line - panels * effectiveWidth + 2 * input.hem + panels * input.overlap;
+      remainder = target - panels * effectiveWidth + 2 * input.hem + panels * input.overlap;
       if (remainder === effectiveWidth) {
         panels += 1;
         remainder = 0;
@@ -90,16 +97,16 @@ function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effec
     if (remainder > 0) pieces.push({ kind: 'REMAINDER', width: remainder, length: effectiveLength, side: 'RIGHT', label: 'Resto' });
   } else if (input.type === 'Retal Maxi') {
     let distributed: number;
-    if (accumulated > input.line) {
+    if (accumulated > target) {
       panels -= 2;
-      distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+      distributed = target - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
       remainder = distributed / 2;
       if (effectiveWidth === distributed) {
         panels += 1;
         remainder = 0;
       } else if (2 * effectiveWidth < distributed) {
         panels += 1;
-        distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+        distributed = target - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
         remainder = distributed / 2;
       }
     } else {
@@ -114,16 +121,16 @@ function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effec
     } else pieces.push(...panelPieces(panels, effectiveWidth, effectiveLength));
   } else {
     let distributed: number;
-    if (accumulated > input.line) {
+    if (accumulated > target) {
       panels -= 1;
-      distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+      distributed = target - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
       remainder = distributed / 2;
       if (effectiveWidth === distributed) {
         panels += 1;
         remainder = 0;
       } else if (2 * effectiveWidth < distributed) {
         panels += 1;
-        distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+        distributed = target - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
         remainder = distributed / 2;
       }
     } else {
@@ -198,23 +205,35 @@ function buildGeometry(input: LonaCutCalculationInput, pieces: LonaCutPiece[], o
 
 export function calculateLonaCut(input: LonaCutCalculationInput): LonaCutCalculationResult {
   if (input.selectedWidth <= 0 || input.line < 0) throw new Error('Las dimensiones de corte deben ser válidas.');
-  // Screen y Telón no llevan cálculo automático de paños: se dejan pendientes de resolución manual,
-  // igual que en Toldos (su rama de "Telón" no ejecutaba ninguna operación).
-  if (input.type === 'Screen' || input.type === 'Telón') return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 0, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: true, status: 'PENDING', pieces: [] };
 
-  const orientation = resolveOrientation(input);
-  if (orientation && input.output != null) {
-    if (input.type === 'Degradee') {
+  // Telón no lleva cálculo automático en Toldos (su rama estaba vacía): se deja pendiente.
+  if (input.type === 'Telón') {
+    return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 0, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: true, status: 'PENDING', pieces: [] };
+  }
+
+  // Degradee es el único tipo en el que la necesidad se trata como una pieza entera que puede
+  // girar para encajar en el rollo — el resto de tipos siempre reparten en paños del ancho real
+  // de material, nunca de una pieza rotada (así lo hacía Toldos: `anchoSeleccionado` se usa tal
+  // cual, sin ningún concepto de rotación, en las cuatro reglas de reparto).
+  if (input.type === 'Degradee') {
+    const orientation = resolveOrientation(input);
+    if (orientation && input.output != null) {
       const pieces = [{ kind: 'PANEL' as const, width: orientation.cutWidth, length: orientation.cutLength, side: 'CENTER' as const, label: 'Pieza degradé' }];
       return { type: input.type, selectedWidth: orientation.cutWidth, fullPanels: 1, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: false, status: 'CALCULATED', pieces, geometry: buildGeometry(input, pieces, orientation) };
     }
-
-    const calculated = legacyCut(input, orientation.cutWidth, orientation.cutLength);
-    return { ...calculated, geometry: buildGeometry(input, calculated.pieces, orientation) };
+    return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 1, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: false, status: 'CALCULATED', pieces: [{ kind: 'PANEL', width: input.selectedWidth, length: input.line, side: 'CENTER', label: 'Pieza degradé' }] };
   }
 
-  if (input.type === 'Degradee') return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 1, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: false, status: 'CALCULATED', pieces: [{ kind: 'PANEL', width: input.selectedWidth, length: input.line, side: 'CENTER', label: 'Pieza degradé' }] };
+  if (input.type === 'Screen') {
+    // Screen reparte los paños sobre la salida en vez de la línea (mismo algoritmo que
+    // Asimétrico con los ejes intercambiados) — verificado en el bytecode original, donde
+    // "Screen" tenía cálculo completo y nunca estuvo realmente pendiente.
+    if (input.output == null) {
+      return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 0, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: true, status: 'PENDING', pieces: [] };
+    }
+    return legacyCut(input, input.selectedWidth, input.line, input.output);
+  }
 
-  const calculated = legacyCut(input, input.selectedWidth, input.output ?? input.line);
-  return calculated;
+  // Asimétrico / Retal Maxi / Retal Mini: paños del ancho real de material, longitud = salida.
+  return legacyCut(input, input.selectedWidth, input.output ?? input.line, input.line);
 }
