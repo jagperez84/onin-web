@@ -67,14 +67,25 @@ function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effec
   let remainder = 0;
   const pieces: LonaCutPiece[] = [];
 
+  // Nota de fidelidad con Toldos (auxiliar de corte NuevaLineaCorteDeLona.realizarOperacion):
+  // cuando el resto sobrepasa el ancho de material disponible, no cabe físicamente tal cual —
+  // Toldos añadía un paño entero más y recalculaba el resto real, más pequeño. Ese paso de
+  // corrección solo se aplica dentro de la rama en la que el acumulado supera la línea pedida
+  // (la rama de encaje exacto no lo necesita: por construcción su resto nunca excede el ancho).
   if (input.type === 'Asimétrico') {
     if (accumulated > input.line) {
       panels -= 1;
       remainder = input.line - panels * effectiveWidth + 2 * input.hem + panels * input.overlap;
+      if (remainder === effectiveWidth) {
+        panels += 1;
+        remainder = 0;
+      } else if (effectiveWidth < remainder) {
+        panels += 1;
+        remainder = (remainder - effectiveWidth) + input.overlap;
+      }
     } else {
       remainder = 2 * input.hem + panels * input.overlap;
     }
-    if (remainder === effectiveWidth) { panels += 1; remainder = 0; }
     pieces.push(...panelPieces(panels, effectiveWidth, effectiveLength));
     if (remainder > 0) pieces.push({ kind: 'REMAINDER', width: remainder, length: effectiveLength, side: 'RIGHT', label: 'Resto' });
   } else if (input.type === 'Retal Maxi') {
@@ -82,12 +93,20 @@ function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effec
     if (accumulated > input.line) {
       panels -= 2;
       distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+      remainder = distributed / 2;
+      if (effectiveWidth === distributed) {
+        panels += 1;
+        remainder = 0;
+      } else if (2 * effectiveWidth < distributed) {
+        panels += 1;
+        distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+        remainder = distributed / 2;
+      }
     } else {
       panels -= 1;
       distributed = effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+      remainder = distributed / 2;
     }
-    remainder = distributed / 2;
-    if (effectiveWidth === distributed) { panels += 1; remainder = 0; }
     if (remainder > 0) {
       pieces.push({ kind: 'REMAINDER', width: remainder, length: effectiveLength, side: 'LEFT', label: 'Retal izquierdo' });
       pieces.push(...panelPieces(panels, effectiveWidth, effectiveLength));
@@ -98,11 +117,19 @@ function legacyCut(input: LonaCutCalculationInput, effectiveWidth: number, effec
     if (accumulated > input.line) {
       panels -= 1;
       distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+      remainder = distributed / 2;
+      if (effectiveWidth === distributed) {
+        panels += 1;
+        remainder = 0;
+      } else if (2 * effectiveWidth < distributed) {
+        panels += 1;
+        distributed = input.line - panels * effectiveWidth + 2 * input.hem + (panels + 1) * input.overlap;
+        remainder = distributed / 2;
+      }
     } else {
       distributed = 2 * input.hem + (panels + 1) * input.overlap;
+      remainder = distributed / 2;
     }
-    remainder = distributed / 2;
-    if (effectiveWidth === distributed) { panels += 1; remainder = 0; }
     if (remainder > 0) {
       pieces.push({ kind: 'REMAINDER', width: remainder, length: effectiveLength, side: 'LEFT', label: 'Retal izquierdo' });
       pieces.push(...panelPieces(panels, effectiveWidth, effectiveLength));
