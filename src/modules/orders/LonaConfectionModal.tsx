@@ -555,7 +555,6 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                           chosen ? (
                             <LonaCutDiagram
                               calculation={cutCalculation}
-                              type={cutType}
                               stockDimensions={chosen.sourceDimensions}
                               stockUnits={chosen.sourceDimensionUnits}
                               cutLine={width}
