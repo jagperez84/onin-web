@@ -2,16 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, FileText, PackageSearch, Ruler, X, ClipboardCheck, Play } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import {
+  allocateLonaStockForPieces,
   createLonaConfectionWorkSheet,
   resolveLonaConfectionComponents,
+  type LonaConfectionComponent,
   type LonaConfectionResult,
   type LonaConfectionWorkSheet,
+  type LonaPieceAllocation,
   type LonaStockCandidate,
 } from '../../services/production/lonaConfectionService';
-import { findLonaStockCandidates } from '../../services/production/lonaStockSelectionService';
 import { executeLonaConfectionWorkSheet } from '../../services/production/lonaConfectionExecutionService';
 import { downloadLonaConfectionPdf } from '../../services/production/lonaConfectionPdfService';
-import { calculateLonaCut, type LonaCutType } from '../../services/production/lonaCutCalculationService';
+import { calculateLonaCut, type LonaCutCalculationResult, type LonaCutType } from '../../services/production/lonaCutCalculationService';
 import { LonaCutDiagram } from './LonaCutDiagram';
 import { LonaConfectionViewModal } from './LonaConfectionViewModal';
 import './lona-confection.css';
@@ -31,6 +33,7 @@ type CutParameters = {
 
 const DEFAULT_CUT_PARAMETERS: CutParameters = { hem: '3', overlap: '2.7' };
 const CUT_TYPES: LonaCutType[] = ['Asimétrico', 'Retal Maxi', 'Retal Mini', 'Degradee', 'Screen', 'Telón'];
+const STOCK_DEBOUNCE_MS = 350;
 
 function formatDimension(value: number | null, unit: string | null) {
   return value == null ? '—' : `${value} ${unit || ''}`.trim();
@@ -44,6 +47,35 @@ function parseCutParameter(value: string) {
   return value === '' ? 0 : Number(value.replace(',', '.')) || 0;
 }
 
+/**
+ * El ancho de paño que usa el reparto en paños (calculateLonaCut) es el ancho real del
+ * material que se va a usar, no la línea/salida de la pieza — igual que en Toldos
+ * (Existencia.getCantidad2()). Se deriva de una pieza de sondeo (la necesidad completa) para
+ * saber qué rollo se usaría, y con eso ya se puede calcular el reparto real en paños.
+ */
+function computeCutCalculation(
+  component: LonaConfectionComponent,
+  cutType: LonaCutType,
+  hem: number,
+  overlap: number,
+  probe: LonaStockCandidate | null
+): LonaCutCalculationResult | null {
+  const width = component.line;
+  const height = component.output;
+  if (!probe || width == null || height == null || width <= 0 || height <= 0) return null;
+  return calculateLonaCut({
+    type: cutType,
+    line: width,
+    output: height,
+    selectedWidth: probe.sourceDimensions[0],
+    hem,
+    overlap,
+    stockWidth: probe.sourceDimensions[0],
+    stockLength: probe.sourceDimensions[1],
+    rotated: probe.rotated,
+  });
+}
+
 export function LonaConfectionModal({ line, companyId, salesOrderId, reference, onClose }: Props) {
   const [result, setResult] = useState<LonaConfectionResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,9 +83,9 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
 
   const [cutTypes, setCutTypes] = useState<Record<number, LonaCutType>>({});
   const [cutParameters, setCutParameters] = useState<Record<number, CutParameters>>({});
-  const [stockCandidates, setStockCandidates] = useState<Record<number, LonaStockCandidate[]>>({});
+  const [probeCandidates, setProbeCandidates] = useState<Record<number, LonaStockCandidate | null>>({});
+  const [allocations, setAllocations] = useState<Record<number, LonaPieceAllocation[]>>({});
   const [stockLoading, setStockLoading] = useState<Record<number, boolean>>({});
-  const [selectedStock, setSelectedStock] = useState<Record<number, number>>({});
   const [creating, setCreating] = useState<Record<number, boolean>>({});
   const [workSheets, setWorkSheets] = useState<Record<number, LonaConfectionWorkSheet>>({});
   const [createError, setCreateError] = useState<Record<number, string>>({});
@@ -73,8 +105,8 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
     setCutTypes({});
     setCutParameters({});
     setResult(null);
-    setStockCandidates({});
-    setSelectedStock({});
+    setProbeCandidates({});
+    setAllocations({});
     setWorkSheets({});
     setCreateError({});
     setExecuting({});
@@ -129,44 +161,77 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
     };
   }, [companyId, line.id, line.line_no, reference, snapshot]);
 
+  // Sondea el material disponible, calcula el reparto real en paños/retales para el tipo de
+  // corte y parámetros actuales, y asigna una pieza física distinta a cada paño/retal.
+  // Con debounce: dobladillo/solape se editan tecla a tecla y no queremos una consulta por tecla.
   useEffect(() => {
     if (!result) return;
     let active = true;
+    const timers: number[] = [];
 
     result.components.forEach((component, index) => {
       if (component.line == null || component.output == null || component.line <= 0 || component.output <= 0)
         return;
 
+      const cutType = cutTypes[index] ?? 'Asimétrico';
+      const parameters = cutParameters[index] ?? DEFAULT_CUT_PARAMETERS;
+      const hem = parseCutParameter(parameters.hem);
+      const overlap = parseCutParameter(parameters.overlap);
+
       setStockLoading(previous => ({ ...previous, [index]: true }));
-      findLonaStockCandidates({
-        companyId,
-        productId: component.productId,
-        characteristicId: component.characteristicId,
-        characteristicCode: component.characteristicCode,
-        requiredLine: component.line,
-        requiredOutput: component.output,
-        requiredLineUnit: component.lineUnit,
-        requiredOutputUnit: component.outputUnit,
-      })
-        .then(candidates => {
+
+      const timer = window.setTimeout(async () => {
+        if (!active) return;
+        try {
+          const probeAllocation = await allocateLonaStockForPieces({
+            companyId,
+            productId: component.productId,
+            characteristicId: component.characteristicId,
+            characteristicCode: component.characteristicCode,
+            pieces: [{ width: component.line as number, length: component.output as number, label: 'Necesidad' }],
+            unit: component.lineUnit,
+          });
           if (!active) return;
-          setStockCandidates(previous => ({ ...previous, [index]: candidates }));
-          if (candidates[0]) {
-            setSelectedStock(previous => ({ ...previous, [index]: candidates[0].stockItemId }));
+          const probe = probeAllocation[0]?.candidate ?? null;
+          setProbeCandidates(previous => ({ ...previous, [index]: probe }));
+
+          if (!probe) {
+            setAllocations(previous => ({ ...previous, [index]: [] }));
+            return;
           }
-        })
-        .catch(() => {
-          if (active) setStockCandidates(previous => ({ ...previous, [index]: [] }));
-        })
-        .finally(() => {
+
+          const calculation = computeCutCalculation(component, cutType, hem, overlap, probe);
+          if (!calculation || calculation.status !== 'CALCULATED') {
+            setAllocations(previous => ({ ...previous, [index]: [] }));
+            return;
+          }
+
+          const pieceAllocations = await allocateLonaStockForPieces({
+            companyId,
+            productId: component.productId,
+            characteristicId: component.characteristicId,
+            characteristicCode: component.characteristicCode,
+            pieces: calculation.pieces.map(piece => ({ width: piece.width, length: piece.length, label: piece.label })),
+            unit: component.lineUnit,
+          });
+          if (active) setAllocations(previous => ({ ...previous, [index]: pieceAllocations }));
+        } catch {
+          if (active) {
+            setProbeCandidates(previous => ({ ...previous, [index]: null }));
+            setAllocations(previous => ({ ...previous, [index]: [] }));
+          }
+        } finally {
           if (active) setStockLoading(previous => ({ ...previous, [index]: false }));
-        });
+        }
+      }, STOCK_DEBOUNCE_MS);
+      timers.push(timer);
     });
 
     return () => {
       active = false;
+      timers.forEach(timer => window.clearTimeout(timer));
     };
-  }, [companyId, result]);
+  }, [companyId, result, cutTypes, cutParameters]);
 
   const getCutParameters = (index: number): CutParameters =>
     cutParameters[index] ?? DEFAULT_CUT_PARAMETERS;
@@ -178,11 +243,9 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
 
   const createSheet = async (index: number) => {
     const component = result?.components[index];
-    const candidates = stockCandidates[index] || [];
-    const candidate =
-      candidates.find(item => item.stockItemId === selectedStock[index]) || candidates[0];
+    const pieceAllocations = allocations[index] || [];
 
-    if (!component || !candidate) return;
+    if (!component || !pieceAllocations.length || pieceAllocations.some(allocation => !allocation.candidate)) return;
 
     setCreating(previous => ({ ...previous, [index]: true }));
     setCreateError(previous => ({ ...previous, [index]: '' }));
@@ -196,10 +259,10 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
         salesOrderLineId: Number(line.id),
         salesOrderLineNo: Number(line.line_no),
         component,
-        candidate,
+        allocations: pieceAllocations,
         reference,
         selectionMode: 'AUTOMATIC',
-        selectionReason: `${candidate.reason} Tipo de corte: ${cutType}. Dobladillo: ${parameters.hem}. Solape: ${parameters.overlap}.`,
+        selectionReason: `Tipo de corte: ${cutType}. Dobladillo: ${parameters.hem}. Solape: ${parameters.overlap}.`,
       });
       setWorkSheets(previous => ({ ...previous, [index]: sheet }));
     } catch (value) {
@@ -296,9 +359,8 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                   const height = component.output;
                   const lineLabel = component.lineDimensionCode || 'Línea';
                   const outputLabel = component.outputDimensionCode || 'Salida';
-                  const candidates = stockCandidates[index] || [];
-                  const chosenId = selectedStock[index] ?? candidates[0]?.stockItemId;
-                  const chosen = candidates.find(candidate => candidate.stockItemId === chosenId);
+                  const probe = probeCandidates[index] ?? null;
+                  const pieceAllocations = allocations[index] || [];
                   const materialLoading = Boolean(stockLoading[index]);
                   const sheet = workSheets[index];
                   const isCreating = Boolean(creating[index]);
@@ -306,22 +368,9 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                   const cutType = cutTypes[index] ?? 'Asimétrico';
                   const hem = parseCutParameter(parameters.hem);
                   const overlap = parseCutParameter(parameters.overlap);
-                  const cutCalculation =
-                    chosen && width && height
-                      ? calculateLonaCut({
-                          type: cutType,
-                          line: width,
-                          output: height,
-                          // El ancho de paño es el ancho real del material elegido (sourceDimensions[0]),
-                          // no la longitud del rollo — así lo usaba Toldos (Existencia.getCantidad2()).
-                          selectedWidth: chosen.sourceDimensions[0],
-                          hem,
-                          overlap,
-                          stockWidth: chosen.sourceDimensions[0],
-                          stockLength: chosen.sourceDimensions[1],
-                          rotated: chosen.rotated,
-                        })
-                      : null;
+                  const cutCalculation = computeCutCalculation(component, cutType, hem, overlap, probe);
+                  const allAllocated = pieceAllocations.length > 0 && pieceAllocations.every(allocation => allocation.candidate);
+                  const missingCount = pieceAllocations.filter(allocation => !allocation.candidate).length;
 
                   return (
                     <section className="lona-cut-card" key={`${component.productId}-${index}`}>
@@ -411,77 +460,46 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                           </label>
                         </div>
 
-                        <div className={`lona-material ${chosen ? 'ready' : ''}`}>
+                        <div className={`lona-material ${allAllocated ? 'ready' : ''}`}>
                           <div className="lona-material-head">
                             <div>
                               <span>Material compatible</span>
                               <strong>
                                 {materialLoading
                                   ? 'Buscando material compatible…'
-                                  : chosen
-                                  ? `${chosen.warehouseCode} · ${formatDimensions(
-                                      chosen.sourceDimensions,
-                                      chosen.sourceDimensionUnits
-                                    )}`
-                                  : 'Sin material compatible'}
+                                  : pieceAllocations.length === 0
+                                  ? 'Sin material compatible'
+                                  : allAllocated
+                                  ? `${pieceAllocations.length} pieza${pieceAllocations.length === 1 ? '' : 's'} asignadas`
+                                  : `Faltan ${missingCount} de ${pieceAllocations.length} piezas`}
                               </strong>
                             </div>
-                            {chosen && (
+                            {allAllocated && (
                               <span className="lona-material-badge">
                                 <Check size={12} /> Exacto
                               </span>
                             )}
                           </div>
-                          {chosen ? (
-                            <>
-                              <div className="lona-material-detail">
-                                <span>{chosen.reason}</span>
-                                <strong>
-                                  {cutCalculation?.status === 'CALCULATED'
-                                    ? `${cutCalculation.fullPanels} paño${
-                                        cutCalculation.fullPanels === 1 ? '' : 's'
-                                      } · ${
-                                        cutCalculation.hasRemainder
-                                          ? `resto ${cutCalculation.leftRemainder} ${
-                                              component.lineUnit || ''
-                                            }`
-                                          : 'sin resto'
-                                      }`
-                                    : 'Cálculo pendiente'}
-                                </strong>
-                              </div>
-                              {candidates.length > 1 && (
-                                <div className="lona-material-options">
-                                  {candidates.slice(0, 4).map(candidate => (
-                                    <button
-                                      type="button"
-                                      key={candidate.stockItemId}
-                                      className={
-                                        candidate.stockItemId === chosen.stockItemId
-                                          ? 'selected'
-                                          : ''
-                                      }
-                                      onClick={() =>
-                                        setSelectedStock(previous => ({
-                                          ...previous,
-                                          [index]: candidate.stockItemId,
-                                        }))
-                                      }
-                                    >
-                                      <PackageSearch size={13} />
-                                      <span>
-                                        {candidate.warehouseCode} ·{' '}
-                                        {formatDimensions(
-                                          candidate.sourceDimensions,
-                                          candidate.sourceDimensionUnits
-                                        )}
-                                      </span>
-                                      <small>{candidate.rotated ? 'Girado' : 'Directo'}</small>
-                                    </button>
-                                  ))}
+                          {pieceAllocations.length > 0 ? (
+                            <div className="lona-material-pieces">
+                              {pieceAllocations.map((allocation, pieceIndex) => (
+                                <div
+                                  key={`${allocation.label}-${pieceIndex}`}
+                                  className={`lona-material-piece ${allocation.candidate ? 'ok' : 'missing'}`}
+                                >
+                                  <PackageSearch size={13} />
+                                  <span>{allocation.label}</span>
+                                  <strong>
+                                    {allocation.candidate
+                                      ? `${allocation.candidate.warehouseCode} · ${formatDimensions(
+                                          allocation.candidate.sourceDimensions,
+                                          allocation.candidate.sourceDimensionUnits
+                                        )}${allocation.candidate.rotated ? ' · girado' : ''}`
+                                      : 'Sin material disponible'}
+                                  </strong>
                                 </div>
-                              )}
-                            </>
+                              ))}
+                            </div>
                           ) : (
                             !materialLoading && (
                               <span className="lona-material-empty">
@@ -537,7 +555,7 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                           <button
                             type="button"
                             className="lona-create-sheet"
-                            disabled={!chosen || isCreating || cutCalculation?.status === 'PENDING'}
+                            disabled={!allAllocated || isCreating || cutCalculation?.status === 'PENDING'}
                             onClick={() => void createSheet(index)}
                           >
                             <ClipboardCheck size={15} />
@@ -549,14 +567,14 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                       <div className="lona-diagram-wrap">
                         <div className="lona-diagram-label">
                           <Ruler size={13} />{' '}
-                          {chosen ? 'Propuesta de aprovechamiento' : 'Vista previa dimensional'}
+                          {probe ? 'Propuesta de aprovechamiento' : 'Vista previa dimensional'}
                         </div>
                         {width && height && Number.isFinite(width) && Number.isFinite(height) ? (
-                          chosen ? (
+                          probe ? (
                             <LonaCutDiagram
                               calculation={cutCalculation}
-                              stockDimensions={chosen.sourceDimensions}
-                              stockUnits={chosen.sourceDimensionUnits}
+                              stockDimensions={probe.sourceDimensions}
+                              stockUnits={probe.sourceDimensionUnits}
                               cutLine={width}
                               cutOutput={height}
                               unit={component.lineUnit || component.outputUnit || null}
