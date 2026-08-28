@@ -30,7 +30,7 @@ type CutParameters = {
 };
 
 const DEFAULT_CUT_PARAMETERS: CutParameters = { hem: '3', overlap: '2.7' };
-const CUT_TYPES: LonaCutType[] = ['Asimétrico', 'Retal Maxi', 'Retal Mini', 'Degradee', 'Screen'];
+const CUT_TYPES: LonaCutType[] = ['Asimétrico', 'Retal Maxi', 'Retal Mini', 'Degradee', 'Screen', 'Telón'];
 
 function formatDimension(value: number | null, unit: string | null) {
   return value == null ? '—' : `${value} ${unit || ''}`.trim();
@@ -343,7 +343,7 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                               {CUT_TYPES.map(type => (
                                 <option key={type} value={type}>
                                   {type}
-                                  {type === 'Screen' ? ' · pendiente' : ''}
+                                  {type === 'Screen' || type === 'Telón' ? ' · pendiente' : ''}
                                 </option>
                               ))}
                             </select>

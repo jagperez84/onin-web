@@ -27,7 +27,7 @@ export function calculateLonaCutPresentation(input: {
       : 'Sin resto lateral previsto.';
 
   const panelDescription = calculation.status === 'PENDING'
-    ? 'No se muestra una propuesta productiva hasta disponer de la regla de Screen.'
+    ? 'No se muestra una propuesta productiva hasta disponer de una regla de cálculo para este tipo de corte.'
     : `Ancho de material seleccionado: ${calculation.selectedWidth}`;
 
   return { calculation, title, panelDescription, remainderDescription };
@@ -39,4 +39,5 @@ export const LONA_CUT_TYPES: Array<{ value: LonaCutType; label: string; descript
   { value: 'Retal Mini', label: 'Retal Mini', description: 'Resto repartido con un paño menos.' },
   { value: 'Degradee', label: 'Degradee', description: 'Un único paño; no utiliza selección automática de restos.' },
   { value: 'Screen', label: 'Screen', description: 'Regla pendiente de definir en el legacy.' },
+  { value: 'Telón', label: 'Telón', description: 'Sin cálculo automático en el legacy: se resuelve manualmente.' },
 ];

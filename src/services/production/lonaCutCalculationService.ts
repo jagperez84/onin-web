@@ -1,4 +1,4 @@
-export type LonaCutType = 'Asimétrico' | 'Retal Maxi' | 'Retal Mini' | 'Degradee' | 'Screen';
+export type LonaCutType = 'Asimétrico' | 'Retal Maxi' | 'Retal Mini' | 'Degradee' | 'Screen' | 'Telón';
 
 export interface LonaCutCalculationInput {
   type: LonaCutType;
@@ -171,7 +171,9 @@ function buildGeometry(input: LonaCutCalculationInput, pieces: LonaCutPiece[], o
 
 export function calculateLonaCut(input: LonaCutCalculationInput): LonaCutCalculationResult {
   if (input.selectedWidth <= 0 || input.line < 0) throw new Error('Las dimensiones de corte deben ser válidas.');
-  if (input.type === 'Screen') return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 0, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: true, status: 'PENDING', pieces: [] };
+  // Screen y Telón no llevan cálculo automático de paños: se dejan pendientes de resolución manual,
+  // igual que en Toldos (su rama de "Telón" no ejecutaba ninguna operación).
+  if (input.type === 'Screen' || input.type === 'Telón') return { type: input.type, selectedWidth: input.selectedWidth, fullPanels: 0, leftRemainder: 0, hasRemainder: false, automaticRemainderSelectionAllowed: true, status: 'PENDING', pieces: [] };
 
   const orientation = resolveOrientation(input);
   if (orientation && input.output != null) {

@@ -131,25 +131,46 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
       confection_notes: `Vainas +${Math.round(seamHeight * 1000)} mm · Dobladillos +${Math.round(seamWidth * 1000)} mm · ${strips} paños unidos`,
     });
 
-    if (heightMeters > 0) {
-      // Add optional faldón / valance cut piece
-      const valanceH = 0.25; // 25cm
-      canvasCuts.push({
-        id: 'canvas-valance-2',
-        name: 'Faldón / Bambalina ondulada',
-        fabric_code: 'FALDON-STD',
-        fabric_color: characteristicColor || 'Estándar',
-        nominal_width: widthMeters,
-        nominal_height: valanceH,
-        seam_allowance_width: seamWidth,
-        seam_allowance_height: 0.05,
-        cut_width: cutW,
-        cut_height: valanceH + 0.05,
-        cloth_strips_count: strips * quantity,
-        roll_width_used: rollWidth,
-        total_area_m2: round2(cutW * (valanceH + 0.05) * quantity),
-        confection_notes: 'Corte con onda estándar y ribete a juego',
-      });
+    // Faldón / bambalina: en Toldos era un componente propio del modelo de artículo
+    // (variable condicional, no una pieza universal). Se añade solo si el despiece
+    // evaluado de este artículo concreto realmente lo lleva.
+    const valanceComponent = bomComponents.find(comp =>
+      /fald[oó]n|bambalina|valance/i.test(`${comp.code} ${comp.description}`)
+    );
+    if (valanceComponent && valanceComponent.quantity > 0) {
+      const heightDimension = valanceComponent.evaluated_dimensions?.find(d =>
+        /alto|altura|height|salida/i.test(`${d.dimension_code} ${d.dimension_name}`)
+      );
+      const unitToMeters = (unit?: string) => {
+        const key = (unit || '').trim().toLowerCase();
+        if (key === 'mm') return 0.001;
+        if (key === 'cm') return 0.01;
+        return 1; // m or unrecognized: assume meters
+      };
+      const valanceH = heightDimension
+        ? heightDimension.value * unitToMeters(heightDimension.unit_code)
+        : widthMeters > 0
+          ? round2(valanceComponent.quantity / (widthMeters * quantity))
+          : null;
+
+      if (valanceH && valanceH > 0) {
+        canvasCuts.push({
+          id: `canvas-valance-${valanceComponent.id}`,
+          name: valanceComponent.description || 'Faldón / Bambalina',
+          fabric_code: valanceComponent.code,
+          fabric_color: characteristicColor || 'Estándar',
+          nominal_width: widthMeters,
+          nominal_height: valanceH,
+          seam_allowance_width: seamWidth,
+          seam_allowance_height: 0.05,
+          cut_width: cutW,
+          cut_height: round2(valanceH + 0.05),
+          cloth_strips_count: strips * quantity,
+          roll_width_used: rollWidth,
+          total_area_m2: round2(cutW * (valanceH + 0.05) * quantity),
+          confection_notes: 'Corte con onda estándar y ribete a juego (según despiece del artículo)',
+        });
+      }
     }
   }
 
