@@ -1,13 +1,9 @@
 import { Ruler } from 'lucide-react';
-import type { LonaCutCalculationResult } from '../../services/production/lonaCutCalculationService';
+import type { LonaCutCalculationResult, LonaCutPiece } from '../../services/production/lonaCutCalculationService';
 import './lona-cut-diagram.css';
 
 type Props = { calculation: LonaCutCalculationResult | null; stockDimensions: number[]; stockUnits: string[]; cutLine: number; cutOutput: number; unit: string | null };
-
-// PANEL y REMAINDER se cosen ambos en la pieza final (un paño completo y el retal que
-// completa el ancho pedido son igual de "material usado"); solo UNUSED queda sin cortar
-// en el rollo. Por eso el dibujo distingue "se usa" de "no se usa", no tres categorías.
-type DiagramSegment = { kind: 'PANEL' | 'REMAINDER' | 'UNUSED'; length: number; width: number; label: string };
+type MarginChip = { kind: 'UNUSED'; length: number; width: number; label: string };
 
 function dimension(value: number, unit: string | null) {
   return `${Number.isInteger(value) ? value : value.toFixed(1)} ${unit || ''}`.trim();
@@ -28,34 +24,48 @@ export function LonaCutDiagram({ calculation, stockDimensions, stockUnits, cutLi
   const widthUnit = stockUnits[0] || unit;
   const lengthUnit = stockUnits[1] || unit;
 
-  const segments: DiagramSegment[] = calculation.pieces.map(piece => ({
-    kind: piece.kind,
-    length: piece.length,
-    width: piece.width,
-    label: piece.label,
-  }));
-  const usedLength = segments.reduce((sum, segment) => sum + segment.length, 0);
-  if (usedLength < stockLength) {
-    segments.push({ kind: 'UNUSED', length: stockLength - usedLength, width: stockWidth, label: 'Margen disponible' });
-  }
-  const total = Math.max(stockLength, usedLength);
+  const panels = calculation.pieces.filter(piece => piece.kind === 'PANEL');
+  const remainders = calculation.pieces.filter(piece => piece.kind === 'REMAINDER');
+  const usedLength = calculation.pieces.reduce((sum, piece) => sum + piece.length, 0);
+  const margin: MarginChip | null = usedLength < stockLength
+    ? { kind: 'UNUSED', length: stockLength - usedLength, width: stockWidth, label: 'Margen disponible' }
+    : null;
+
+  // Los paños completos son la pieza que se repite y la que de verdad hay que ver de un
+  // vistazo: se llevan el protagonismo de la barra. Si no hay ningún paño entero (p. ej.
+  // Retal Maxi con solo dos retales), esos retales pasan a ser el protagonista, porque son
+  // toda la pieza que se corta. El resto/margen que no ocupa el protagonismo se reduce a una
+  // ficha informativa de tamaño fijo — sus medidas se leen, no se representan a escala.
+  const protagonists: LonaCutPiece[] = panels.length > 0 ? panels : remainders;
+  const chips: Array<LonaCutPiece | MarginChip> = panels.length > 0 ? [...remainders] : [];
+  if (margin) chips.push(margin);
 
   return (
     <div className="lona-cut-diagram">
       <div className="lona-diagram-stage">
         <div className="lona-roll" aria-label={`Material ${dimension(stockWidth, widthUnit)} × ${dimension(stockLength, lengthUnit)}`}>
-          {segments.map((segment, index) => (
-            <div key={`${segment.kind}-${index}`} className={`lona-roll-piece ${segment.kind === 'UNUSED' ? 'unused' : 'used'}`} style={{ width: `${(segment.length / total) * 100}%` }} title={`${segment.label}: ${dimension(segment.width, widthUnit)} × ${dimension(segment.length, lengthUnit)}`}>
+          {protagonists.map((piece, index) => (
+            <div key={`protagonist-${index}`} className="lona-roll-piece used" style={{ width: `${100 / protagonists.length}%` }} title={`${piece.label}: ${dimension(piece.width, widthUnit)} × ${dimension(piece.length, lengthUnit)}`}>
               <div className="lona-roll-piece-content">
-                <strong>{segment.label}</strong>
-                <small>{dimension(segment.width, widthUnit)} × {dimension(segment.length, lengthUnit)}</small>
+                <strong>{piece.label}</strong>
+                <small>{dimension(piece.width, widthUnit)} × {dimension(piece.length, lengthUnit)}</small>
               </div>
             </div>
           ))}
-          <span className="lona-roll-dimension">{dimension(stockLength, lengthUnit)}</span>
-          <span className="lona-roll-width">{dimension(stockWidth, widthUnit)}</span>
         </div>
       </div>
+
+      {chips.length > 0 && (
+        <div className="lona-diagram-chips">
+          {chips.map((chip, index) => (
+            <div key={`chip-${index}`} className={`lona-diagram-chip ${chip.kind === 'UNUSED' ? 'unused' : 'used'}`}>
+              <span className="lona-diagram-chip-label">{chip.label}</span>
+              <span className="lona-diagram-chip-value">{dimension(chip.width, widthUnit)} × {dimension(chip.length, lengthUnit)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="lona-diagram-legend">
         <span><i className="lona-legend-box used" />Se usa en confección</span>
         <span><i className="lona-legend-box unused" />Margen sin usar</span>
