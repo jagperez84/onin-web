@@ -3,7 +3,7 @@ import {
   CheckCircle2,
   Hammer,
   PackageSearch,
-  Printer,
+  Download,
   FlaskConical,
   ArrowRight,
   Layers,
@@ -522,7 +522,7 @@ export function ProfileCutModal({
                   type="button"
                   onClick={() => downloadBatchWorkSheetsPdf(existingWorkSheets, reference)}
                 >
-                  <Printer size={15} /> Descargar informe de corte (PDF)
+                  <Download size={15} /> Descargar informe de corte (PDF)
                 </button>
               )}
               <button className="primary-button" onClick={onClose}>

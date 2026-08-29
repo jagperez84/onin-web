@@ -194,7 +194,7 @@ export function QuotationRenewModal({
             >
               <RefreshCw size={16} className={loading ? "spin" : ""} />
               {loading
-                ? "Renovando..."
+                ? "Renovando…"
                 : "Confirmar renovación y pasar a Enviado"}
             </button>
           </div>

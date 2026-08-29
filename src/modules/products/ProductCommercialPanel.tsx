@@ -748,7 +748,7 @@ export function ProductCommercialPanel({
                     })
                   }
                 >
-                  <option value="">Selecciona...</option>
+                  <option value="">Selecciona…</option>
                   {a.values.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name}

@@ -7,7 +7,7 @@ import {
   UserRound,
   Warehouse,
   Clock3,
-  Pencil,
+  Edit3,
   Eye,
   Mail,
   CheckCircle2,
@@ -515,7 +515,7 @@ export function QuotationDetail() {
               to={`/ventas/presupuestos/${data.id}/editar`}
               title="Modificar artículos, condiciones o datos"
             >
-              <Pencil size={15} /> Editar
+              <Edit3 size={15} /> Editar
             </Link>
           )}
 

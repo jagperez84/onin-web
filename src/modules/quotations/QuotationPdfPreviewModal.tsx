@@ -6,7 +6,6 @@ import {
   X,
   Loader2,
   AlertCircle,
-  Printer,
 } from "lucide-react";
 import {
   generateQuotationPdfBlob,

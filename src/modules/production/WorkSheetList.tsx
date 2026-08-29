@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Eye, FileText, Printer, RefreshCw, Search, Scissors } from 'lucide-react';
+import { Eye, FileText, RefreshCw, Search, Scissors } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { listWorkSheets, type WorkSheet, type WorkSheetStatus } from '../../services/production/workSheetService';
 import { WorkSheetDetail } from './WorkSheetDetail';
@@ -49,7 +49,7 @@ export function WorkSheetList() {
     {error && <div className="inline-error">{error}</div>}
     <div className="table-panel quotation-table">
       <table><thead><tr><th>Hoja</th><th>Fecha</th><th>Pedido</th><th>Perfil</th><th>Característica</th><th>Necesidad</th><th>Estado</th><th></th></tr></thead>
-        <tbody>{loading ? <tr><td colSpan={8}><div className="empty-state">Cargando hojas de trabajo…</div></td></tr> : items.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><Scissors size={32}/><strong>No hay hojas de corte</strong><span>Cuando se confirme un corte de perfil desde un pedido, aparecerá aquí su documento para taller.</span></div></td></tr> : items.map(item => <tr key={item.id}>
+        <tbody>{loading ? <tr><td colSpan={8}>Cargando hojas de trabajo…</td></tr> : items.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><Scissors size={32}/><strong>No hay hojas de corte</strong><span>Cuando se confirme un corte de perfil desde un pedido, aparecerá aquí su documento para taller.</span></div></td></tr> : items.map(item => <tr key={item.id}>
           <td><strong className="work-sheet-code">{item.code}</strong><small>{item.lines.length ? `${item.lines.length} selección${item.lines.length === 1 ? '' : 'es'}` : 'Hoja de corte'}</small></td>
           <td>{new Date(item.issue_date).toLocaleDateString('es-ES')}</td>
           <td>{item.sales_order_code ? <Link className="primary-link" to={`/ventas/pedidos/${item.sales_order_id}`}>{item.sales_order_code}</Link> : '—'}</td>

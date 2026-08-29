@@ -644,7 +644,7 @@ export function ProductCatalogV1() {
             </div>
           </div>
           {loading ? (
-            <div className="loading-block">Cargando...</div>
+            <div className="loading-block">Cargando…</div>
           ) : (
             <div className="catalog-table-wrap">
               <table className="catalog-table">

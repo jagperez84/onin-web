@@ -990,7 +990,7 @@ export function MeasurementTypesV1() {
                 id="btn-save-measurement-type"
               >
                 <Save size={15} />{" "}
-                {saving ? "Guardando..." : "Guardar tipo de medida"}
+                {saving ? "Guardando…" : "Guardar tipo de medida"}
               </button>
             </div>
           </aside>

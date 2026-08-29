@@ -1,0 +1,36 @@
+# onin-web
+
+Migración web del ERP de escritorio "Toldos" (Java Swing + Hibernate) para un negocio de fabricación e instalación de toldos y lona. React + TypeScript (Vite) + Supabase/Postgres.
+
+## Reglas de UI (armonización)
+
+La app se auditó y armonizó visualmente en varias fases (ver historial de commits "UI harmonization Fase N"). Estas reglas son el resultado de ese trabajo y se aplican a **todo código nuevo**, no solo al que ya se corrigió:
+
+### Estructura de página
+- Cabecera de listado/detalle: `.page-head` (o `.quotation-detail-head` en detalle) con `eyebrow` + `h1` + descripción a la izquierda, acciones a la derecha.
+- En pantallas de detalle, el bloque de acciones va **dentro de la cabecera** (`.quotation-actions-toolbar`), nunca suelto en otro punto de la página.
+- Botones: siempre `.primary-button` / `.secondary-button` / `.danger-button` (definidos en `src/styles/theme.css`). No crear sistemas de botones propios por módulo (`.btn`, `.primary-btn`, etc.).
+- Dentro de un grupo de acciones, el botón secundario/Cancelar va a la izquierda del primario.
+- Tablas: `.table-panel > table`, nunca reinventar `th`/`td` a mano por módulo.
+- Estado vacío ("sin resultados") en una tarjeta o sección: `.empty-state` con icono + `<strong>` + `<span>`. En una fila de tabla ("cargando…"), usar solo texto plano en el `<td>`, sin envolver en `.empty-state` ni `.loading-block` (ambas son para reemplazar el contenido de una página o panel completo, no una fila).
+- Carga de página/panel completo: `.loading-block` con texto simple (p. ej. `Cargando pedido…`).
+- Pastilla de estado activo/inactivo: siempre `.status active`/`.status inactive`. No crear variantes locales (`*-status-pill`); estados intermedios tipo "borrado" se colapsan en `inactive`.
+
+### Iconos (lucide-react)
+- Editar: **`Edit3`** (no `Pencil`).
+- Consultar / ver (solo lectura): `Eye`.
+- Eliminar / borrar: `Trash2`.
+- Añadir / crear: `Plus`.
+- Descargar un archivo (PDF u otro): **`Download`**.
+- Ver/previsualizar un documento sin descargarlo: `FileText`.
+- Imprimir: **`Printer`** — reservado únicamente para un botón que dispare `window.print()` de verdad. Si el botón en realidad genera y descarga un PDF (jsPDF, etc.), es `Download`, no `Printer`, aunque el texto diga "imprimir".
+- No dejar imports de iconos sin usar.
+
+### Texto
+- Puntos suspensivos: usar siempre el carácter tipográfico `…`, nunca `...` literal (`Cargando…`, `Guardando…`, `Buscando…`).
+
+## Desarrollo
+
+- Antes de dar por terminado un cambio: `npx tsc -b` y `npm run build` deben pasar limpios.
+- El CSS se compila en un único bundle global — cualquier clase sin prefijo de módulo (p. ej. `.icon-button`, `.line-cut-status`) es efectivamente global aunque se defina en el CSS de un módulo concreto. Revisar colisiones antes de introducir una clase nueva sin prefijo.
+- Migraciones SQL: idempotentes cuando sea razonable (`create or replace`, `drop ... if exists` + `create`, `add column if not exists`), porque el usuario las aplica manualmente desde el editor SQL de Supabase (a veces desde el móvil, donde solo se ejecuta el bloque seleccionado).

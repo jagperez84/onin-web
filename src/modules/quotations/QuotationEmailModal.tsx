@@ -1000,7 +1000,7 @@ export function QuotationEmailModal({
               {sending ? (
                 <>
                   <Loader2 size={16} className="spinner-icon" />
-                  <span>Enviando presupuesto...</span>
+                  <span>Enviando presupuesto…</span>
                 </>
               ) : (
                 <>

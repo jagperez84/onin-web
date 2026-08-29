@@ -4,7 +4,6 @@ import {
   Search,
   RotateCcw,
   FileText,
-  Printer,
   CheckCircle,
   Clock,
   Eye,

@@ -269,7 +269,7 @@ export function QuotationDeliveryNoteModal({
                 >
                   <Check size={16} />
                   {loading
-                    ? "Generando Albarán..."
+                    ? "Generando Albarán…"
                     : "Generar y Registrar Albarán"}
                 </button>
               </div>

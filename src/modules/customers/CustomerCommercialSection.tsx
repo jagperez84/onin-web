@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pencil, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { Edit3, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import {
   createCustomerFamilyDiscount,
   createCustomerProductDiscount,
@@ -373,7 +373,7 @@ export function CustomerCommercialSection({
                                 setMessage("");
                               }}
                             >
-                              <Pencil size={15} />
+                              <Edit3 size={15} />
                             </button>
                             <button
                               className="icon-action danger"
@@ -529,7 +529,7 @@ export function CustomerCommercialSection({
                                 setMessage("");
                               }}
                             >
-                              <Pencil size={15} />
+                              <Edit3 size={15} />
                             </button>
                             <button
                               className="icon-action danger"

@@ -835,7 +835,7 @@ export function QuotationContactSelectModal({
             disabled={isSubmitting}
           >
             <Check size={16} />{" "}
-            {isSubmitting ? "Guardando..." : "Aplicar persona de contacto"}
+            {isSubmitting ? "Guardando…" : "Aplicar persona de contacto"}
           </button>
         </div>
       </div>

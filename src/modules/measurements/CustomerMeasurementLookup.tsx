@@ -122,7 +122,7 @@ export function CustomerMeasurementLookup({
             {error && <div className="inline-error">{error}</div>}
             <div className="entity-lookup-results">
               {loading ? (
-                <div className="empty-state">Buscando…</div>
+                <div className="loading-block">Buscando…</div>
               ) : rows.length === 0 ? (
                 <div className="empty-state">
                   No se han encontrado clientes.

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   Mail,
   MapPin,
-  Pencil,
+  Edit3,
   Plus,
   Trash2,
   Undo2,
@@ -201,7 +201,7 @@ export function CustomerDetail() {
               type="button"
               onClick={() => setEditing(true)}
             >
-              <Pencil size={15} /> Editar
+              <Edit3 size={15} /> Editar
             </button>
           )}
           {editing && deleted && (

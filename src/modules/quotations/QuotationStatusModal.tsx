@@ -234,7 +234,7 @@ export function QuotationStatusModal({
               disabled={loading}
             >
               {loading
-                ? "Guardando..."
+                ? "Guardando…"
                 : isAccept
                   ? "Confirmar y marcar como Aceptado"
                   : isReject

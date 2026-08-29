@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
-  Pencil,
+  Edit3,
   Play,
   Ruler,
   Sliders,
@@ -414,7 +414,7 @@ export function OtdDetail() {
             type="button"
             onClick={() => navigate(`/produccion/otd/${otd.id}/editar`)}
           >
-            <Pencil size={15} /> Editar OTD
+            <Edit3 size={15} /> Editar OTD
           </button>
         </div>
       </div>

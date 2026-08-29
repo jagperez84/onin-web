@@ -14,7 +14,6 @@ import {
   TrendingUp,
   Sliders,
   SlidersHorizontal,
-  Pencil,
 } from "lucide-react";
 import type { QuotationLineSnapshot } from "../../services/sales/quotationLineCalculationService";
 import type { OtdConfigurationSnapshot } from "../../services/otd/otdCalculationService";
