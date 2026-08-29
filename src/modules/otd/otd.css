@@ -33,7 +33,8 @@
   gap: 10px;
 }
 
-.eyebrow {
+.otd-page .eyebrow,
+.otd-runtime-page .eyebrow {
   font-size: 11px;
   letter-spacing: 0.12em;
   font-weight: 700;

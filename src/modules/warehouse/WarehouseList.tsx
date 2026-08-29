@@ -137,7 +137,7 @@ export function WarehouseList() {
                     <td>{w.description || "—"}</td>
                     <td>
                       <span
-                        className={`status-pill ${isDeleted(w) ? "deleted" : w.active ? "active" : "inactive"}`}
+                        className={`warehouse-status-pill ${isDeleted(w) ? "deleted" : w.active ? "active" : "inactive"}`}
                       >
                         {isDeleted(w)
                           ? "Marcado para borrado"

@@ -453,41 +453,9 @@
   flex-wrap: wrap;
 }
 
-.quotation-lines-table .line-status-chip {
-  border: 1px solid transparent;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  line-height: 1.2;
-}
-
-.quotation-lines-table .line-status-chip.configured {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
-}
-
-.quotation-lines-table .line-status-chip.configured:hover {
-  background: #d1fae5;
-  border-color: #6ee7b7;
-}
-
-.quotation-lines-table .line-status-chip.pending {
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-  border-color: #cddcd6;
-}
-
-.quotation-lines-table .line-status-chip.pending:hover {
-  background: #d6e0dc;
-  border-color: #93c5fd;
-}
+/* .line-status-chip: definición única en quotation-create.css (ver esa hoja),
+   compartida por Crear/Editar/Configurador presupuesto para evitar el duplicado
+   con colores divergentes que había aquí. */
 
 .quotation-lines-table .line-actions-wrap {
   display: inline-flex;

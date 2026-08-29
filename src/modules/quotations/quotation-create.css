@@ -232,7 +232,7 @@
   margin-top: 6px;
   flex-wrap: wrap;
 }
-.line-status-chip {
+.quotation-lines-table .line-status-chip {
   border: 1px solid transparent;
   font-size: 11px;
   font-weight: 600;
@@ -245,21 +245,21 @@
   transition: all 0.15s ease;
   line-height: 1.2;
 }
-.line-status-chip.configured {
+.quotation-lines-table .line-status-chip.configured {
   background: var(--success-soft);
   color: #4e7a55;
   border-color: #c9dcc7;
 }
-.line-status-chip.configured:hover {
+.quotation-lines-table .line-status-chip.configured:hover {
   background: #dcebda;
   border-color: #b8d1b5;
 }
-.line-status-chip.pending {
+.quotation-lines-table .line-status-chip.pending {
   background: var(--primary-soft);
   color: var(--primary-hover);
   border-color: #cddcd6;
 }
-.line-status-chip.pending:hover {
+.quotation-lines-table .line-status-chip.pending:hover {
   background: #d6e0dc;
   border-color: #b7c9c3;
 }

@@ -120,22 +120,22 @@
   border-radius: 7px;
   color: #344054;
 }
-.warehouse-page .status-pill {
+.warehouse-page .warehouse-status-pill {
   display: inline-flex;
   padding: 4px 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
 }
-.warehouse-page .status-pill.active {
+.warehouse-page .warehouse-status-pill.active {
   background: #ecfdf3;
   color: #027a48;
 }
-.warehouse-page .status-pill.inactive {
+.warehouse-page .warehouse-status-pill.inactive {
   background: #f2f4f7;
   color: #475467;
 }
-.warehouse-page .status-pill.deleted {
+.warehouse-page .warehouse-status-pill.deleted {
   background: #fef3f2;
   color: var(--danger);
 }
