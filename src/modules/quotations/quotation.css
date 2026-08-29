@@ -255,30 +255,30 @@
 
 .quotation-status.sent {
   background: var(--primary-soft);
-  color: var(--primary-hover);
-  border: 1px solid #d6e0dc;
+  color: var(--status-info-fg);
+  border: 1px solid var(--status-info-border);
 }
 
 .quotation-status.accepted {
   background: var(--success-soft);
-  color: #4e7a55;
-  border: 1px solid #c9dcc7;
+  color: var(--status-success-fg);
+  border: 1px solid var(--status-success-border);
 }
 
 .quotation-status.rejected {
   background: var(--danger-soft);
-  color: #96594b;
-  border: 1px solid #e8cfc7;
+  color: var(--status-danger-fg);
+  border: 1px solid var(--status-danger-border);
 }
 
 .quotation-status.expired {
   background: var(--accent-soft);
-  color: #8a7248;
-  border: 1px solid #ddd0b0;
+  color: var(--status-warning-fg);
+  border: 1px solid var(--status-warning-border);
 }
 
 .expired-text {
-  color: #8a7248 !important;
+  color: var(--status-warning-fg) !important;
   font-weight: 700;
 }
 

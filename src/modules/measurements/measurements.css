@@ -25,26 +25,27 @@
   font-weight: 700;
   border: 1px solid var(--border);
 }
-.measurement-status.planned {
+.measurement-status.planned,
+.measurement-status.closed {
   background: var(--canvas-stripe);
+  color: var(--muted);
 }
 .measurement-status.assigned {
-  background: #fff7ed;
+  background: var(--accent-soft);
+  color: var(--status-warning-fg);
 }
-.measurement-status.in_progress {
+.measurement-status.in_progress,
+.measurement-status.quoted {
   background: var(--primary-soft);
+  color: var(--status-info-fg);
 }
 .measurement-status.completed {
-  background: #ecfdf5;
-}
-.measurement-status.quoted {
-  background: #f5f3ff;
-}
-.measurement-status.closed {
-  background: #f3f4f6;
+  background: var(--success-soft);
+  color: var(--status-success-fg);
 }
 .measurement-status.cancelled {
   background: var(--danger-soft);
+  color: var(--status-danger-fg);
 }
 .measurement-detail-page {
   padding-bottom: 48px;

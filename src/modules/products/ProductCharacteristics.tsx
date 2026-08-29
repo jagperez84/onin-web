@@ -13,6 +13,7 @@ import {
   type ProductStatus,
 } from "../../services/catalog/productRepository";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import "./product.css";
 
 const emptyForm = {
@@ -132,9 +133,11 @@ export function ProductCharacteristics() {
 
   async function mark(row: ProductCharacteristic) {
     if (
-      !window.confirm(
-        `¿Marcar la característica ${row.code} para borrado? No se eliminará físicamente y podrá recuperarse.`,
-      )
+      !(await confirmDialog({
+        title: `¿Marcar la característica ${row.code} para borrado?`,
+        message: "No se eliminará físicamente y podrá recuperarse.",
+        danger: true,
+      }))
     )
       return;
     try {

@@ -271,7 +271,7 @@ export function UserList() {
                   </td>
                   <td>
                     <span
-                      className={`status-pill ${r.active ? "active" : "inactive"}`}
+                      className={`status ${r.active ? "active" : "inactive"}`}
                     >
                       {r.active ? "Activo" : "Inactivo"}
                     </span>

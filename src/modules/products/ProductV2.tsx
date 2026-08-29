@@ -11,6 +11,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   createProduct,
   createProductDraft,
@@ -425,9 +426,11 @@ function ProductEditor({
   async function mark() {
     if (!companyId || !productId) return;
     if (
-      !window.confirm(
-        `¿Marcar el artículo ${product?.code || ""} para borrado? No se eliminará físicamente y podrá recuperarse.`,
-      )
+      !(await confirmDialog({
+        title: `¿Marcar el artículo ${product?.code || ""} para borrado?`,
+        message: "No se eliminará físicamente y podrá recuperarse.",
+        danger: true,
+      }))
     )
       return;
     try {

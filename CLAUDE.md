@@ -26,6 +26,12 @@ Sistema único en `theme.css`, no crear otro por módulo (antes había 5 sistema
 - `.modal-actions-footer` — fila de botones alineada a la derecha, con borde superior. Los formularios dentro de un modal usan `.form-group` (definido en `quotation.css`, ya reutilizable) para label+input.
 - Un modal con contenido muy particular (visor de PDF a tamaño fijo, documento imprimible de una sola columna) puede seguir usando su propia clase para la tarjeta en vez de `.modal-card` — pero el backdrop (`.modal-backdrop`) es siempre el mismo.
 
+### Confirmaciones destructivas
+Nunca usar `window.confirm()` / `confirm()` nativo — no se puede estilizar y es inconsistente con el resto de la app. Usar `confirmDialog({ title, message?, danger?, confirmLabel?, cancelLabel? })` de `src/components/ui/ConfirmDialog.tsx` (devuelve `Promise<boolean>`, hay que `await`-earlo desde una función `async`). El host (`<ConfirmDialogHost/>`) ya está montado una vez en `App.tsx`; no hay que montarlo de nuevo en cada pantalla. Usar `danger: true` para acciones destructivas (borrar, cancelar) — pinta el icono y el botón de confirmar en rojo.
+
+### Colores de estado (pastillas)
+No hardcodear hex para pastillas de estado (presupuesto, pedido, hoja de trabajo, medición, movimiento de stock...). Usar los fondos ya existentes `var(--canvas-stripe)` (neutro), `var(--primary-soft)` (info/en curso), `var(--success-soft)` (éxito/completado), `var(--accent-soft)` (aviso/pendiente), `var(--danger-soft)` (cancelado/rechazado), junto con los tokens de texto/borde dedicados: `--status-info-fg/border`, `--status-success-fg/border`, `--status-warning-fg/border`, `--status-danger-fg/border` (para neutro, `var(--muted)`/`var(--border)`). Para una pastilla simple de estado con estos 5 tonos ya existe la clase reutilizable `.status-pill` (+ `.neutral`/`.success`/`.warning`/`.danger`; sin modificador = info) en `theme.css` — úsala en vez de crear una clase nueva salvo que el diseño ya tenga su propio sistema de pastillas por estado (p. ej. `.quotation-status`), en cuyo caso basta con que sus reglas por estado usen estos mismos tokens en lugar de hex propios.
+
 ### Iconos (lucide-react)
 - Editar: **`Edit3`** (no `Pencil`).
 - Consultar / ver (solo lectura): `Eye`.

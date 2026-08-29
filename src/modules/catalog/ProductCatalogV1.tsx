@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   listCatalog,
   listAttributeValues,
@@ -380,7 +381,10 @@ export function ProductCatalogV1() {
 
   async function removeFamilyAttr(fa: FamilyAttributeAssignment) {
     if (
-      !window.confirm(`¿Quitar la característica "${fa.name}" de esta familia?`)
+      !(await confirmDialog({
+        title: `¿Quitar la característica "${fa.name}" de esta familia?`,
+        danger: true,
+      }))
     )
       return;
     try {
@@ -497,9 +501,11 @@ export function ProductCatalogV1() {
 
   async function removeRow(id: number) {
     if (
-      !window.confirm(
-        "¿Marcar este dato para borrado? No se eliminará físicamente y podrá recuperarse.",
-      )
+      !(await confirmDialog({
+        title: "¿Marcar este dato para borrado?",
+        message: "No se eliminará físicamente y podrá recuperarse.",
+        danger: true,
+      }))
     )
       return;
     try {
@@ -524,7 +530,8 @@ export function ProductCatalogV1() {
   }
 
   async function removeValue(id: number) {
-    if (!window.confirm("¿Marcar este valor para borrado?")) return;
+    if (!(await confirmDialog({ title: "¿Marcar este valor para borrado?", danger: true })))
+      return;
     try {
       await markAttributeValueForDeletion(id);
       if (selectedAttribute)

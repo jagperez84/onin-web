@@ -21,6 +21,7 @@ import {
   deleteContact,
   updateContact,
 } from "../../services/core/customerRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Address, Contact, Party } from "../../domain/core/types";
 import type {
   AddressForm,
@@ -144,9 +145,11 @@ export function CustomerDetail() {
   async function markDeleted() {
     if (!id) return;
     if (
-      !window.confirm(
-        `¿Marcar el cliente ${data?.party.trade_name || data?.party.legal_name} para borrado? No se eliminará físicamente y podrá recuperarse.`,
-      )
+      !(await confirmDialog({
+        title: `¿Marcar el cliente ${data?.party.trade_name || data?.party.legal_name} para borrado?`,
+        message: "No se eliminará físicamente y podrá recuperarse.",
+        danger: true,
+      }))
     )
       return;
     try {
@@ -418,7 +421,7 @@ function AddressSection({
     }
   }
   async function remove(addressId: number) {
-    if (!window.confirm("¿Eliminar esta dirección?")) return;
+    if (!(await confirmDialog({ title: "¿Eliminar esta dirección?", danger: true }))) return;
     try {
       await deleteAddress(addressId);
       await reload();
@@ -632,7 +635,7 @@ function ContactSection({
     }
   }
   async function remove(contactId: number) {
-    if (!window.confirm("¿Eliminar este contacto?")) return;
+    if (!(await confirmDialog({ title: "¿Eliminar este contacto?", danger: true }))) return;
     try {
       await deleteContact(contactId);
       await reload();

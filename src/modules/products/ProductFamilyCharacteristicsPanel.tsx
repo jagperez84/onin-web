@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Undo2 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   assignProductAttribute,
   listAvailableProductAttributes,
@@ -111,9 +112,11 @@ export function ProductFamilyCharacteristicsPanel({
         ? "excluirla de este artículo"
         : "quitarla del artículo";
     if (
-      !window.confirm(
-        `¿Quieres ${action}? La definición de la familia no se modificará.`,
-      )
+      !(await confirmDialog({
+        title: `¿Quieres ${action}?`,
+        message: "La definición de la familia no se modificará.",
+        danger: true,
+      }))
     )
       return;
     try {

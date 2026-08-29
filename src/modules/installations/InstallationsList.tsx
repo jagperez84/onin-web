@@ -14,6 +14,7 @@ import '../orders/sales-order.css';
 import '../orders/installation.css';
 
 const statusLabel: Record<InstallationStatus, string> = { SCHEDULED: 'Programada', COMPLETED: 'Completada', CANCELLED: 'Cancelada' };
+const statusTone: Record<InstallationStatus, string> = { SCHEDULED: '', COMPLETED: 'success', CANCELLED: 'danger' };
 const fmtDate = (v: string | null) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('es-ES') : '—');
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -160,7 +161,7 @@ export function InstallationsList() {
                       <td>{r.installationTypeDescription || '—'}</td>
                       <td>{r.installers.length ? r.installers.map(i => i.name).join(', ') : '—'}</td>
                       <td>
-                        <span className={`status-pill ${r.status.toLowerCase()}`}>{statusLabel[r.status]}</span>
+                        <span className={`status-pill ${statusTone[r.status]}`}>{statusLabel[r.status]}</span>
                       </td>
                     </tr>
                   );

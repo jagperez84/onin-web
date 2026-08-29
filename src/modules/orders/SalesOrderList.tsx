@@ -6,6 +6,7 @@ import { CoreRepositoryError } from '../../services/core/coreRepository';
 import './sales-order.css';
 
 const statusLabel: Record<string,string>={PENDING_MANUFACTURING:'Pendiente de fabricación',PREPARED:'Preparado',FABRICATING:'Fabricando',CONFECTIONED:'Confeccionado',MANUFACTURED:'Fabricado',INSTALLATION_SCHEDULED:'Montaje programado',INSTALLED:'Instalado',CANCELLED:'Cancelado'};
+const statusTone: Record<string,string>={PENDING_MANUFACTURING:'warning',PREPARED:'',FABRICATING:'',CONFECTIONED:'',MANUFACTURED:'success',INSTALLATION_SCHEDULED:'',INSTALLED:'success',CANCELLED:'danger'};
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const date=(v:string)=>new Date(`${v}T00:00:00`).toLocaleDateString('es-ES');
 
@@ -36,7 +37,7 @@ export function SalesOrderList(){
       <td>{r.reference||'—'}</td>
       <td><strong>{r.customer_name||'—'}</strong></td>
       <td>{date(r.issue_date)}</td>
-      <td><span className={`status-pill ${r.status.toLowerCase()}`}>{statusLabel[r.status]||r.status}</span></td>
+      <td><span className={`status-pill ${statusTone[r.status]||''}`}>{statusLabel[r.status]||r.status}</span></td>
       <td className="numeric sales-order-list-total">{money(Number(r.total_amount||0))}</td>
       <td className="sales-order-list-action"><Link className="icon-link" title="Ver pedido" to={`/ventas/pedidos/${r.id}`}><Eye size={16}/></Link></td>
      </tr>)}

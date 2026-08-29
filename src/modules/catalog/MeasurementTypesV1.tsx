@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { LookupSelect } from "../../components/LookupSelect";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { listUnits, type Unit } from "../../services/catalog/unitRepository";
 import {
   listMeasurementTypes,
@@ -173,12 +174,14 @@ export function MeasurementTypesV1() {
     openEditor(duplicated);
   }
 
-  function closeEditor() {
+  async function closeEditor() {
     if (
       dirty &&
-      !window.confirm(
-        "Hay cambios sin guardar en el tipo de medida. ¿Quieres descartarlos?",
-      )
+      !(await confirmDialog({
+        title: "¿Descartar los cambios sin guardar?",
+        message: "Hay cambios sin guardar en el tipo de medida.",
+        danger: true,
+      }))
     )
       return;
     setEditing(false);

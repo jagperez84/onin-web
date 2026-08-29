@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Edit3, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   createCustomerFamilyDiscount,
   createCustomerProductDiscount,
@@ -240,7 +241,13 @@ export function CustomerCommercialSection({
     }
   }
   async function removeFamily(id: number) {
-    if (!confirm("¿Marcar este descuento por familia para borrado?")) return;
+    if (
+      !(await confirmDialog({
+        title: "¿Marcar este descuento por familia para borrado?",
+        danger: true,
+      }))
+    )
+      return;
     try {
       await markCustomerFamilyDiscountForDeletion(id);
       setMessage("Descuento por familia marcado para borrado.");
@@ -265,7 +272,13 @@ export function CustomerCommercialSection({
     }
   }
   async function removeProduct(id: number) {
-    if (!confirm("¿Marcar este descuento por artículo para borrado?")) return;
+    if (
+      !(await confirmDialog({
+        title: "¿Marcar este descuento por artículo para borrado?",
+        danger: true,
+      }))
+    )
+      return;
     try {
       await markCustomerProductDiscountForDeletion(id);
       setMessage("Descuento por artículo marcado para borrado.");

@@ -13,6 +13,7 @@ import {
   Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   createWarehouse,
   getWarehouse,
@@ -250,9 +251,12 @@ export function WarehouseDetail() {
   async function markDelete() {
     if (!data || companyId === null || !editing) return;
     if (
-      !confirm(
-        "El almacén se marcará para borrado lógico. No se eliminará físicamente. ¿Continuar?",
-      )
+      !(await confirmDialog({
+        title: "Marcar almacén para borrado",
+        message:
+          "Se marcará para borrado lógico. No se eliminará físicamente. ¿Continuar?",
+        danger: true,
+      }))
     )
       return;
     try {
@@ -267,7 +271,7 @@ export function WarehouseDetail() {
   }
   async function restore() {
     if (!data || companyId === null || !editing) return;
-    if (!confirm("¿Recuperar el almacén?")) return;
+    if (!(await confirmDialog({ title: "¿Recuperar el almacén?" }))) return;
     try {
       await restoreWarehouse(companyId, data.id);
       setData(await getWarehouse(companyId, data.id));

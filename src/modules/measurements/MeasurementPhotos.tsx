@@ -6,6 +6,7 @@ import {
   uploadMeasurementPhoto,
   type MeasurementPhoto,
 } from "../../services/measurements/measurementRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 
 type Props = { measurementId: number; canEdit: boolean };
 
@@ -91,7 +92,7 @@ export function MeasurementPhotos({ measurementId, canEdit }: Props) {
   }
 
   async function remove(photo: MeasurementPhoto) {
-    if (!window.confirm("¿Eliminar esta fotografía?")) return;
+    if (!(await confirmDialog({ title: "¿Eliminar esta fotografía?", danger: true }))) return;
     setBusy(true);
     setError("");
     try {

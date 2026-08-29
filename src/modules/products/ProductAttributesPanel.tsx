@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
+import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   assignProductAttribute,
   listAvailableProductAttributes,
@@ -88,9 +89,11 @@ export function ProductAttributesPanel({
   async function remove(row: ProductAttributeAssignment) {
     if (readOnly) return;
     if (
-      !window.confirm(
-        `¿Quitar el atributo ${row.code} del artículo? El atributo del catálogo no se eliminará.`,
-      )
+      !(await confirmDialog({
+        title: `¿Quitar el atributo ${row.code} del artículo?`,
+        message: "El atributo del catálogo no se eliminará.",
+        danger: true,
+      }))
     )
       return;
     try {
