@@ -18,9 +18,9 @@ import './component-consumption.css';
 import './lona-confection.css';
 import './installation.css';
 
-type Props = { order: SalesOrder; companyId: number; onClose: () => void; onDone: (installation: Installation) => void };
+type Props = { order: SalesOrder; companyId: number; onClose: () => void; onDone: (installation: Installation) => void; onCancelled?: () => void };
 
-export function InstallationModal({ order, companyId, onClose, onDone }: Props) {
+export function InstallationModal({ order, companyId, onClose, onDone, onCancelled }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [installation, setInstallation] = useState<Installation | null>(null);
@@ -112,6 +112,7 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
       });
       setInstallation(result);
       onDone(result);
+      onClose();
     } catch (value) {
       setSaveError(value instanceof CoreRepositoryError || value instanceof Error ? value.message : 'No se pudo guardar el montaje.');
     } finally {
@@ -142,6 +143,7 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
     setCancelling(true);
     try {
       await cancelInstallation(installation.id);
+      onCancelled?.();
       onClose();
     } catch (value) {
       setSaveError(value instanceof Error ? value.message : 'No se pudo cancelar la programación.');

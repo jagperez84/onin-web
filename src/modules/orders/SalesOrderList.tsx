@@ -5,7 +5,7 @@ import { listSalesOrders, type SalesOrder } from '../../services/sales/salesOrde
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import './sales-order.css';
 
-const statusLabel: Record<string,string>={PENDING_MANUFACTURING:'Pendiente de fabricación',PREPARED:'Preparado',FABRICATING:'Fabricando',CONFECTIONED:'Confeccionado',MANUFACTURED:'Fabricado',INSTALLED:'Instalado',CANCELLED:'Cancelado'};
+const statusLabel: Record<string,string>={PENDING_MANUFACTURING:'Pendiente de fabricación',PREPARED:'Preparado',FABRICATING:'Fabricando',CONFECTIONED:'Confeccionado',MANUFACTURED:'Fabricado',INSTALLATION_SCHEDULED:'Montaje programado',INSTALLED:'Instalado',CANCELLED:'Cancelado'};
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const date=(v:string)=>new Date(`${v}T00:00:00`).toLocaleDateString('es-ES');
 
