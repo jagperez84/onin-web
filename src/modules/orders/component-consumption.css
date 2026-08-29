@@ -3,6 +3,15 @@
   padding: 0 24px 8px;
 }
 
+.spin {
+  animation: component-consumption-spin 1s linear infinite;
+}
+
+@keyframes component-consumption-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .component-consumption-table {
   width: 100%;
   border-collapse: collapse;
