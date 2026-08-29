@@ -139,7 +139,7 @@ export async function upsertInstallation(input: {
   };
   const query = input.id
     ? c.from('installation').update(payload).eq('id', input.id).select(SELECT).single()
-    : c.from('installation').insert(payload).select(SELECT).single();
+    : c.from('installation').insert({ ...payload, status: 'SCHEDULED' }).select(SELECT).single();
   const { data, error } = await query;
   if (error) throw new CoreRepositoryError(error.message);
   return mapInstallation(data);

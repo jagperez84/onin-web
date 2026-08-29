@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, CheckCircle2, FileText, Plus, Trash2, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, FileText, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import type { SalesOrder } from '../../services/sales/salesOrderService';
 import {
@@ -108,6 +108,11 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
 
   const selectedInstallers = useMemo(() => installers.filter(i => selectedInstallerIds.has(i.id)), [installers, selectedInstallerIds]);
 
+  const installationAddress = useMemo(() => {
+    const o = order as any;
+    return [o.installation_address_street, o.installation_address_city, o.installation_address_postal_code, o.installation_address_region].filter(Boolean).join(', ');
+  }, [order]);
+
   const save = async () => {
     setSaving(true);
     setSaveError('');
@@ -178,6 +183,11 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
             <X size={18} />
           </button>
         </header>
+
+        <div className="installation-address">
+          <MapPin size={14} />
+          <span>{installationAddress || 'Este pedido no tiene dirección de instalación registrada.'}</span>
+        </div>
 
         {loading ? (
           <div className="lona-empty">Cargando montaje…</div>
