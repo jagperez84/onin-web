@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, CheckCircle2, FileText, MapPin, Plus, Trash2, X } from 'lucide-react';
+import { CalendarClock, CheckCircle2, FileText, MapPin, Trash2, X } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import type { SalesOrder } from '../../services/sales/salesOrderService';
 import {
   cancelInstallation,
   completeInstallation,
-  createInstallationType,
   getInstallationBySalesOrder,
   listInstallationTypes,
   listInstallers,
@@ -27,8 +26,6 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
   const [installation, setInstallation] = useState<Installation | null>(null);
   const [types, setTypes] = useState<InstallationType[]>([]);
   const [installers, setInstallers] = useState<Installer[]>([]);
-  const [newTypeText, setNewTypeText] = useState('');
-  const [addingType, setAddingType] = useState(false);
 
   const [installationTypeId, setInstallationTypeId] = useState<number | null>(null);
   const [scheduledDate, setScheduledDate] = useState('');
@@ -89,21 +86,6 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
       else next.add(id);
       return next;
     });
-  };
-
-  const addType = async () => {
-    if (!newTypeText.trim()) return;
-    setAddingType(true);
-    try {
-      const created = await createInstallationType(companyId, newTypeText.trim());
-      setTypes(previous => [...previous, created].sort((a, b) => a.description.localeCompare(b.description)));
-      setInstallationTypeId(created.id);
-      setNewTypeText('');
-    } catch (value) {
-      setSaveError(value instanceof Error ? value.message : 'No se pudo crear el tipo de montaje.');
-    } finally {
-      setAddingType(false);
-    }
   };
 
   const selectedInstallers = useMemo(() => installers.filter(i => selectedInstallerIds.has(i.id)), [installers, selectedInstallerIds]);
@@ -212,7 +194,7 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
                 </label>
                 <label>
                   <span>Hora de inicio</span>
-                  <input type="text" placeholder="HH:MM" value={startTime} onChange={e => setStartTime(e.target.value)} disabled={isCompleted} />
+                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} disabled={isCompleted} />
                 </label>
                 <label>
                   <span>Duración estimada</span>
@@ -222,24 +204,14 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
 
               <label className="installation-form-field">
                 <span>Tipo de montaje</span>
-                <div className="installation-type-row">
-                  <select value={installationTypeId ?? ''} onChange={e => setInstallationTypeId(e.target.value ? Number(e.target.value) : null)} disabled={isCompleted}>
-                    <option value="">Sin especificar</option>
-                    {types.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.description}
-                      </option>
-                    ))}
-                  </select>
-                  {!isCompleted && (
-                    <>
-                      <input type="text" placeholder="Nuevo tipo…" value={newTypeText} onChange={e => setNewTypeText(e.target.value)} />
-                      <button type="button" className="secondary-button" disabled={addingType || !newTypeText.trim()} onClick={() => void addType()}>
-                        <Plus size={13} />
-                      </button>
-                    </>
-                  )}
-                </div>
+                <select value={installationTypeId ?? ''} onChange={e => setInstallationTypeId(e.target.value ? Number(e.target.value) : null)} disabled={isCompleted}>
+                  <option value="">Sin especificar</option>
+                  {types.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.description}
+                    </option>
+                  ))}
+                </select>
               </label>
 
               <label className="installation-form-field">
@@ -293,7 +265,7 @@ export function InstallationModal({ order, companyId, onClose, onDone }: Props) 
                 <div className="installation-form-row">
                   <label>
                     <span>Hora de fin</span>
-                    <input type="text" placeholder="HH:MM" value={endTime} onChange={e => setEndTime(e.target.value)} />
+                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} />
                   </label>
                   <label>
                     <span>Duración real</span>

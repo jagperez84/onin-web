@@ -50,20 +50,6 @@
   color: inherit;
 }
 
-.installation-type-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.installation-type-row select {
-  flex: 1;
-}
-
-.installation-type-row input {
-  flex: 1;
-}
-
 .installation-installers {
   display: flex;
   flex-wrap: wrap;

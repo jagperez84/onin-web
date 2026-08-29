@@ -74,14 +74,6 @@ export async function listInstallationTypes(companyId: number): Promise<Installa
   return (data ?? []).map((r: any) => ({ id: Number(r.id), companyId: Number(r.company_id), description: r.description, active: Boolean(r.active) }));
 }
 
-export async function createInstallationType(companyId: number, description: string): Promise<InstallationType> {
-  if (!description.trim()) throw new CoreRepositoryError('El tipo de montaje necesita una descripción.');
-  const c = client();
-  const { data, error } = await c.from('installation_type').insert({ company_id: companyId, description: description.trim() }).select('id,company_id,description,active').single();
-  if (error) throw new CoreRepositoryError(error.message);
-  return { id: Number(data.id), companyId: Number(data.company_id), description: data.description, active: Boolean(data.active) };
-}
-
 export async function listInstallers(companyId: number): Promise<Installer[]> {
   const users = await listUsers('', 'active');
   const scoped = users.filter(u => u.company_id === companyId);
