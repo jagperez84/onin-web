@@ -60,7 +60,7 @@ export function OtdSelectionsSection({
         </div>
         <button
           type="button"
-          className="secondary-btn"
+          className="secondary-button"
           onClick={addSelection}
         >
           <Plus size={15} /> Añadir entrada
@@ -184,7 +184,7 @@ export function OtdSelectionsSection({
                   </strong>
                   <button
                     type="button"
-                    className="secondary-btn small"
+                    className="secondary-button small"
                     onClick={() => {
                       const updatedOptions = [...s.options, emptyOption(s)];
                       updateSelection(si, { options: updatedOptions });

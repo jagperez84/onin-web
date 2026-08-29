@@ -903,7 +903,7 @@ export function OtdEditor() {
           {editing && (
             <NavLink
               to={`/produccion/otd/${otd.id}/configurar`}
-              className="secondary-btn"
+              className="secondary-button"
               title="Abrir vista de cálculo y pruebas para oficina"
             >
               <Compass size={15} /> Abrir Configurador
@@ -911,7 +911,7 @@ export function OtdEditor() {
           )}
           <button
             type="button"
-            className="secondary-btn"
+            className="secondary-button"
             onClick={handleCancel}
             disabled={saving}
             title="Descartar cambios y volver a la lista"
@@ -919,7 +919,7 @@ export function OtdEditor() {
             <X size={15} /> Cancelar
           </button>
           <button
-            className="primary-btn"
+            className="primary-button"
             onClick={() => save()}
             disabled={saving}
           >
@@ -1041,7 +1041,7 @@ export function OtdEditor() {
             <div className="otd-confirmation-actions">
               <button
                 type="button"
-                className="secondary-btn"
+                className="secondary-button"
                 onClick={() => setShowCancelModal(false)}
               >
                 Continuar editando

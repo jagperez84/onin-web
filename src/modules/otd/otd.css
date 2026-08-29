@@ -16,7 +16,7 @@
   margin: 4px 0 6px;
   font-size: 28px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-head p {
@@ -52,7 +52,7 @@
   font-weight: 500;
 }
 .otd-back:hover {
-  color: #0f172a;
+  color: var(--text);
 }
 
 /* Full-width Editor Layout with Sticky Top Navigator */
@@ -109,14 +109,14 @@
 
 .otd-top-nav-item:hover {
   background: var(--canvas-stripe);
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-top-nav-item.active {
-  background: #0f172a;
+  background: var(--primary);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 6px rgba(110, 139, 133, 0.35);
 }
 
 .nav-badge {
@@ -165,7 +165,7 @@
   margin: 0 0 4px;
   font-size: 18px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-card-head p {
@@ -209,76 +209,20 @@
   padding: 8px 10px;
   min-width: 0;
   background: #ffffff;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-page input:focus,
 .otd-page select:focus,
 .otd-page textarea:focus {
   outline: none;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(127, 168, 156, 0.18);
 }
 
 .otd-page textarea {
   min-height: 80px;
   resize: vertical;
-}
-
-.primary-btn,
-.secondary-btn,
-.link-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border-radius: 7px;
-  text-decoration: none;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.primary-btn {
-  background: #0f172a;
-  color: #ffffff;
-  border: 1px solid #0f172a;
-  padding: 8px 14px;
-}
-
-.primary-btn:hover:not(:disabled) {
-  background: #1e293b;
-}
-
-.primary-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.secondary-btn {
-  background: #ffffff;
-  color: var(--text);
-  border: 1px solid var(--border);
-  padding: 7px 12px;
-}
-
-.secondary-btn:hover {
-  background: var(--canvas-stripe);
-}
-
-.link-btn {
-  background: none;
-  border: 0;
-  color: var(--primary-hover);
-  padding: 4px 0;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.link-btn:hover {
-  text-decoration: underline;
 }
 
 .otd-row-card {
@@ -304,7 +248,7 @@
 
 .row-tag strong {
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .dimension-chip {
@@ -368,7 +312,7 @@
 
 .icon-btn:hover {
   background: var(--border);
-  color: #0f172a;
+  color: var(--text);
 }
 
 .icon-btn.danger {
@@ -643,7 +587,7 @@
   background: transparent !important;
   font-size: 13px !important;
   font-weight: 600 !important;
-  color: #0f172a !important;
+  color: var(--text) !important;
   width: 100% !important;
   padding: 0 !important;
   cursor: pointer !important;
@@ -698,8 +642,8 @@
 
 .product-select-empty:hover {
   background: var(--canvas-stripe);
-  border-color: #0f172a;
-  color: #0f172a;
+  border-color: var(--text);
+  color: var(--text);
 }
 
 .otd-product-picker {
@@ -756,7 +700,7 @@
 
 .otd-product-results strong {
   font-size: 13px;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-product-results span {
@@ -856,7 +800,7 @@
   padding: 15px 8px;
   border-bottom: 1px solid var(--border);
   text-decoration: none;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-list-row:hover {
@@ -980,7 +924,7 @@
 }
 .otd-token-chip.op-chip:hover {
   background: var(--border);
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-token-chip.func-chip {
@@ -1058,7 +1002,7 @@
 
 .otd-assistant-toggle-btn:hover {
   background: var(--border);
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-assistant-toggle-btn.active {
@@ -1083,7 +1027,7 @@
   border-radius: 6px;
   font-size: 13px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  color: #0f172a;
+  color: var(--text);
   outline: none;
   transition:
     border-color 0.15s,
@@ -1223,7 +1167,7 @@
 .sugg-code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .sugg-name {
@@ -1308,7 +1252,7 @@
 }
 
 .drawer-title strong {
-  color: #0f172a;
+  color: var(--text);
 }
 
 .drawer-title span {
@@ -1397,7 +1341,7 @@
 }
 .otd-assistant-chip.op-chip:hover {
   background: var(--border);
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-assistant-chip.func-chip {

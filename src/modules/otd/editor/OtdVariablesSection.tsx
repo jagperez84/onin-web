@@ -115,7 +115,7 @@ export function OtdVariablesSection({
 
       <button
         type="button"
-        className="secondary-btn"
+        className="secondary-button"
         onClick={addVariable}
       >
         <Plus size={15} /> Añadir variable calculada

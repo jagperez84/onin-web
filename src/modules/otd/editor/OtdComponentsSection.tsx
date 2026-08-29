@@ -134,7 +134,7 @@ export function OtdComponentsSection({
         </div>
         <button
           type="button"
-          className="secondary-btn"
+          className="secondary-button"
           onClick={addComponent}
         >
           <Plus size={15} /> Añadir artículo

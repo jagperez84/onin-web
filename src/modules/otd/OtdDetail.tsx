@@ -403,14 +403,14 @@ export function OtdDetail() {
         </div>
         <div className="otd-head-actions">
           <button
-            className="secondary-btn"
+            className="secondary-button"
             type="button"
             onClick={() => navigate(`/produccion/otd/${otd.id}/probar`)}
           >
             <Play size={15} /> Probar OTD
           </button>
           <button
-            className="primary-btn"
+            className="primary-button"
             type="button"
             onClick={() => navigate(`/produccion/otd/${otd.id}/editar`)}
           >

@@ -32,7 +32,7 @@ export function OtdList() {
             formulación.
           </p>
         </div>
-        <NavLink to="/produccion/otd/nuevo" className="primary-btn">
+        <NavLink to="/produccion/otd/nuevo" className="primary-button">
           <Plus size={16} /> Nuevo OTD
         </NavLink>
       </div>

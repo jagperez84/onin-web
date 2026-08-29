@@ -50,7 +50,7 @@ export function OtdScalesSection({
         <div className="scale-head-actions">
           <button
             type="button"
-            className="secondary-btn"
+            className="secondary-button"
             onClick={addScaleRow}
           >
             <Plus size={15} /> Añadir Fila
