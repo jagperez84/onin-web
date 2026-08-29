@@ -3,11 +3,14 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit3,
+  Eye,
   Plus,
   RotateCcw,
   Save,
+  Search,
   Trash2,
   Undo2,
+  Warehouse as WarehouseIcon,
 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import {
@@ -64,7 +67,7 @@ export function WarehouseList() {
     void load();
   }, [companyId, status]);
   return (
-    <div className="warehouse-page">
+    <div className="module-page warehouse-page">
       <div className="page-head">
         <div>
           <div className="eyebrow">ALMACÉN</div>
@@ -75,7 +78,7 @@ export function WarehouseList() {
           </p>
         </div>
         <button
-          className="btn primary"
+          className="primary-button"
           onClick={() => navigate("/almacen/almacenes/nuevo")}
         >
           <Plus size={16} />
@@ -83,15 +86,18 @@ export function WarehouseList() {
         </button>
       </div>
       <div className="toolbar">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void load();
-          }}
-          placeholder="Buscar por código o nombre..."
-          autoFocus
-        />
+        <div className="search-box">
+          <Search size={16} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void load();
+            }}
+            placeholder="Buscar por código o nombre…"
+            autoFocus
+          />
+        </div>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as WarehouseStatus)}
@@ -101,66 +107,72 @@ export function WarehouseList() {
           <option value="deleted">Marcados para borrado</option>
           <option value="all">Todos</option>
         </select>
-        <button className="btn" onClick={() => void load()}>
+        <button className="secondary-button" onClick={() => void load()}>
           Buscar
         </button>
       </div>
-      {error && <div className="error-box">{error}</div>}
-      <div className="panel">
-        <div className="table-wrap">
-          <table>
-            <thead>
+      {error && <div className="inline-error">{error}</div>}
+      <div className="table-panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th>Estado</th>
+              <th className="actions-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
               <tr>
-                <th>Código</th>
-                <th>Nombre</th>
-                <th>Descripción</th>
-                <th>Estado</th>
-                <th className="actions-col"></th>
+                <td colSpan={5}>Cargando…</td>
               </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5}>Cargando...</td>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={5}>
+                  <div className="empty-state">
+                    <WarehouseIcon size={28} />
+                    <strong>No hay almacenes</strong>
+                    <span>
+                      Prueba con otra búsqueda o crea un nuevo almacén.
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              rows.map((w) => (
+                <tr key={w.id} className={isDeleted(w) ? "row-deleted" : ""}>
+                  <td>
+                    <Link to={`/almacen/almacenes/${w.id}`}>{w.code}</Link>
+                  </td>
+                  <td>{w.name}</td>
+                  <td>{w.description || "—"}</td>
+                  <td>
+                    <span
+                      className={`status ${isDeleted(w) ? "inactive" : w.active ? "active" : "inactive"}`}
+                    >
+                      {isDeleted(w)
+                        ? "Marcado para borrado"
+                        : w.active
+                          ? "Activo"
+                          : "Inactivo"}
+                    </span>
+                  </td>
+                  <td className="actions-col">
+                    <Link
+                      className="icon-button"
+                      title="Consultar"
+                      to={`/almacen/almacenes/${w.id}`}
+                    >
+                      <Eye size={15} />
+                    </Link>
+                  </td>
                 </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={5}>No hay almacenes.</td>
-                </tr>
-              ) : (
-                rows.map((w) => (
-                  <tr key={w.id} className={isDeleted(w) ? "row-deleted" : ""}>
-                    <td>
-                      <Link to={`/almacen/almacenes/${w.id}`}>{w.code}</Link>
-                    </td>
-                    <td>{w.name}</td>
-                    <td>{w.description || "—"}</td>
-                    <td>
-                      <span
-                        className={`warehouse-status-pill ${isDeleted(w) ? "deleted" : w.active ? "active" : "inactive"}`}
-                      >
-                        {isDeleted(w)
-                          ? "Marcado para borrado"
-                          : w.active
-                            ? "Activo"
-                            : "Inactivo"}
-                      </span>
-                    </td>
-                    <td className="actions-col">
-                      <Link
-                        className="icon-btn"
-                        title="Consultar"
-                        to={`/almacen/almacenes/${w.id}`}
-                      >
-                        <Edit3 size={15} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -266,14 +278,10 @@ export function WarehouseDetail() {
     }
   }
   if (loading)
-    return (
-      <div className="warehouse-page">
-        <div className="panel">Cargando...</div>
-      </div>
-    );
+    return <div className="loading-block">Cargando almacén…</div>;
   const deleted = !!data?.deleted_at;
   return (
-    <div className="warehouse-page">
+    <div className="module-page warehouse-page">
       <div className="page-head">
         <div>
           <div className="eyebrow">ALMACÉN</div>
@@ -290,22 +298,22 @@ export function WarehouseDetail() {
         </div>
         <div className="page-actions">
           <button
-            className="btn"
+            className="secondary-button"
             onClick={() => navigate("/almacen/almacenes")}
           >
             <ArrowLeft size={16} />
             Volver
           </button>
           {!isNew && !editing && (
-            <button className="btn primary" onClick={() => setEditing(true)}>
+            <button className="primary-button" onClick={() => setEditing(true)}>
               <Edit3 size={16} />
               Editar
             </button>
           )}
         </div>
       </div>
-      {error && <div className="error-box">{error}</div>}
-      <form className="panel warehouse-form" onSubmit={submit}>
+      {error && <div className="inline-error">{error}</div>}
+      <form className="panel" onSubmit={submit}>
         <div className="form-grid">
           <label>
             <span>Código</span>

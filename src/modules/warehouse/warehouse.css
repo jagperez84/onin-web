@@ -1,163 +1,33 @@
-.warehouse-page {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 24px;
-}
-.warehouse-page .page-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  align-items: flex-end;
-  margin-bottom: 20px;
-}
-.warehouse-page .eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #667085;
-}
-.warehouse-page h1 {
-  margin: 4px 0 6px;
-  font-size: 28px;
-}
-.warehouse-page p {
-  margin: 0;
-  color: #667085;
-}
 .warehouse-page .toolbar {
   display: flex;
   gap: 10px;
   align-items: center;
   margin-bottom: 16px;
 }
-.warehouse-page .toolbar input {
-  flex: 1;
-  max-width: 520px;
-}
-.warehouse-page input,
 .warehouse-page select {
   min-height: 38px;
-  border: 1px solid #d0d5dd;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
   padding: 0 10px;
   background: #fff;
+  color: var(--text);
 }
 .warehouse-page .readonly-field {
-  background: #f2f4f7;
-  color: #475467;
-}
-.warehouse-page .btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 0 13px;
-  border: 1px solid #d0d5dd;
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-  color: #344054;
-}
-.warehouse-page .btn.primary {
-  background: #1d2939;
-  color: #fff;
-  border-color: #1d2939;
-}
-.warehouse-page .btn.danger {
-  color: var(--danger);
-  border-color: #fecdca;
-}
-.warehouse-page .btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  background: var(--canvas-stripe);
+  color: var(--muted);
 }
 .warehouse-page .page-actions {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.warehouse-page .panel {
-  background: #fff;
-  border: 1px solid #eaecf0;
-  border-radius: 12px;
-  overflow: hidden;
-}
-.warehouse-page table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.warehouse-page th,
-.warehouse-page td {
-  padding: 12px 14px;
-  border-bottom: 1px solid #eaecf0;
-  text-align: left;
-  font-size: 14px;
-}
-.warehouse-page th {
-  font-size: 12px;
-  color: #667085;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.warehouse-page tbody tr:last-child td {
-  border-bottom: 0;
-}
 .warehouse-page .row-deleted {
   opacity: 0.72;
-  background: #fff8f8;
+  background: var(--danger-soft);
 }
 .warehouse-page .actions-col {
   width: 72px;
   text-align: right;
-}
-.warehouse-page .icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid #d0d5dd;
-  border-radius: 7px;
-  color: #344054;
-}
-.warehouse-page .warehouse-status-pill {
-  display: inline-flex;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.warehouse-page .warehouse-status-pill.active {
-  background: #ecfdf3;
-  color: #027a48;
-}
-.warehouse-page .warehouse-status-pill.inactive {
-  background: #f2f4f7;
-  color: #475467;
-}
-.warehouse-page .warehouse-status-pill.deleted {
-  background: #fef3f2;
-  color: var(--danger);
-}
-.warehouse-page .warehouse-form {
-  padding: 20px;
-}
-.warehouse-page .form-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 180px) minmax(0, 280px) minmax(0, 1fr);
-  gap: 18px 22px;
-}
-.warehouse-page label {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #344054;
-}
-.warehouse-page label input,
-.warehouse-page label select {
-  font-weight: 400;
 }
 .warehouse-page .field-wide {
   grid-column: 1/-1;
@@ -168,29 +38,14 @@
   align-items: center;
   margin-top: 26px;
   padding-top: 18px;
-  border-top: 1px solid #eaecf0;
-}
-.warehouse-page .error-box {
-  margin: 12px 0;
-  padding: 12px;
-  border: 1px solid #fecdca;
-  background: #fef3f2;
-  color: var(--danger);
-  border-radius: 8px;
+  border-top: 1px solid var(--border);
 }
 @media (max-width: 760px) {
-  .warehouse-page {
-    padding: 16px;
-  }
-  .warehouse-page .page-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
   .warehouse-page .toolbar {
     flex-direction: column;
     align-items: stretch;
   }
-  .warehouse-page .toolbar input {
+  .warehouse-page .search-box {
     max-width: none;
   }
   .warehouse-page .form-grid {
@@ -206,9 +61,6 @@
   }
   .warehouse-page .form-footer .page-actions {
     justify-content: flex-end;
-  }
-  .warehouse-page .table-wrap {
-    overflow: auto;
   }
   .warehouse-page table {
     min-width: 760px;
