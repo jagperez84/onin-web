@@ -1,0 +1,98 @@
+.installation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 24px 8px;
+}
+
+.installation-form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.installation-form-row label,
+.installation-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted, #6b7280);
+}
+
+.installation-form-row input,
+.installation-form-field input,
+.installation-form-field select,
+.installation-form-field textarea {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 13px;
+  font-family: inherit;
+  color: inherit;
+}
+
+.installation-type-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.installation-type-row select {
+  flex: 1;
+}
+
+.installation-type-row input {
+  flex: 1;
+}
+
+.installation-installers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.installation-installer-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.installation-installer-chip.selected {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.installation-installer-chip:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.installation-complete-box {
+  margin: 4px 24px 12px;
+  padding: 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+}
+
+.installation-complete-box h3 {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+}
+
+.installation-complete-box p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.installation-overdue {
+  color: #b91c1c;
+  font-weight: 600;
+}
