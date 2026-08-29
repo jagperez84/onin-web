@@ -82,7 +82,7 @@ export function QuotationStatusModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="status-modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title-wrap">
             <div

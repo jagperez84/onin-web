@@ -92,7 +92,7 @@ export function QuotationPdfPreviewModal({
       aria-modal="true"
     >
       <div
-        className="email-modal-card"
+        className="modal-card"
         style={{
           maxWidth: "900px",
           width: "95%",

@@ -173,12 +173,12 @@ export function OtdComponentEditModal({
 
   return (
     <div
-      className="otd-nested-modal-overlay"
+      className="modal-backdrop"
       role="dialog"
       aria-modal="true"
     >
-      <div className="otd-nested-modal-box">
-        <div className="otd-nested-modal-header">
+      <div className="modal-card">
+        <div className="modal-header">
           <div
             style={{ display: "flex", alignItems: "center", gap: "8px" }}
           >
@@ -235,7 +235,7 @@ export function OtdComponentEditModal({
           </button>
         </div>
 
-        <div className="otd-nested-modal-body">
+        <div className="modal-body">
           {compFeedback && (
             <div
               style={{
@@ -686,7 +686,7 @@ export function OtdComponentEditModal({
           )}
         </div>
 
-        <div className="otd-nested-modal-footer">
+        <div className="modal-actions-footer">
           <button
             type="button"
             className="secondary-button"

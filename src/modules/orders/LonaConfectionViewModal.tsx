@@ -26,9 +26,9 @@ export function LonaConfectionViewModal({line,reference,onClose}:Props){
     return()=>{active=false};
   },[line.id]);
 
-  return <div className="lona-modal-backdrop" role="dialog" aria-modal="true">
-    <div className="lona-modal">
-      <header className="lona-modal-head">
+  return <div className="modal-backdrop" role="dialog" aria-modal="true">
+    <div className="modal-card xl">
+      <header className="modal-header">
         <div>
           <span className="lona-eyebrow">FABRICACIÓN / CONFECCIÓN DE LONA</span>
           <h2>Confección realizada · Línea {line.line_no}</h2>
@@ -83,7 +83,7 @@ export function LonaConfectionViewModal({line,reference,onClose}:Props){
           </section>
         </div>
 
-        <footer className="lona-modal-actions">
+        <footer className="modal-actions-footer">
           <button type="button" className="primary-button" onClick={onClose}>Cerrar</button>
         </footer>
       </>}

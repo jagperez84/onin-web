@@ -638,54 +638,6 @@
   border-color: #e8cfc7;
 }
 
-.otd-nested-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 13000;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.otd-nested-modal-box {
-  width: min(600px, 94vw);
-  max-height: 88vh;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.otd-nested-modal-header {
-  padding: 16px 20px;
-  background: var(--canvas-stripe);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.otd-nested-modal-body {
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.otd-nested-modal-footer {
-  padding: 14px 20px;
-  background: var(--canvas-stripe);
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
 
 .otd-search-results-dropdown {
   max-height: 180px;

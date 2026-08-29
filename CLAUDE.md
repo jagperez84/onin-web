@@ -16,6 +16,16 @@ La app se auditó y armonizó visualmente en varias fases (ver historial de comm
 - Carga de página/panel completo: `.loading-block` con texto simple (p. ej. `Cargando pedido…`).
 - Pastilla de estado activo/inactivo: siempre `.status active`/`.status inactive`. No crear variantes locales (`*-status-pill`); estados intermedios tipo "borrado" se colapsan en `inactive`.
 
+### Modales
+Sistema único en `theme.css`, no crear otro por módulo (antes había 5 sistemas paralelos casi idénticos: `lona-modal-*`, `sales-order-modal-*`, `otd-modal-*`, `otd-nested-modal-*`, `status-modal-card`/`email-modal-card`/etc.):
+- `.modal-backdrop` — overlay fijo a pantalla completa, centra el contenido.
+- `.modal-card` — la tarjeta. Ancho por defecto 600px; modificadores `.sm` (460px), `.lg` (860px), `.xl` (~1180px) para diálogos más grandes.
+- `.modal-header` — cabecera con borde inferior. El título puede ir suelto (`<h2>`/`<h3>` + `<p>` directamente dentro) o envuelto en `.modal-title-wrap` (con icono via `.modal-icon-badge.primary/warning/success/danger/neutral`) cuando hay un badge de icono junto al título.
+- `.close-btn` — botón de cerrar (X) sin borde. Para un botón de cerrar con marco de 34-36px, `.icon-link` (definido en `sales-order.css`, también reutilizable) sigue siendo válido; no forzar uno u otro, pero no inventar un tercero.
+- `.modal-body` — contenido con padding y scroll propio si hace falta.
+- `.modal-actions-footer` — fila de botones alineada a la derecha, con borde superior. Los formularios dentro de un modal usan `.form-group` (definido en `quotation.css`, ya reutilizable) para label+input.
+- Un modal con contenido muy particular (visor de PDF a tamaño fijo, documento imprimible de una sola columna) puede seguir usando su propia clase para la tarjeta en vez de `.modal-card` — pero el backdrop (`.modal-backdrop`) es siempre el mismo.
+
 ### Iconos (lucide-react)
 - Editar: **`Edit3`** (no `Pencil`).
 - Consultar / ver (solo lectura): `Eye`.

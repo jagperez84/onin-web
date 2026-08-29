@@ -314,9 +314,9 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
 
   return (
     <>
-      <div className="lona-modal-backdrop" role="dialog" aria-modal="true">
-        <div className="lona-modal">
-          <header className="lona-modal-head">
+      <div className="modal-backdrop" role="dialog" aria-modal="true">
+        <div className="modal-card xl">
+          <header className="modal-header">
             <div>
               <span className="lona-eyebrow">FABRICACIÓN / CONFECCIÓN DE LONA</span>
               <h2>
@@ -598,7 +598,7 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                 })}
               </div>
 
-              <footer className="lona-modal-actions">
+              <footer className="modal-actions-footer">
                 <button
                   type="button"
                   className="secondary-button"

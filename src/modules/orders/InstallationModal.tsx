@@ -155,9 +155,9 @@ export function InstallationModal({ order, companyId, onClose, onDone, onCancell
   const isCompleted = installation?.status === 'COMPLETED';
 
   return (
-    <div className="lona-modal-backdrop" role="dialog" aria-modal="true">
-      <div className="lona-modal">
-        <header className="lona-modal-head">
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card xl">
+        <header className="modal-header">
           <div>
             <span className="lona-eyebrow">MONTAJE / INSTALACIÓN</span>
             <h2>Montaje de {order.code}</h2>
@@ -243,7 +243,7 @@ export function InstallationModal({ order, companyId, onClose, onDone, onCancell
             {saveError && <div className="lona-error lona-error-inline">{saveError}</div>}
 
             {!isCompleted && (
-              <footer className="lona-modal-actions">
+              <footer className="modal-actions-footer">
                 {installation && (
                   <button type="button" className="secondary-button" disabled={cancelling} onClick={() => void cancel()}>
                     <Trash2 size={14} /> {cancelling ? 'Cancelando…' : 'Cancelar programación'}
@@ -282,7 +282,7 @@ export function InstallationModal({ order, companyId, onClose, onDone, onCancell
             )}
 
             {isCompleted && (
-              <footer className="lona-modal-actions">
+              <footer className="modal-actions-footer">
                 <button type="button" className="secondary-button" onClick={() => installation && downloadInstallationSheetPdf(order, installation)}>
                   <FileText size={14} /> Hoja de montaje
                 </button>

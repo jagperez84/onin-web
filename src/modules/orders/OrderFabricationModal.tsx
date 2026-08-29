@@ -123,9 +123,9 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
   };
 
   return (
-    <div className="lona-modal-backdrop" role="dialog" aria-modal="true">
-      <div className="lona-modal">
-        <header className="lona-modal-head">
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card xl">
+        <header className="modal-header">
           <div>
             <span className="lona-eyebrow">FABRICACIÓN / PEDIDO COMPLETO</span>
             <h2>
@@ -181,7 +181,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                 </tbody>
               </table>
             </div>
-            <footer className="lona-modal-actions">
+            <footer className="modal-actions-footer">
               <button
                 type="button"
                 className="secondary-button"
@@ -231,7 +231,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
               </table>
             </div>
             {error && <div className="lona-error lona-error-inline">{error}</div>}
-            <footer className="lona-modal-actions">
+            <footer className="modal-actions-footer">
               <button type="button" className="secondary-button" onClick={onClose} disabled={running}>
                 Cancelar
               </button>

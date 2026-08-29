@@ -75,7 +75,7 @@ export function QuotationRenewModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="renew-modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title-wrap">
             <div className="modal-icon-badge warning">

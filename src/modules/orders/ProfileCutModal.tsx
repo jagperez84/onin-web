@@ -374,9 +374,9 @@ export function ProfileCutModal({
   const pendingCount = needs.filter(n => !getSheetForNeed(n, existingWorkSheets)).length;
 
   return (
-    <div className="sales-order-modal-backdrop">
-      <div className="sales-order-modal" role="dialog" aria-modal="true">
-        <div className="sales-order-modal-head">
+    <div className="modal-backdrop">
+      <div className="modal-card lg" role="dialog" aria-modal="true">
+        <div className="modal-header">
           <div>
             <div className="eyebrow">FABRICACIÓN / CORTE DE PERFILES</div>
             <h2>
@@ -515,7 +515,7 @@ export function ProfileCutModal({
               </div>
             )}
 
-            <div className="sales-order-modal-actions">
+            <div className="modal-actions-footer">
               {existingWorkSheets.length > 0 && (
                 <button
                   className="secondary-button"
@@ -561,7 +561,7 @@ export function ProfileCutModal({
                 </div>
               ))}
             </div>
-            <div className="sales-order-modal-actions">
+            <div className="modal-actions-footer">
               <button className="secondary-button" onClick={() => setStep('mode')}>
                 Atrás
               </button>
@@ -687,7 +687,7 @@ export function ProfileCutModal({
 
                 {stockError && <div className="inline-error">{stockError}</div>}
 
-                <div className="sales-order-modal-actions">
+                <div className="modal-actions-footer">
                   <button className="secondary-button" onClick={onClose}>
                     Cancelar
                   </button>
@@ -844,7 +844,7 @@ export function ProfileCutModal({
                   </div>
                 )}
 
-                <div className="sales-order-modal-actions">
+                <div className="modal-actions-footer">
                   <button className="secondary-button" onClick={() => setStep('mode')}>
                     Atrás
                   </button>
@@ -927,7 +927,7 @@ export function ProfileCutModal({
                   {batchProposals.length} hoja{batchProposals.length > 1 ? 's' : ''} de corte con los remanentes.
                 </div>
 
-                <div className="sales-order-modal-actions">
+                <div className="modal-actions-footer">
                   <button className="secondary-button" onClick={() => setStep('mode')} disabled={saving}>
                     Modificar
                   </button>

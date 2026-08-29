@@ -174,21 +174,7 @@ export function QuotationContactSelectModal({
       role="dialog"
       aria-modal="true"
     >
-      <div
-        className="contact-select-modal-card"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "var(--color-surface, #ffffff)",
-          borderRadius: "14px",
-          maxWidth: "640px",
-          width: "100%",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: "90vh",
-        }}
-      >
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div
           style={{

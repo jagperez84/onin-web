@@ -61,7 +61,7 @@ export function QuotationCancelModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="status-modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title-wrap">
             <div className="modal-icon-badge danger">
@@ -69,14 +69,14 @@ export function QuotationCancelModal({
             </div>
             <div>
               <h3>Cancelar presupuesto</h3>
-              <p className="modal-subtitle">
+              <p>
                 Presupuesto {quotation.code} · {customerName}
               </p>
             </div>
           </div>
           <button
             type="button"
-            className="modal-close-btn"
+            className="close-btn"
             onClick={onClose}
             aria-label="Cerrar ventana"
           >
@@ -86,7 +86,7 @@ export function QuotationCancelModal({
 
         <form onSubmit={handleConfirm}>
           <div className="modal-body">
-            {error && <div className="modal-error">{error}</div>}
+            {error && <div className="inline-error">{error}</div>}
 
             <div
               style={{
@@ -112,7 +112,7 @@ export function QuotationCancelModal({
               </div>
             </div>
 
-            <div className="modal-form-group">
+            <div className="form-group">
               <label htmlFor="cancel-reason">Motivo de cancelación</label>
               <select
                 id="cancel-reason"
@@ -133,7 +133,7 @@ export function QuotationCancelModal({
               </select>
             </div>
 
-            <div className="modal-form-group">
+            <div className="form-group">
               <label htmlFor="cancel-comments">
                 Observaciones adicionales (opcional)
               </label>
@@ -147,7 +147,7 @@ export function QuotationCancelModal({
             </div>
           </div>
 
-          <div className="modal-actions">
+          <div className="modal-actions-footer">
             <button
               type="button"
               className="secondary-button"
@@ -156,16 +156,7 @@ export function QuotationCancelModal({
             >
               Volver
             </button>
-            <button
-              type="submit"
-              className="primary-button"
-              style={{
-                backgroundColor: "#dc2626",
-                borderColor: "#b91c1c",
-                color: "#fff",
-              }}
-              disabled={loading}
-            >
+            <button type="submit" className="danger-button" disabled={loading}>
               {loading ? "Cancelando…" : "Confirmar cancelación"}
             </button>
           </div>

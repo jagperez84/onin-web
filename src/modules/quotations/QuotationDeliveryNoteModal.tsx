@@ -88,7 +88,7 @@ export function QuotationDeliveryNoteModal({
       aria-modal="true"
     >
       <div
-        className="delivery-note-modal-card"
+        className="modal-card lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">

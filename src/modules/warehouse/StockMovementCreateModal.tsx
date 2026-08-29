@@ -82,7 +82,7 @@ export function StockMovementCreateModal({ onClose }: Props) {
   }
 
   return (
-    <div className="stock-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className="stock-movement-modal" role="dialog" aria-modal="true" aria-labelledby="stock-movement-title">
         <div className="stock-modal-head">
           <div><div className="eyebrow">ALMACÉN / MOVIMIENTOS</div><h2 id="stock-movement-title">Nuevo movimiento</h2><p>Registra una entrada, salida o ajuste de stock.</p></div>

@@ -1143,9 +1143,9 @@ export function OtdRuntime() {
 
       {/* Modal: Change / Edit Component for this Test */}
       {editingCompModal && (
-        <div className="otd-modal-overlay" role="dialog" aria-modal="true">
-          <div className="otd-modal-box wide">
-            <div className="otd-modal-header">
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card lg">
+            <div className="modal-header">
               <div className="modal-title-wrap">
                 <span className="eyebrow">CONFIGURACIÓN DE PRUEBA</span>
                 <h3>
@@ -1156,14 +1156,14 @@ export function OtdRuntime() {
               </div>
               <button
                 type="button"
-                className="otd-modal-close"
+                className="close-btn"
                 onClick={() => setEditingCompModal(null)}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="otd-modal-body">
+            <div className="modal-body">
               {/* Product Catalog Search */}
               <div className="quote-select-field">
                 <label>
@@ -1513,7 +1513,7 @@ export function OtdRuntime() {
                 )}
             </div>
 
-            <div className="otd-modal-footer">
+            <div className="modal-actions-footer">
               <button
                 type="button"
                 className="otd-btn-secondary"
@@ -1535,23 +1535,23 @@ export function OtdRuntime() {
 
       {/* Add To Quote Modal */}
       {showAddToQuoteModal && (
-        <div className="otd-modal-overlay" role="dialog" aria-modal="true">
-          <div className="otd-modal-box">
-            <div className="otd-modal-header">
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <div className="modal-header">
               <div className="modal-title-wrap">
                 <span className="eyebrow">PRESUPUESTACIÓN</span>
                 <h3>Añadir OTD al Presupuesto</h3>
               </div>
               <button
                 type="button"
-                className="otd-modal-close"
+                className="close-btn"
                 onClick={() => setShowAddToQuoteModal(false)}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="otd-modal-body">
+            <div className="modal-body">
               <p>
                 Se generará un <strong>snapshot inmutable</strong> con las
                 medidas, componentes personalizados, escalados e incrementos
@@ -1594,7 +1594,7 @@ export function OtdRuntime() {
               </div>
             </div>
 
-            <div className="otd-modal-footer">
+            <div className="modal-actions-footer">
               <button
                 type="button"
                 className="otd-btn-secondary"
@@ -1617,9 +1617,9 @@ export function OtdRuntime() {
 
       {/* Snapshot Inspector Modal */}
       {showSnapshotModal && snapshot && (
-        <div className="otd-modal-overlay" role="dialog" aria-modal="true">
-          <div className="otd-modal-box wide">
-            <div className="otd-modal-header">
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal-card lg">
+            <div className="modal-header">
               <div className="modal-title-wrap">
                 <span className="eyebrow">SNAPSHOT INMUTABLE</span>
                 <h3>Snapshot de Configuración OTD</h3>
@@ -1634,7 +1634,7 @@ export function OtdRuntime() {
                 </button>
                 <button
                   type="button"
-                  className="otd-modal-close"
+                  className="close-btn"
                   onClick={() => setShowSnapshotModal(false)}
                 >
                   <X size={18} />
@@ -1642,7 +1642,7 @@ export function OtdRuntime() {
               </div>
             </div>
 
-            <div className="otd-modal-body">
+            <div className="modal-body">
               <div className="snapshot-meta-banner">
                 <div>
                   <strong>OTD:</strong> {snapshot.otd_name} ({snapshot.otd_code}
@@ -1723,7 +1723,7 @@ export function OtdRuntime() {
               </div>
             </div>
 
-            <div className="otd-modal-footer">
+            <div className="modal-actions-footer">
               <button
                 type="button"
                 className="otd-btn-secondary"

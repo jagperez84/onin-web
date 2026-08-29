@@ -464,7 +464,7 @@ export function OtdLineConfiguratorModal({
           </div>
           <button
             type="button"
-            className="modal-close-btn"
+            className="close-btn"
             onClick={onClose}
             aria-label="Cerrar modal"
           >

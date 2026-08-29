@@ -203,7 +203,7 @@ export function QuotationEmailModal({
       aria-modal="true"
     >
       <div
-        className="email-modal-card"
+        className="modal-card"
         style={{ maxWidth: "680px", width: "100%", borderRadius: "12px" }}
         onClick={(e) => e.stopPropagation()}
       >

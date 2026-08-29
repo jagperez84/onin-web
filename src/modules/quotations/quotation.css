@@ -1016,150 +1016,9 @@
 /* =========================================================
    8. Comprehensive Modal System (Email, Renew, Status, Albarán)
    ========================================================= */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(3px);
-  z-index: 999;
-  display: grid;
-  place-items: center;
-  padding: 20px 16px;
-  overflow-y: auto;
-}
-
-.email-modal-card,
-.renew-modal-card,
-.status-modal-card,
-.delivery-note-modal-card {
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow:
-    0 20px 30px -8px rgba(15, 23, 42, 0.18),
-    0 8px 16px -6px rgba(15, 23, 42, 0.08);
-  border: 1px solid var(--border);
-  width: 100%;
-  max-width: 600px;
-  overflow: hidden;
-  animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  display: flex;
-  flex-direction: column;
-}
-
-.delivery-note-modal-card {
-  max-width: 860px;
-}
-
-@keyframes modalScaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.96) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.modal-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.modal-title-wrap h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.25;
-}
-
-.modal-title-wrap p {
-  margin: 3px 0 0;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-.modal-icon-badge {
-  width: 40px;
-  height: 40px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.modal-icon-badge.primary {
-  background: var(--primary-soft, var(--primary-soft));
-  color: var(--primary-hover, var(--primary-hover));
-  border: 1px solid rgba(127, 168, 156, 0.3);
-}
-
-.modal-icon-badge.warning {
-  background: var(--accent-soft);
-  color: #8a7248;
-  border: 1px solid #ddd0b0;
-}
-
-.modal-icon-badge.success {
-  background: var(--success-soft);
-  color: #4e7a55;
-  border: 1px solid #c9dcc7;
-}
-
-.modal-icon-badge.danger {
-  background: var(--danger-soft);
-  color: #96594b;
-  border: 1px solid #e8cfc7;
-}
-
-.modal-icon-badge.neutral {
-  background: var(--canvas-stripe);
-  color: var(--muted);
-  border: 1px solid var(--border);
-}
-
-.header-action-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.close-btn {
-  background: transparent;
-  border: 0;
-  padding: 7px;
-  border-radius: 7px;
-  color: var(--muted);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: all 0.15s ease;
-}
-
-.close-btn:hover {
-  background: var(--border);
-  color: var(--text);
-}
-
-.modal-body {
-  padding: 22px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  box-sizing: border-box;
-}
+/* Modal shell (.modal-backdrop, .modal-card, .modal-header, .modal-title-wrap,
+   .modal-icon-badge, .close-btn, .modal-body, .modal-actions-footer) now lives
+   in src/styles/theme.css as the app-wide canonical modal system. */
 
 /* Form Groups & Inputs within Modals */
 .modal-body .form-group {
@@ -1356,16 +1215,7 @@
   border-radius: 4px;
 }
 
-/* Modal Actions Footer */
-.modal-actions-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-  margin-top: 4px;
-}
+/* .modal-actions-footer is canonical, defined in theme.css */
 
 .send-action-btn {
   background: var(--primary) !important;
@@ -1769,7 +1619,7 @@
     visibility: hidden;
   }
   .modal-backdrop,
-  .delivery-note-modal-card {
+  .modal-card {
     position: static !important;
     background: transparent !important;
     box-shadow: none !important;

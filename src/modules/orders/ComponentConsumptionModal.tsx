@@ -112,9 +112,9 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
   const canConfirm = components.length > 0 && components.every(need => Number.isFinite(selectedWarehouse[need.productId]));
 
   return (
-    <div className="lona-modal-backdrop" role="dialog" aria-modal="true">
-      <div className="lona-modal">
-        <header className="lona-modal-head">
+    <div className="modal-backdrop" role="dialog" aria-modal="true">
+      <div className="modal-card xl">
+        <header className="modal-header">
           <div>
             <span className="lona-eyebrow">FABRICACIÓN / COMPONENTES</span>
             <h2>
@@ -164,7 +164,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                 </tbody>
               </table>
             </div>
-            <footer className="lona-modal-actions">
+            <footer className="modal-actions-footer">
               <button type="button" className="primary-button" onClick={onClose}>
                 Cerrar
               </button>
@@ -175,7 +175,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
             <div className="lona-empty">
               <Boxes size={18} /> Esta línea no tiene componentes por unidades en su despiece (o ya están vinculados al perfil/lona).
             </div>
-            <footer className="lona-modal-actions">
+            <footer className="modal-actions-footer">
               <button type="button" className="primary-button" onClick={onClose}>
                 Cerrar
               </button>
@@ -233,7 +233,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
               </table>
             </div>
             {submitError && <div className="lona-error lona-error-inline">{submitError}</div>}
-            <footer className="lona-modal-actions">
+            <footer className="modal-actions-footer">
               <button type="button" className="secondary-button" onClick={onClose}>
                 Cancelar
               </button>
