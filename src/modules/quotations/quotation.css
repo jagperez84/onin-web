@@ -50,7 +50,7 @@
 
 .quotation-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -77,6 +77,11 @@
   border-color: #dad8d0;
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(51, 57, 59, 0.06);
+}
+
+.quotation-kpi-warning .quotation-kpi-icon {
+  background: var(--danger-soft);
+  color: var(--status-danger-fg, var(--danger));
 }
 
 .quotation-kpi-icon {
