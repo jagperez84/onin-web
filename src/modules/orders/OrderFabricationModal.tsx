@@ -4,7 +4,7 @@ import type { SalesOrder } from '../../services/sales/salesOrderService';
 import { getWorkSheetsBySalesOrderLine, type WorkSheet } from '../../services/production/workSheetService';
 import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
 import { getComponentConsumptionWorkSheetBySalesOrderLine, type ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
-import { downloadOrderManufacturingReportPdf } from '../../services/production/orderManufacturingReportPdfService';
+import { downloadOrderManufacturingReportPdf, type OrderManufacturingReportLine } from '../../services/production/orderManufacturingReportPdfService';
 import { listProfileStockPieces, type ProfileStockPiece } from '../../services/warehouse/stockRepository';
 import { calculateLonaCut, type LonaCutType } from '../../services/production/lonaCutCalculationService';
 import { probeLonaStockWidth, type LonaConfectionComponent, type LonaStockRollProbe } from '../../services/production/lonaConfectionService';
@@ -62,6 +62,15 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
 
   const lines = order.lines || [];
   const orderWarehouseId = (order as any).warehouse_id == null ? null : Number((order as any).warehouse_id);
+  const reportLines: OrderManufacturingReportLine[] = lines.map((line: any) => {
+    const snapshot = line.specific_data?.configuration_snapshot || line.specific_data?.otd_snapshot || null;
+    return {
+      id: Number(line.id),
+      lineNo: Number(line.line_no),
+      description: line.description ?? null,
+      otdCode: snapshot?.otd_code ? String(snapshot.otd_code) : null,
+    };
+  });
 
   useEffect(() => {
     let active = true;
@@ -258,6 +267,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
         orderCode: order.code,
         reference: order.reference,
         customerName: order.customer_name,
+        lines: reportLines,
         ...report,
       });
     } catch (err) {
@@ -337,6 +347,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                     orderCode: order.code,
                     reference: order.reference,
                     customerName: order.customer_name,
+                    lines: reportLines,
                     ...reportData,
                   })
                 }

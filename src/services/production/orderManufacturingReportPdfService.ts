@@ -6,41 +6,76 @@ import type { ComponentConsumptionWorkSheet } from './componentConsumptionServic
 
 const fmtDate = (value: string) => new Date(value).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
 
-function sectionTitle(pdf: jsPDF, y: number, title: string, count: number, width: number): number {
-  if (y > 260) {
+export type OrderManufacturingReportLine = {
+  id: number;
+  lineNo: number;
+  description: string | null;
+  otdCode: string | null;
+};
+
+function ensureSpace(pdf: jsPDF, y: number, needed = 20): number {
+  if (y > 297 - needed) {
     pdf.addPage();
-    y = 20;
+    return 20;
   }
+  return y;
+}
+
+/** Cabecera de línea/OTD: agrupa todo lo que hace falta para fabricar esa línea. */
+function lineHeader(pdf: jsPDF, y: number, line: OrderManufacturingReportLine, width: number): number {
+  y = ensureSpace(pdf, y, 16);
   pdf.setFillColor(45, 55, 72);
-  pdf.rect(14, y, width - 28, 8, 'F');
-  pdf.setFontSize(10);
+  pdf.rect(14, y, width - 28, 9, 'F');
+  pdf.setFontSize(10.5);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(255, 255, 255);
-  pdf.text(title, 18, y + 5.5);
-  pdf.setFontSize(8.5);
-  pdf.text(`${count} documento${count === 1 ? '' : 's'}`, width - 18, y + 5.5, { align: 'right' });
-  return y + 12;
+  pdf.text(`LÍNEA ${line.lineNo}${line.otdCode ? ` · OTD ${line.otdCode}` : ''}`, 18, y + 6);
+  if (line.description) {
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(line.description, width - 18, y + 6, { align: 'right' });
+  }
+  return y + 13;
 }
 
-function emptySection(pdf: jsPDF, y: number, message: string): number {
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'italic');
-  pdf.setTextColor(140, 140, 140);
-  pdf.text(message, 18, y);
-  return y + 10;
+function subHeader(pdf: jsPDF, y: number, title: string, count: number): number {
+  y = ensureSpace(pdf, y, 12);
+  pdf.setFontSize(8.5);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(80, 90, 110);
+  pdf.text(`${title} (${count})`, 18, y);
+  return y + 5;
 }
+
+function notesBlock(pdf: jsPDF, y: number, notes: string[], width: number): number {
+  const unique = [...new Set(notes.map(n => n.trim()).filter(Boolean))];
+  if (!unique.length) return y;
+  y = ensureSpace(pdf, y, 14);
+  pdf.setFontSize(7.5);
+  pdf.setFont('helvetica', 'italic');
+  pdf.setTextColor(110, 110, 110);
+  const wrapped = pdf.splitTextToSize(`Observaciones: ${unique.join(' · ')}`, width - 36) as string[];
+  pdf.text(wrapped, 18, y);
+  return y + wrapped.length * 3.6 + 5;
+}
+
+const TABLE_STYLES = { fontSize: 7.5, cellPadding: 2.2, textColor: [40, 40, 40] as [number, number, number], lineColor: [220, 220, 220] as [number, number, number], lineWidth: 0.1 };
+const TABLE_HEAD_STYLES = { fillColor: [110, 120, 140] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const, fontSize: 7.5 };
+const TABLE_ALT_ROW_STYLES = { fillColor: [248, 249, 250] as [number, number, number] };
 
 /** Genera y descarga el informe de fabricación consolidado de un pedido completo, con toda la
- *  información necesaria para el taller: cortes de perfil, confecciones de lona y componentes. */
+ *  información necesaria para el taller: cortes de perfil, confecciones de lona y componentes,
+ *  agrupados por línea/OTD (todo lo que hace falta para fabricar esa línea concreta, junto). */
 export function downloadOrderManufacturingReportPdf(input: {
   orderCode: string;
   reference?: string | null;
   customerName?: string | null;
+  lines: OrderManufacturingReportLine[];
   cutSheets: WorkSheet[];
   lonaSheets: LonaConfectionWorkSheet[];
   componentSheets: ComponentConsumptionWorkSheet[];
 }) {
-  const { orderCode, reference, customerName, cutSheets, lonaSheets, componentSheets } = input;
+  const { orderCode, reference, customerName, lines, cutSheets, lonaSheets, componentSheets } = input;
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   const width = pdf.internal.pageSize.getWidth();
 
@@ -69,110 +104,137 @@ export function downloadOrderManufacturingReportPdf(input: {
 
   let y = 53;
 
-  // Cortes de perfil
-  y = sectionTitle(pdf, y, 'CORTE DE PERFILES', cutSheets.length, width);
-  if (cutSheets.length === 0) {
-    y = emptySection(pdf, y, 'No hay perfiles que cortar en este pedido.');
-  } else {
-    const rows: any[] = [];
-    cutSheets.forEach(ws => {
-      const unit = ws.unit_symbol || ws.unit_code || 'cm';
-      const label = `${ws.product_code || 'Perfil'}${ws.characteristic_name ? ` (${ws.characteristic_name})` : ''}`;
-      if (ws.lines.length) {
-        ws.lines.forEach(line => {
-          rows.push([
-            String(ws.sales_order_line_no ?? '—'),
-            label,
-            `${ws.quantity} ud. × ${ws.required_length} ${unit}`,
-            line.warehouse_code || '—',
-            line.source_dimension_values.join(' × '),
-            line.cut_dimension_values.join(' × '),
-            line.remainder_dimension_values.length ? line.remainder_dimension_values.join(' × ') : '—',
-            ws.code,
-          ]);
-        });
-      } else {
-        rows.push([String(ws.sales_order_line_no ?? '—'), label, `${ws.quantity} ud. × ${ws.required_length} ${unit}`, '—', '—', '—', '—', ws.code]);
-      }
-    });
-    autoTable(pdf, {
-      startY: y,
-      head: [['Línea', 'Perfil', 'Necesidad', 'Almacén', 'Pieza origen', 'Corte', 'Resto', 'Hoja']],
-      body: rows,
-      styles: { fontSize: 7.5, cellPadding: 2.5, textColor: [40, 40, 40], lineColor: [220, 220, 220], lineWidth: 0.1 },
-      headStyles: { fillColor: [80, 90, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: [248, 249, 250] },
-      margin: { left: 14, right: 14 },
-    });
-    y = ((pdf as any).lastAutoTable?.finalY || y) + 12;
+  const linesWithContent = lines
+    .filter(
+      line =>
+        cutSheets.some(ws => ws.sales_order_line_id === line.id) ||
+        lonaSheets.some(sheet => sheet.orderLineId === line.id) ||
+        componentSheets.some(sheet => sheet.salesOrderLineId === line.id)
+    )
+    .sort((a, b) => a.lineNo - b.lineNo);
+
+  if (!linesWithContent.length) {
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(140, 140, 140);
+    pdf.text('No hay documentos de fabricación generados para este pedido.', 14, y);
   }
 
-  // Confección de lona
-  y = sectionTitle(pdf, y, 'CONFECCIÓN DE LONA', lonaSheets.length, width);
-  if (lonaSheets.length === 0) {
-    y = emptySection(pdf, y, 'No hay lonas que confeccionar en este pedido.');
-  } else {
-    const rows: any[] = [];
-    lonaSheets.forEach(sheet => {
-      const unit = sheet.unitSymbol || '';
-      const label = `${sheet.productCode || 'Lona'}${sheet.characteristicName ? ` (${sheet.characteristicName})` : ''}`;
-      const need = sheet.requiredDimensions.length ? sheet.requiredDimensions.map((v, i) => `${v} ${sheet.requiredDimensionUnits[i] || unit}`).join(' × ') : '—';
-      if (sheet.lines.length) {
-        sheet.lines.forEach(line => {
-          rows.push([
-            String(sheet.orderLineId),
-            label,
-            `${sheet.quantity} ud. · ${need}`,
-            line.warehouseCode || '—',
-            line.sourceDimensions.join(' × '),
-            line.cutDimensions.join(' × '),
-            line.remainderDimensions.length ? line.remainderDimensions.join(' × ') : '—',
-            sheet.code,
-          ]);
-        });
-      } else {
-        rows.push([String(sheet.orderLineId), label, `${sheet.quantity} ud. · ${need}`, '—', '—', '—', '—', sheet.code]);
-      }
-    });
-    autoTable(pdf, {
-      startY: y,
-      head: [['Línea', 'Lona', 'Necesidad', 'Almacén', 'Pieza origen', 'Corte', 'Resto', 'Hoja']],
-      body: rows,
-      styles: { fontSize: 7.5, cellPadding: 2.5, textColor: [40, 40, 40], lineColor: [220, 220, 220], lineWidth: 0.1 },
-      headStyles: { fillColor: [80, 90, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: [248, 249, 250] },
-      margin: { left: 14, right: 14 },
-    });
-    y = ((pdf as any).lastAutoTable?.finalY || y) + 12;
-  }
+  linesWithContent.forEach(line => {
+    y = lineHeader(pdf, y, line, width);
 
-  // Componentes
-  y = sectionTitle(pdf, y, 'COMPONENTES (SOPORTES, MOTORES, TORNILLERÍA…)', componentSheets.length, width);
-  if (componentSheets.length === 0) {
-    y = emptySection(pdf, y, 'No hay componentes por unidades que descontar en este pedido.');
-  } else {
-    const rows: any[] = [];
-    componentSheets.forEach(sheet => {
-      sheet.lines.forEach(line => {
-        rows.push([
-          String(sheet.salesOrderLineNo ?? '—'),
-          `${line.productCode || '—'}\n${line.productName || ''}`,
-          line.warehouseCode || '—',
-          `${line.quantity} ${line.unitCode || ''}`,
-          sheet.code,
-        ]);
+    const lineCutSheets = cutSheets.filter(ws => ws.sales_order_line_id === line.id);
+    if (lineCutSheets.length) {
+      y = subHeader(pdf, y, 'Corte de perfil', lineCutSheets.length);
+      const rows: any[] = [];
+      lineCutSheets.forEach(ws => {
+        const unit = ws.unit_symbol || ws.unit_code || 'cm';
+        const label = `${ws.product_code || 'Perfil'}${ws.characteristic_name ? ` (${ws.characteristic_name})` : ''}`;
+        if (ws.lines.length) {
+          ws.lines.forEach(l => {
+            rows.push([
+              label,
+              `${ws.quantity} ud. × ${ws.required_length} ${unit}`,
+              l.warehouse_code || '—',
+              l.source_dimension_values.join(' × '),
+              l.cut_dimension_values.join(' × '),
+              l.remainder_dimension_values.length ? l.remainder_dimension_values.join(' × ') : '—',
+              ws.code,
+            ]);
+          });
+        } else {
+          rows.push([label, `${ws.quantity} ud. × ${ws.required_length} ${unit}`, '—', '—', '—', '—', ws.code]);
+        }
       });
-    });
-    autoTable(pdf, {
-      startY: y,
-      head: [['Línea', 'Componente', 'Almacén', 'Cantidad', 'Hoja']],
-      body: rows,
-      styles: { fontSize: 7.5, cellPadding: 2.5, textColor: [40, 40, 40], lineColor: [220, 220, 220], lineWidth: 0.1 },
-      headStyles: { fillColor: [80, 90, 110], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-      alternateRowStyles: { fillColor: [248, 249, 250] },
-      margin: { left: 14, right: 14 },
-    });
-  }
+      autoTable(pdf, {
+        startY: y,
+        head: [['Perfil', 'Necesidad', 'Almacén', 'Pieza origen', 'Corte', 'Resto', 'Hoja']],
+        body: rows,
+        styles: TABLE_STYLES,
+        headStyles: TABLE_HEAD_STYLES,
+        alternateRowStyles: TABLE_ALT_ROW_STYLES,
+        margin: { left: 18, right: 14 },
+      });
+      y = ((pdf as any).lastAutoTable?.finalY || y) + 3;
+      y = notesBlock(
+        pdf,
+        y,
+        lineCutSheets.flatMap(ws => [ws.notes, ws.selection_reason].filter((v): v is string => Boolean(v))),
+        width
+      );
+    }
+
+    const lineLonaSheets = lonaSheets.filter(sheet => sheet.orderLineId === line.id);
+    if (lineLonaSheets.length) {
+      y = subHeader(pdf, y, 'Confección de lona', lineLonaSheets.length);
+      const rows: any[] = [];
+      lineLonaSheets.forEach(sheet => {
+        const unit = sheet.unitSymbol || '';
+        const label = `${sheet.productCode || 'Lona'}${sheet.characteristicName ? ` (${sheet.characteristicName})` : ''}`;
+        const need = sheet.requiredDimensions.length ? sheet.requiredDimensions.map((v, i) => `${v} ${sheet.requiredDimensionUnits[i] || unit}`).join(' × ') : '—';
+        if (sheet.lines.length) {
+          sheet.lines.forEach(l => {
+            rows.push([
+              label,
+              `${sheet.quantity} ud. · ${need}`,
+              l.warehouseCode || '—',
+              l.sourceDimensions.join(' × '),
+              l.cutDimensions.join(' × '),
+              l.remainderDimensions.length ? l.remainderDimensions.join(' × ') : '—',
+              sheet.code,
+            ]);
+          });
+        } else {
+          rows.push([label, `${sheet.quantity} ud. · ${need}`, '—', '—', '—', '—', sheet.code]);
+        }
+      });
+      autoTable(pdf, {
+        startY: y,
+        head: [['Lona', 'Necesidad', 'Almacén', 'Pieza origen', 'Corte', 'Resto', 'Hoja']],
+        body: rows,
+        styles: TABLE_STYLES,
+        headStyles: TABLE_HEAD_STYLES,
+        alternateRowStyles: TABLE_ALT_ROW_STYLES,
+        margin: { left: 18, right: 14 },
+      });
+      y = ((pdf as any).lastAutoTable?.finalY || y) + 3;
+      y = notesBlock(
+        pdf,
+        y,
+        lineLonaSheets.flatMap(sheet => [sheet.selectionReason].filter((v): v is string => Boolean(v))),
+        width
+      );
+    }
+
+    const lineComponentSheets = componentSheets.filter(sheet => sheet.salesOrderLineId === line.id);
+    if (lineComponentSheets.length) {
+      y = subHeader(pdf, y, 'Componentes', lineComponentSheets.length);
+      const rows: any[] = [];
+      lineComponentSheets.forEach(sheet => {
+        sheet.lines.forEach(l => {
+          rows.push([`${l.productCode || '—'}\n${l.productName || ''}`, l.warehouseCode || '—', `${l.quantity} ${l.unitCode || ''}`, sheet.code]);
+        });
+      });
+      autoTable(pdf, {
+        startY: y,
+        head: [['Componente', 'Almacén', 'Cantidad', 'Hoja']],
+        body: rows,
+        styles: TABLE_STYLES,
+        headStyles: TABLE_HEAD_STYLES,
+        alternateRowStyles: TABLE_ALT_ROW_STYLES,
+        margin: { left: 18, right: 14 },
+      });
+      y = ((pdf as any).lastAutoTable?.finalY || y) + 3;
+      y = notesBlock(
+        pdf,
+        y,
+        lineComponentSheets.flatMap(sheet => [sheet.notes].filter((v): v is string => Boolean(v))),
+        width
+      );
+    }
+
+    y += 6;
+  });
 
   const pageCount = (pdf as any).internal.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
