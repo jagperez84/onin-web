@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import {
   CalendarClock,
   CheckCircle2,
@@ -6,6 +7,7 @@ import {
   FileText,
   Package,
   Receipt,
+  Ruler,
   Scissors,
   Truck,
 } from 'lucide-react';
@@ -23,6 +25,8 @@ type Stage = {
   detail: string;
   state: StageState;
   icon: ReactNode;
+  to?: string;
+  onClick?: () => void;
 };
 
 type TimelineEvent = {
@@ -49,23 +53,15 @@ const fullDateTime = (v: string | null | undefined) =>
       })
     : '—';
 
-export function SalesOrderLifecycle({
-  order,
-  cutSheets,
-  lonaSheets,
-  componentSheets,
-  installation,
-  onFabricate,
-  onInstall,
-}: {
+type LifecycleProps = {
   order: SalesOrder;
   cutSheets: WorkSheet[];
   lonaSheets: LonaConfectionWorkSheet[];
   componentSheets: ComponentConsumptionWorkSheet[];
   installation: Installation | null;
-  onFabricate: () => void;
-  onInstall: () => void;
-}) {
+};
+
+function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installation }: LifecycleProps) {
   const status = order.status;
   const isCancelled = status === 'CANCELLED';
   const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED'].includes(status);
@@ -98,64 +94,11 @@ export function SalesOrderLifecycle({
           ? 'pending'
           : 'unavailable';
 
-  const stages: Stage[] = [
-    {
-      key: 'quotation',
-      label: 'Presupuesto',
-      detail: order.quotation_code ? `Aceptado · ${order.quotation_code}` : 'Aceptado',
-      state: 'done',
-      icon: <FileText size={17} />,
-    },
-    {
-      key: 'order',
-      label: 'Pedido',
-      detail: `Creado · ${shortDate(order.issue_date)}`,
-      state: 'done',
-      icon: <Package size={17} />,
-    },
-    {
-      key: 'fabrication',
-      label: 'Fabricación',
-      detail:
-        fabricationState === 'done'
-          ? `Completa${latestFabricationDate ? ` · ${shortDate(latestFabricationDate)}` : ''}`
-          : fabricationState === 'active'
-            ? 'En curso'
-            : 'Pendiente',
-      state: fabricationState,
-      icon: <Scissors size={17} />,
-    },
-    {
-      key: 'installation',
-      label: 'Montaje',
-      detail:
-        installationState === 'done'
-          ? `Completado${installation?.updatedAt ? ` · ${shortDate(installation.updatedAt)}` : ''}`
-          : installationState === 'active'
-            ? `Programado · ${shortDate(installation?.scheduledDate) || '—'}`
-            : installationState === 'pending'
-              ? 'Pendiente'
-              : 'No disponible aún',
-      state: installationState,
-      icon: <CalendarClock size={17} />,
-    },
-    {
-      key: 'delivery',
-      label: 'Entrega',
-      detail: 'No disponible aún',
-      state: 'unavailable',
-      icon: <Truck size={17} />,
-    },
-    {
-      key: 'invoicing',
-      label: 'Facturación',
-      detail: 'No disponible aún',
-      state: 'unavailable',
-      icon: <Receipt size={17} />,
-    },
-  ];
+  return { isCancelled, isManufactured, hasStartedFabrication, fabricationState, installationState, latestFabricationDate };
+}
 
-  const events: TimelineEvent[] = [
+function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installation }: LifecycleProps): TimelineEvent[] {
+  return [
     { key: 'order-created', date: order.issue_date, title: 'Pedido creado a partir del presupuesto' },
     ...cutSheets.map((s) => ({
       key: `cut-${s.id}`,
@@ -195,6 +138,96 @@ export function SalesOrderLifecycle({
         ]
       : []),
   ].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+}
+
+export function SalesOrderLifecycleStepper({
+  order,
+  cutSheets,
+  lonaSheets,
+  componentSheets,
+  installation,
+  onFabricate,
+  onInstall,
+  onViewProductionSheets,
+}: LifecycleProps & {
+  onFabricate: () => void;
+  onInstall: () => void;
+  onViewProductionSheets: () => void;
+}) {
+  const { isCancelled, hasStartedFabrication, fabricationState, installationState, latestFabricationDate } =
+    useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installation });
+
+  const stages: Stage[] = [
+    ...(order.measurement_id
+      ? [
+          {
+            key: 'measurement',
+            label: 'Medición',
+            detail: `#${order.measurement_id}`,
+            state: 'done' as StageState,
+            icon: <Ruler size={17} />,
+            to: `/gestion/mediciones/${order.measurement_id}`,
+          },
+        ]
+      : []),
+    {
+      key: 'quotation',
+      label: 'Presupuesto',
+      detail: order.quotation_code ? `Aceptado · ${order.quotation_code}` : 'Aceptado',
+      state: 'done',
+      icon: <FileText size={17} />,
+      to: `/ventas/presupuestos/${order.quotation_id}`,
+    },
+    {
+      key: 'order',
+      label: 'Pedido',
+      detail: `Creado · ${shortDate(order.issue_date)}`,
+      state: 'done',
+      icon: <Package size={17} />,
+    },
+    {
+      key: 'fabrication',
+      label: 'Fabricación',
+      detail:
+        fabricationState === 'done'
+          ? `Completa${latestFabricationDate ? ` · ${shortDate(latestFabricationDate)}` : ''}`
+          : fabricationState === 'active'
+            ? 'En curso'
+            : 'Pendiente',
+      state: fabricationState,
+      icon: <Scissors size={17} />,
+      onClick: hasStartedFabrication ? onViewProductionSheets : undefined,
+    },
+    {
+      key: 'installation',
+      label: 'Montaje',
+      detail:
+        installationState === 'done'
+          ? `Completado${installation?.updatedAt ? ` · ${shortDate(installation.updatedAt)}` : ''}`
+          : installationState === 'active'
+            ? `Programado · ${shortDate(installation?.scheduledDate) || '—'}`
+            : installationState === 'pending'
+              ? 'Pendiente'
+              : 'No disponible aún',
+      state: installationState,
+      icon: <CalendarClock size={17} />,
+      onClick: installationState === 'active' || installationState === 'done' ? onInstall : undefined,
+    },
+    {
+      key: 'delivery',
+      label: 'Entrega',
+      detail: 'No disponible aún',
+      state: 'unavailable',
+      icon: <Truck size={17} />,
+    },
+    {
+      key: 'invoicing',
+      label: 'Facturación',
+      detail: 'No disponible aún',
+      state: 'unavailable',
+      icon: <Receipt size={17} />,
+    },
+  ];
 
   const nextStep = isCancelled
     ? null
@@ -250,20 +283,35 @@ export function SalesOrderLifecycle({
     <>
       <div className="quotation-card lifecycle-card">
         <div className="lifecycle-stepper">
-          {stages.map((stage, i) => (
-            <Fragment key={stage.key}>
-              <div className="lifecycle-stage">
+          {stages.map((stage, i) => {
+            const content = (
+              <>
                 <div className={`lifecycle-stage-dot ${stage.state}`}>
                   {stage.state === 'done' ? <CheckCircle2 size={18} /> : stage.icon}
                 </div>
                 <div className="lifecycle-stage-label">{stage.label}</div>
                 <div className={`lifecycle-stage-detail ${stage.state}`}>{stage.detail}</div>
-              </div>
-              {i < stages.length - 1 && (
-                <div className={`lifecycle-stage-connector ${stage.state === 'done' ? 'done' : ''}`} />
-              )}
-            </Fragment>
-          ))}
+              </>
+            );
+            return (
+              <Fragment key={stage.key}>
+                {stage.to ? (
+                  <Link to={stage.to} className="lifecycle-stage clickable">
+                    {content}
+                  </Link>
+                ) : stage.onClick ? (
+                  <button type="button" className="lifecycle-stage clickable" onClick={stage.onClick}>
+                    {content}
+                  </button>
+                ) : (
+                  <div className="lifecycle-stage">{content}</div>
+                )}
+                {i < stages.length - 1 && (
+                  <div className={`lifecycle-stage-connector ${stage.state === 'done' ? 'done' : ''}`} />
+                )}
+              </Fragment>
+            );
+          })}
         </div>
       </div>
 
@@ -283,30 +331,36 @@ export function SalesOrderLifecycle({
           )}
         </div>
       )}
+    </>
+  );
+}
 
-      <section className="quotation-card lifecycle-history">
-        <h2>Historial de la venta</h2>
-        <div className="lifecycle-timeline">
-          {events.map((ev, i) => (
-            <div className="lifecycle-event" key={ev.key}>
-              <div className="lifecycle-event-rail">
-                <div className="lifecycle-event-dot">
-                  <CheckCircle2 size={13} />
-                </div>
-                {i < events.length - 1 && <div className="lifecycle-event-line" />}
+export function SalesOrderLifecycleHistory(props: LifecycleProps) {
+  const events = buildTimelineEvents(props);
+
+  return (
+    <section className="quotation-card lifecycle-history">
+      <h2>Historial de la venta</h2>
+      <div className="lifecycle-timeline">
+        {events.map((ev, i) => (
+          <div className="lifecycle-event" key={ev.key}>
+            <div className="lifecycle-event-rail">
+              <div className="lifecycle-event-dot">
+                <CheckCircle2 size={13} />
               </div>
-              <div className="lifecycle-event-body">
-                <div className="lifecycle-event-title">{ev.title}</div>
-                <div className="lifecycle-event-meta">
-                  {fullDateTime(ev.date)}
-                  {ev.detail ? ` · ${ev.detail}` : ''}
-                  {ev.docCode ? ` · ${ev.docCode}` : ''}
-                </div>
+              {i < events.length - 1 && <div className="lifecycle-event-line" />}
+            </div>
+            <div className="lifecycle-event-body">
+              <div className="lifecycle-event-title">{ev.title}</div>
+              <div className="lifecycle-event-meta">
+                {fullDateTime(ev.date)}
+                {ev.detail ? ` · ${ev.detail}` : ''}
+                {ev.docCode ? ` · ${ev.docCode}` : ''}
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-    </>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
