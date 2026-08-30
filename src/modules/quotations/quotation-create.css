@@ -124,7 +124,7 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  min-width: 1080px;
+  min-width: 1220px;
 }
 .quotation-lines-table thead {
   background: var(--canvas-stripe);
