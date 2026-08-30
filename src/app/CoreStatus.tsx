@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Database, CircleCheck, CircleAlert } from "lucide-react";
 import { checkCoreConnectivity } from "../services/core/coreRepository";
 
 export function CoreStatus() {
@@ -23,36 +22,15 @@ export function CoreStatus() {
       alive = false;
     };
   }, []);
+  const text = state.loading
+    ? "Comprobando conexión de datos…"
+    : state.ok
+      ? `Conectado · ${state.companies} empresas activas`
+      : state.message;
   return (
-    <div className="core-status panel">
-      <div className="panel-head">
-        <div>
-          <h2>Conexión de datos</h2>
-          <p>Comprobación del modelo Core de ONIN.</p>
-        </div>
-        {state.loading ? (
-          <Database size={20} className="status-icon muted" />
-        ) : state.ok ? (
-          <CircleCheck size={20} className="status-icon success" />
-        ) : (
-          <CircleAlert size={20} className="status-icon danger" />
-        )}
-      </div>
-      <div className={`core-status-body ${state.ok ? "ok" : "error"}`}>
-        <strong>
-          {state.loading
-            ? "Comprobando…"
-            : state.ok
-              ? "Conectado"
-              : "No disponible"}
-        </strong>
-        {!state.loading && (
-          <span>
-            {state.message}
-            {state.ok ? ` Empresas activas: ${state.companies}.` : ""}
-          </span>
-        )}
-      </div>
+    <div className={`system-status ${state.loading ? "muted" : state.ok ? "ok" : "error"}`}>
+      <span className="system-status-dot" />
+      {text}
     </div>
   );
 }
