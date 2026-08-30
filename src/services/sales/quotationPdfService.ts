@@ -75,7 +75,8 @@ export interface QuotationPdfDTO {
   totals: {
     base_amount: number;
     discount_amount: number;
-    tax_percent: number;
+    /** null cuando las líneas tienen tipos de impuesto distintos: no hay un único porcentaje que mostrar. */
+    tax_percent: number | null;
     tax_amount: number;
     total_amount: number;
   };
@@ -339,7 +340,7 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
     const qty = Number(line.quantity || 0);
     const unitPrice = Number(line.unit_price || 0);
     const discountPercent = Number(line.discount_percent || 0);
-    const taxPercent = Number(line.tax_percent || q.tax_percent || 0);
+    const taxPercent = Number(line.tax_percent || 0);
     const net = Number(line.net_amount ?? (qty * unitPrice * (1 - discountPercent / 100)));
     const tax = Number(line.tax_amount ?? (net * taxPercent / 100));
     const total = Number(line.total_amount ?? (net + tax));
@@ -367,6 +368,10 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
   const discountTotal = grossTotal - netTotal;
   const taxTotal = linesDto.reduce((sum, l) => sum + l.tax_amount, 0);
   const grandTotal = netTotal + taxTotal;
+  // Cada línea puede llevar su propio tipo de impuesto: solo hay un porcentaje único que
+  // mostrar en el resumen si todas las líneas coinciden.
+  const distinctTaxPercents = [...new Set(linesDto.map(l => l.tax_percent))];
+  const uniformTaxPercent = distinctTaxPercents.length === 1 ? distinctTaxPercents[0] : null;
 
   const commercialName = q.commercial?.party?.trade_name || q.commercial?.party?.legal_name || null;
   const warehouseName = q.warehouse ? (q.warehouse.code ? `${q.warehouse.code} · ${q.warehouse.name}` : q.warehouse.name) : null;
@@ -391,7 +396,7 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
     totals: {
       base_amount: Number(q.net_amount ?? netTotal),
       discount_amount: Number(q.discount_amount ?? discountTotal),
-      tax_percent: Number(q.tax_percent ?? (linesDto[0]?.tax_percent || 21)),
+      tax_percent: uniformTaxPercent,
       tax_amount: Number(q.tax_amount ?? taxTotal),
       total_amount: Number(q.total_amount ?? grandTotal),
     },
@@ -750,10 +755,11 @@ export function buildQuotationPdf(dto: QuotationPdfDTO): jsPDF {
     rowY += 5.5;
   }
 
-  // IVA
+  // Impuestos
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...secondaryColor);
-  doc.text(`IVA (${formatPdfPercent(dto.totals.tax_percent)}):`, totalsBoxX + 4, rowY);
+  const taxLabel = dto.totals.tax_percent != null ? `Impuestos (${formatPdfPercent(dto.totals.tax_percent)}):` : 'Impuestos:';
+  doc.text(taxLabel, totalsBoxX + 4, rowY);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text(formatPdfMoney(dto.totals.tax_amount), totalsBoxX + totalsBoxWidth - 4, rowY, { align: 'right' });

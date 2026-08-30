@@ -73,7 +73,7 @@ function blankLine(): EditLine {
     unit_price: 0,
     discount_percent: 0,
     tax_rate_id: null,
-    tax_percent: 0,
+    tax_percent: 21,
     line_behavior_id: null,
     line_behavior_snapshot: null,
     product_definition_snapshot: null,
@@ -168,8 +168,6 @@ export function QuotationEdit() {
 
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
   const [paymentTermId, setPaymentTermId] = useState<number | null>(null);
-  const [taxRateId, setTaxRateId] = useState<number | null>(null);
-  const [taxPercent, setTaxPercent] = useState(0);
   const [issueDate, setIssueDate] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [reference, setReference] = useState("");
@@ -220,8 +218,6 @@ export function QuotationEdit() {
         setInstallationAddress(q.installation_address);
         setPaymentMethodId(q.payment_method_id);
         setPaymentTermId(q.payment_term_id);
-        setTaxRateId(q.tax_rate_id);
-        setTaxPercent(q.tax_percent);
         setIssueDate(q.issue_date);
         setValidUntil(q.valid_until || "");
         setReference(q.reference);
@@ -356,7 +352,7 @@ export function QuotationEdit() {
             unit_price: Number(otdSnap.total_amount || 0),
             discount_percent: 0,
             tax_rate_id: null,
-            tax_percent: 0,
+            tax_percent: 21,
             line_behavior_id: null,
             line_behavior_snapshot: null,
             product_definition_snapshot: null,
@@ -384,7 +380,7 @@ export function QuotationEdit() {
           const gross = Math.max(0, l.quantity * l.unit_price);
           const discount = Math.max(0, (gross * l.discount_percent) / 100);
           const net = Math.max(0, gross - discount);
-          const tax = (net * taxPercent) / 100;
+          const tax = (net * l.tax_percent) / 100;
           return {
             discount: a.discount + discount,
             net: a.net + net,
@@ -394,7 +390,7 @@ export function QuotationEdit() {
         },
         { discount: 0, net: 0, tax: 0, total: 0 },
       ),
-    [lines, taxPercent],
+    [lines],
   );
 
   const updateLine = (i: number, patch: Partial<EditLine>) =>
@@ -705,8 +701,6 @@ export function QuotationEdit() {
         installation_address: installationAddress,
         payment_method_id: paymentMethodId,
         payment_term_id: paymentTermId,
-        tax_rate_id: taxRateId,
-        tax_percent: taxPercent,
         issue_date: issueDate,
         valid_until: validUntil || null,
         status:
@@ -923,25 +917,6 @@ export function QuotationEdit() {
                 ))}
               </select>
             </label>
-            <label>
-              IVA
-              <select
-                value={taxRateId ?? ""}
-                onChange={(e) => {
-                  const id = e.target.value ? Number(e.target.value) : null;
-                  const t = opts.taxRates.find((x: any) => x.id === id);
-                  setTaxRateId(id);
-                  setTaxPercent(Number(t?.rate ?? 0));
-                }}
-              >
-                <option value="">Sin IVA</option>
-                {opts.taxRates.map((t: any) => (
-                  <option key={t.id} value={t.id}>
-                    {t.rate}% · {t.label}
-                  </option>
-                ))}
-              </select>
-            </label>
             <div className="address-editors-row">
               <AddressEditor
                 title="Dirección de facturación"
@@ -1144,6 +1119,7 @@ export function QuotationEdit() {
                   <th className="col-quantity">Cantidad</th>
                   <th className="col-price">Precio</th>
                   <th className="col-discount">Dto. %</th>
+                  <th className="col-tax">Impuestos</th>
                   <th className="col-total">Total</th>
                   <th className="col-actions">Acciones</th>
                 </tr>
@@ -1157,7 +1133,7 @@ export function QuotationEdit() {
                         line.unit_price *
                         (1 - line.discount_percent / 100),
                     ) *
-                    (1 + taxPercent / 100);
+                    (1 + line.tax_percent / 100);
                   const snapshot =
                     line.configuration_snapshot ||
                     (line.specific_data?.configuration_snapshot as
@@ -1549,6 +1525,31 @@ export function QuotationEdit() {
                           }
                         />
                       </td>
+                      <td className="col-tax">
+                        <select
+                          className="line-tax-select"
+                          value={line.tax_rate_id ?? ""}
+                          onChange={(e) => {
+                            const taxId = e.target.value
+                              ? Number(e.target.value)
+                              : null;
+                            const t = opts.taxRates.find(
+                              (x: any) => x.id === taxId,
+                            );
+                            updateLine(i, {
+                              tax_rate_id: taxId,
+                              tax_percent: Number(t?.rate ?? 0),
+                            });
+                          }}
+                        >
+                          <option value="">Sin impuestos</option>
+                          {opts.taxRates.map((t: any) => (
+                            <option key={t.id} value={t.id}>
+                              {t.rate}% · {t.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="col-total">
                         <strong className="line-total-val">
                           {money(total)}
@@ -1609,7 +1610,7 @@ export function QuotationEdit() {
               Descuentos <strong>{money(totals.discount)}</strong>
             </span>
             <span>
-              Impuestos ({taxPercent}%) <strong>{money(totals.tax)}</strong>
+              Impuestos <strong>{money(totals.tax)}</strong>
             </span>
             <span>
               Total <strong>{money(totals.total)}</strong>

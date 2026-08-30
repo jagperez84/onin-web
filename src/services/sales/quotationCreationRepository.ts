@@ -8,7 +8,7 @@ export type ProductLineBehavior={id:number;company_id:number;code:string;name:st
 export type QuotationProductOption={id:number;label:string;code?:string;price?:number;lineBehavior:ProductLineBehavior|null};
 export type QuotationLineDimensionDraft={code:string;name:string;value:number|null;unit_id:number|null;unit_code?:string;unit_symbol?:string|null;sort_order:number};
 export type QuotationLineCharacteristicDraft={attribute_id:number|null;attribute_value_id:number|null;value_text:string|null;value_number:number|null;value_boolean:boolean|null};
-export type QuotationLineDraft={product_id:number|null;description:string;quantity:number;unit_price:number;discount_percent:number;dimensions?:QuotationLineDimensionDraft[];characteristics?:QuotationLineCharacteristicDraft[];specific_data?:Record<string,unknown>};
+export type QuotationLineDraft={product_id:number|null;description:string;quantity:number;unit_price:number;discount_percent:number;tax_rate_id:number|null;tax_percent:number;dimensions?:QuotationLineDimensionDraft[];characteristics?:QuotationLineCharacteristicDraft[];specific_data?:Record<string,unknown>};
 export type QuotationAddressDraft={source_id:number|null;label:string;street:string;postal_code:string;city:string;region:string};
 export type CustomerDiscount={discount_percent:number;level:'article'|'familia'};
 
@@ -109,8 +109,6 @@ export async function createQuotation(input: {
   payment_method_id: number | null;
   payment_term_id: number | null;
   measurement_id: number | null;
-  tax_rate_id: number | null;
-  tax_percent: number;
   issue_date: string;
   valid_until: string | null;
   reference: string;
@@ -141,9 +139,9 @@ export async function createQuotation(input: {
 
   const number = Number(last?.number || 0) + 1;
   const code = `${year}/${number}`;
-  const taxPercent = Math.max(0, Number(input.tax_percent) || 0);
 
   const lines = input.lines.map((line, i) => {
+    const taxPercent = Math.max(0, Number(line.tax_percent) || 0);
     const net = Math.max(0, line.quantity * line.unit_price * (1 - line.discount_percent / 100));
     const tax = Math.max(0, (net * taxPercent) / 100);
     const behavior = line.product_id === null ? null : behaviors.get(line.product_id) ?? null;
@@ -155,7 +153,7 @@ export async function createQuotation(input: {
       quantity: line.quantity,
       unit_price: line.unit_price,
       discount_percent: line.discount_percent,
-      tax_rate_id: input.tax_rate_id,
+      tax_rate_id: line.tax_rate_id,
       tax_percent: taxPercent,
       net_amount: net,
       tax_amount: tax,
@@ -216,8 +214,6 @@ export async function createQuotation(input: {
     payment_method_id: input.payment_method_id,
     payment_term_id: input.payment_term_id,
     measurement_id: input.measurement_id,
-    tax_rate_id: input.tax_rate_id,
-    tax_percent: taxPercent,
     issue_date: input.issue_date,
     valid_until: input.valid_until || null,
     status: 'DRAFT',

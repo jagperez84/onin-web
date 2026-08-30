@@ -65,6 +65,8 @@ type Line = {
   quantity: number;
   unit_price: number;
   discount_percent: number;
+  tax_rate_id: number | null;
+  tax_percent: number;
   line_behavior: ProductLineBehavior | null;
   product_definition_snapshot: ProductLineDefinition | null;
   dimensions: QuotationLineDimensionDraft[];
@@ -87,6 +89,8 @@ const blank = (): Line => ({
   quantity: 1,
   unit_price: 0,
   discount_percent: 0,
+  tax_rate_id: null,
+  tax_percent: 21,
   line_behavior: null,
   product_definition_snapshot: null,
   dimensions: [],
@@ -159,8 +163,6 @@ export function QuotationCreate() {
     useState<AddressDraft>(emptyAddress());
   const [paymentMethodId, setPaymentMethodId] = useState<number | null>(null);
   const [paymentTermId, setPaymentTermId] = useState<number | null>(null);
-  const [taxRateId, setTaxRateId] = useState<number | null>(null);
-  const [taxPercent, setTaxPercent] = useState(21);
   const [issueDate, setIssueDate] = useState(today());
   const [validUntil, setValidUntil] = useState("");
   const [reference, setReference] = useState("");
@@ -265,6 +267,8 @@ export function QuotationCreate() {
         quantity: 1,
         unit_price: Number(otdSnap.total_amount || 0),
         discount_percent: 0,
+        tax_rate_id: null,
+        tax_percent: 21,
         line_behavior: null,
         product_definition_snapshot: null,
         dimensions: dimDrafts,
@@ -292,7 +296,7 @@ export function QuotationCreate() {
           const gross = Math.max(0, l.quantity * l.unit_price);
           const discount = Math.max(0, (gross * l.discount_percent) / 100);
           const net = Math.max(0, gross - discount);
-          const tax = (net * taxPercent) / 100;
+          const tax = (net * l.tax_percent) / 100;
           return {
             discount: a.discount + discount,
             net: a.net + net,
@@ -302,7 +306,7 @@ export function QuotationCreate() {
         },
         { discount: 0, net: 0, tax: 0, total: 0 },
       ),
-    [lines, taxPercent],
+    [lines],
   );
   const updateLine = (i: number, patch: Partial<Line>) =>
     setLines((xs) => xs.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -357,12 +361,15 @@ export function QuotationCreate() {
       const discount = customerId
         ? await customerProductDiscount(customerId, id)
         : null;
+      const current = lines[i];
       const line: Line = {
         product_id: id,
         description: p?.label || p?.code || "",
         quantity: 1,
         unit_price: Number(p?.price ?? 0),
         discount_percent: discount?.discount_percent ?? 0,
+        tax_rate_id: current?.tax_rate_id ?? null,
+        tax_percent: current?.tax_percent ?? 21,
         line_behavior: p?.lineBehavior ?? null,
         product_definition_snapshot: clone(definition),
         dimensions: dimensionsFromDefinition(definition),
@@ -422,12 +429,16 @@ export function QuotationCreate() {
       otdId: number;
     },
   ) => {
+    const existingLine =
+      otdModalLineIndex !== null ? lines[otdModalLineIndex] : null;
     const newLine: Line = {
       product_id: null,
       description: lineData.description,
       quantity: lineData.quantity,
       unit_price: lineData.unitPrice,
       discount_percent: 0,
+      tax_rate_id: existingLine?.tax_rate_id ?? null,
+      tax_percent: existingLine?.tax_percent ?? 21,
       line_behavior: null,
       product_definition_snapshot: null,
       dimensions: lineData.dimensions,
@@ -656,8 +667,6 @@ export function QuotationCreate() {
         payment_method_id: paymentMethodId,
         payment_term_id: paymentTermId,
         measurement_id: null,
-        tax_rate_id: taxRateId,
-        tax_percent: taxPercent,
         issue_date: issueDate,
         valid_until: validUntil || null,
         reference,
@@ -668,6 +677,8 @@ export function QuotationCreate() {
           quantity: l.quantity,
           unit_price: l.unit_price,
           discount_percent: l.discount_percent,
+          tax_rate_id: l.tax_rate_id,
+          tax_percent: l.tax_percent,
           dimensions: l.dimensions,
           characteristics: l.characteristics,
           specific_data: {
@@ -852,27 +863,6 @@ export function QuotationCreate() {
                   {(opts?.paymentTerms ?? []).map((x: any) => (
                     <option key={x.id} value={x.id}>
                       {x.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                IVA
-                <select
-                  value={taxRateId ?? ""}
-                  onChange={(e) => {
-                    const id = e.target.value ? Number(e.target.value) : null;
-                    const t = (opts?.taxRates ?? []).find(
-                      (x: any) => x.id === id,
-                    );
-                    setTaxRateId(id);
-                    setTaxPercent(Number(t?.rate ?? 0));
-                  }}
-                >
-                  <option value="">Sin IVA</option>
-                  {(opts?.taxRates ?? []).map((t: any) => (
-                    <option key={t.id} value={t.id}>
-                      {t.rate}% · {t.label}
                     </option>
                   ))}
                 </select>
@@ -1070,6 +1060,7 @@ export function QuotationCreate() {
                   <th className="col-quantity">Cantidad</th>
                   <th className="col-price">Precio</th>
                   <th className="col-discount">Dto. %</th>
+                  <th className="col-tax">Impuestos</th>
                   <th className="col-total">Total</th>
                   <th className="col-actions">Acciones</th>
                 </tr>
@@ -1083,7 +1074,7 @@ export function QuotationCreate() {
                         line.unit_price *
                         (1 - line.discount_percent / 100),
                     ) *
-                    (1 + taxPercent / 100);
+                    (1 + line.tax_percent / 100);
                   const snapshot =
                     line.configuration_snapshot ||
                     (line.specific_data?.configuration_snapshot as
@@ -1136,7 +1127,7 @@ export function QuotationCreate() {
               Descuentos <strong>{money(totals.discount)}</strong>
             </span>
             <span>
-              Impuestos ({taxPercent}%) <strong>{money(totals.tax)}</strong>
+              Impuestos <strong>{money(totals.tax)}</strong>
             </span>
             <span>
               Total <strong>{money(totals.total)}</strong>
@@ -1584,6 +1575,24 @@ function QuotationLineRows({
             onLinePatch({ discount_percent: Number(e.target.value) })
           }
         />
+      </td>
+      <td className="col-tax">
+        <select
+          className="line-tax-select"
+          value={line.tax_rate_id ?? ""}
+          onChange={(e) => {
+            const id = e.target.value ? Number(e.target.value) : null;
+            const t = (opts?.taxRates ?? []).find((x: any) => x.id === id);
+            onLinePatch({ tax_rate_id: id, tax_percent: Number(t?.rate ?? 0) });
+          }}
+        >
+          <option value="">Sin impuestos</option>
+          {(opts?.taxRates ?? []).map((t: any) => (
+            <option key={t.id} value={t.id}>
+              {t.rate}% · {t.label}
+            </option>
+          ))}
+        </select>
       </td>
       <td className="col-total">
         <strong className="line-total-val">{money(total)}</strong>

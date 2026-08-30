@@ -913,8 +913,8 @@ export function QuotationDetail() {
                   <th className="numeric" style={{ width: "55px" }}>
                     Dto.
                   </th>
-                  <th className="numeric" style={{ width: "55px" }}>
-                    IVA
+                  <th className="numeric" style={{ width: "70px" }}>
+                    Impuestos
                   </th>
                   <th className="numeric" style={{ width: "110px" }}>
                     Total
@@ -1001,7 +1001,7 @@ export function QuotationDetail() {
               <strong>{money(totals.discount)}</strong>
             </div>
             <div>
-              <span>Impuestos (IVA)</span>
+              <span>Impuestos</span>
               <strong>{money(totals.tax)}</strong>
             </div>
             <div className="quotation-total-final">

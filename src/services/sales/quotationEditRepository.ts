@@ -211,8 +211,6 @@ export async function updateQuotation(input: {
   installation_address: QuotationEditData['installation_address'];
   payment_method_id: number | null;
   payment_term_id: number | null;
-  tax_rate_id: number | null;
-  tax_percent: number;
   issue_date: string;
   valid_until: string | null;
   status?: string;
@@ -237,7 +235,6 @@ export async function updateQuotation(input: {
   const existingByLineNo = new Map((existingLines ?? []).map((row: any) => [Number(row.line_no), row]));
   const productIds = input.lines.map(l => l.product_id).filter((id): id is number => id !== null);
   const definitions = await getProductLineDefinitions(productIds);
-  const taxPercent = Math.max(0, Number(input.tax_percent) || 0);
 
   const lines = input.lines.map((line, index) => {
     const existing = existingByLineNo.get(index + 1);
@@ -248,6 +245,7 @@ export async function updateQuotation(input: {
       ? null
       : definitions.get(line.product_id) ?? null;
 
+    const taxPercent = Math.max(0, Number(line.tax_percent) || 0);
     const net = Math.max(0, Number(line.quantity || 0) * Number(line.unit_price || 0) * (1 - Number(line.discount_percent || 0) / 100));
     const tax = Math.max(0, (net * taxPercent) / 100);
 
@@ -258,7 +256,7 @@ export async function updateQuotation(input: {
       quantity: Number(line.quantity || 0),
       unit_price: Number(line.unit_price || 0),
       discount_percent: Number(line.discount_percent || 0),
-      tax_rate_id: input.tax_rate_id,
+      tax_rate_id: line.tax_rate_id,
       tax_percent: taxPercent,
       net_amount: net,
       tax_amount: tax,
@@ -297,8 +295,6 @@ export async function updateQuotation(input: {
     installation_address_region: ia.region || null,
     payment_method_id: input.payment_method_id,
     payment_term_id: input.payment_term_id,
-    tax_rate_id: input.tax_rate_id,
-    tax_percent: taxPercent,
     issue_date: input.issue_date,
     valid_until: input.valid_until || null,
     reference: input.reference.trim() || null,

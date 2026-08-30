@@ -373,6 +373,8 @@ export function QuotationLineConfigurator({
       quantity: previewSnapshot.quantity,
       unit_price: previewSnapshot.pricing.unit_price,
       discount_percent: previewSnapshot.pricing.discount_percent,
+      tax_rate_id: null,
+      tax_percent: taxPercent,
       dimensions: lineDimensions,
       characteristics: lineCharacteristics,
       specific_data: {
