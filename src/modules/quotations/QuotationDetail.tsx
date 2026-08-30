@@ -162,7 +162,9 @@ export function QuotationDetail() {
   const [deliveryNoteModalOpen, setDeliveryNoteModalOpen] = useState(false);
   const [existingDeliveryNote, setExistingDeliveryNote] =
     useState<DeliveryNote | null>(null);
-  const [fullyConvertedToOrder, setFullyConvertedToOrder] = useState(false);
+  const [orderConversionState, setOrderConversionState] = useState<
+    "none" | "partial" | "full"
+  >("none");
 
   async function loadQuotation() {
     try {
@@ -261,11 +263,12 @@ export function QuotationDetail() {
       if (q.status === "ACCEPTED") {
         try {
           const conversion = await getQuotationConversionStatus(Number(id));
-          setFullyConvertedToOrder(
-            conversion.length > 0 && conversion.every((c) => c.remaining_quantity <= 0),
-          );
+          const hasLines = conversion.length > 0;
+          const isFull = hasLines && conversion.every((c) => c.remaining_quantity <= 0);
+          const hasAnyConverted = conversion.some((c) => c.converted_quantity > 0);
+          setOrderConversionState(isFull ? "full" : hasAnyConverted ? "partial" : "none");
         } catch {
-          setFullyConvertedToOrder(false);
+          setOrderConversionState("none");
         }
       }
     } catch (e) {
@@ -363,6 +366,22 @@ export function QuotationDetail() {
             >
               {statusLabel(effectiveStatus)}
             </span>
+            {orderConversionState === "partial" && (
+              <span
+                className="status-pill warning"
+                title="Algunas líneas de este presupuesto ya se han incluido en uno o más pedidos, pero queda cantidad pendiente"
+              >
+                Pedido parcial
+              </span>
+            )}
+            {orderConversionState === "full" && (
+              <span
+                className="status-pill success"
+                title="Todas las líneas de este presupuesto ya se han incluido en uno o más pedidos"
+              >
+                Convertido a pedido
+              </span>
+            )}
           </div>
 
           <div className="quotation-subtitle-meta">
@@ -463,7 +482,7 @@ export function QuotationDetail() {
                   <UserRound size={15} /> Crear cliente
                 </Link>
               )}
-              {data.customer_id != null && fullyConvertedToOrder && (
+              {data.customer_id != null && orderConversionState === "full" && (
                 <button
                   type="button"
                   className="secondary-button"
@@ -473,7 +492,7 @@ export function QuotationDetail() {
                   <PackageCheck size={15} /> Ya convertido a pedido
                 </button>
               )}
-              {data.customer_id != null && !fullyConvertedToOrder && (
+              {data.customer_id != null && orderConversionState !== "full" && (
                 <Link
                   className="primary-button"
                   to={`/ventas/pedidos/nuevo?quotationId=${data.id}`}
