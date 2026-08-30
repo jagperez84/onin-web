@@ -38,6 +38,7 @@ import {
   type DeliveryNote,
 } from "../../services/sales/deliveryNoteService";
 import { generateAndDownloadQuotationPdf } from "../../services/sales/quotationPdfService";
+import { getQuotationConversionStatus } from "../../services/sales/salesOrderService";
 import { QuotationLineSnapshotModal } from "./QuotationLineSnapshotModal";
 import { QuotationEmailModal } from "./QuotationEmailModal";
 import { QuotationRenewModal } from "./QuotationRenewModal";
@@ -161,6 +162,7 @@ export function QuotationDetail() {
   const [deliveryNoteModalOpen, setDeliveryNoteModalOpen] = useState(false);
   const [existingDeliveryNote, setExistingDeliveryNote] =
     useState<DeliveryNote | null>(null);
+  const [fullyConvertedToOrder, setFullyConvertedToOrder] = useState(false);
 
   async function loadQuotation() {
     try {
@@ -256,6 +258,16 @@ export function QuotationDetail() {
 
       setData(q as unknown as Detail);
       setExistingDeliveryNote(getDeliveryNoteByQuotationId(Number(id)));
+      if (q.status === "ACCEPTED") {
+        try {
+          const conversion = await getQuotationConversionStatus(Number(id));
+          setFullyConvertedToOrder(
+            conversion.length > 0 && conversion.every((c) => c.remaining_quantity <= 0),
+          );
+        } catch {
+          setFullyConvertedToOrder(false);
+        }
+      }
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "No se pudo cargar el presupuesto.",
@@ -451,7 +463,17 @@ export function QuotationDetail() {
                   <UserRound size={15} /> Crear cliente
                 </Link>
               )}
-              {data.customer_id != null && (
+              {data.customer_id != null && fullyConvertedToOrder && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled
+                  title="Todas las líneas de este presupuesto ya se han incluido en un pedido"
+                >
+                  <PackageCheck size={15} /> Ya convertido a pedido
+                </button>
+              )}
+              {data.customer_id != null && !fullyConvertedToOrder && (
                 <Link
                   className="primary-button"
                   to={`/ventas/pedidos/nuevo?quotationId=${data.id}`}

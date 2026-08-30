@@ -115,6 +115,37 @@ export async function getSalesOrderByQuotationId(quotationId: number): Promise<S
   return { ...data, quotation_code: quotation?.code, customer_name: customer.name, lines: (data.lines || []).sort((a: any, b: any) => a.line_no - b.line_no) } as SalesOrder;
 }
 
+export async function listSalesOrdersByQuotationId(quotationId: number): Promise<SalesOrder[]> {
+  const c = client();
+  const cid = await companyId();
+  const { data, error } = await c.from('sales_order')
+    .select('id,code,status,issue_date,total_amount')
+    .eq('company_id', cid).eq('quotation_id', quotationId).order('issue_date', { ascending: false });
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data || []) as SalesOrder[];
+}
+
+export type QuotationLineConversion = {
+  quotation_line_id: number;
+  line_no: number;
+  quantity: number;
+  converted_quantity: number;
+  remaining_quantity: number;
+};
+
+export async function getQuotationConversionStatus(quotationId: number): Promise<QuotationLineConversion[]> {
+  const c = client();
+  const { data, error } = await c.rpc('quotation_conversion_status', { p_quotation_id: quotationId });
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data || []).map((row: any) => ({
+    quotation_line_id: Number(row.quotation_line_id),
+    line_no: Number(row.line_no),
+    quantity: Number(row.quantity),
+    converted_quantity: Number(row.converted_quantity),
+    remaining_quantity: Number(row.remaining_quantity),
+  }));
+}
+
 export async function getSalesOrder(id: number): Promise<SalesOrder | null> {
   const c = client();
   const cid = await companyId();
@@ -143,9 +174,15 @@ export async function listSalesOrders(search = ''): Promise<SalesOrder[]> {
   });
 }
 
-export async function createSalesOrderFromQuotation(quotationId: number): Promise<SalesOrder> {
+export async function createSalesOrderFromQuotation(
+  quotationId: number,
+  lines: { quotationLineId: number; quantity: number }[],
+): Promise<SalesOrder> {
   const c = client();
-  const { data, error } = await c.rpc('create_sales_order_from_quotation', { p_quotation_id: quotationId });
+  const { data, error } = await c.rpc('create_sales_order_from_quotation', {
+    p_quotation_id: quotationId,
+    p_lines: lines.map((l) => ({ quotation_line_id: l.quotationLineId, quantity: l.quantity })),
+  });
   if (error) throw new CoreRepositoryError(error.message);
   const order = await getSalesOrder(Number(data));
   if (!order) throw new CoreRepositoryError('El pedido se ha creado pero no se ha podido recuperar.');
