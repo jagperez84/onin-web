@@ -877,20 +877,22 @@ export function QuotationCreate() {
                   ))}
                 </select>
               </label>
-              <AddressEditor
-                title="Dirección de facturación"
-                addresses={addresses}
-                value={billingAddress}
-                onChange={setBillingAddress}
-                onSourceChange={setBillingId}
-              />
-              <AddressEditor
-                title="Dirección de instalación"
-                addresses={addresses}
-                value={installationAddress}
-                onChange={setInstallationAddress}
-                onSourceChange={setInstallationId}
-              />
+              <div className="address-editors-row">
+                <AddressEditor
+                  title="Dirección de facturación"
+                  addresses={addresses}
+                  value={billingAddress}
+                  onChange={setBillingAddress}
+                  onSourceChange={setBillingId}
+                />
+                <AddressEditor
+                  title="Dirección de instalación"
+                  addresses={addresses}
+                  value={installationAddress}
+                  onChange={setInstallationAddress}
+                  onSourceChange={setInstallationId}
+                />
+              </div>
               <div
                 className="quotation-contact-section"
                 style={{

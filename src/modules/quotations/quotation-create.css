@@ -59,6 +59,12 @@
 .quotation-create .quotation-header-panel .date-field input {
   max-width: none;
 }
+.quotation-create .address-editors-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
 .quotation-create .address-editor {
   min-width: 0;
   width: 100%;
@@ -654,6 +660,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: var(--sp-3);
     row-gap: var(--sp-3);
+  }
+  .quotation-create .address-editors-row {
+    grid-template-columns: 1fr;
   }
   .quotation-create .address-editor-grid {
     grid-template-columns: 1fr 1fr;
