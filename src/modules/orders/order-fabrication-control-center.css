@@ -1,0 +1,78 @@
+.order-fabrication-control-center {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.order-fabrication-control-center .ofc-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.order-fabrication-control-center .ofc-mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.order-fabrication-control-center .ofc-mode-toggle button {
+  border: 0;
+  background: var(--surface);
+  padding: 4px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.order-fabrication-control-center .ofc-mode-toggle button.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.order-fabrication-control-center .ofc-manual-row td {
+  background: var(--canvas-stripe);
+  padding: 12px !important;
+}
+
+.order-fabrication-control-center .ofc-piece-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.order-fabrication-control-center .ofc-piece {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 11.5px;
+}
+
+.order-fabrication-control-center .ofc-piece.selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.order-fabrication-control-center .ofc-piece span {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-fabrication-control-center .ofc-piece-qty input {
+  width: 56px;
+}
+
+.order-fabrication-control-center .ofc-narrow-input {
+  width: 56px;
+}

@@ -1,20 +1,24 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2, Factory, FileText, Loader2, X } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Boxes, CheckCircle2, Factory, FileText, Loader2, Scissors, X } from 'lucide-react';
 import type { SalesOrder } from '../../services/sales/salesOrderService';
 import { getWorkSheetsBySalesOrderLine, type WorkSheet } from '../../services/production/workSheetService';
 import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
 import { getComponentConsumptionWorkSheetBySalesOrderLine, type ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
 import { downloadOrderManufacturingReportPdf } from '../../services/production/orderManufacturingReportPdfService';
+import { listProfileStockPieces, type ProfileStockPiece } from '../../services/warehouse/stockRepository';
+import type { LonaCutType } from '../../services/production/lonaCutCalculationService';
 import {
+  buildOrderFabricationOverview,
   fabricateWholeOrder,
-  getLineRequirements,
-  isLineComponentsDone,
-  isLineLonaDone,
-  isLineProfileDone,
   type LineFabricationOutcome,
+  type OrderFabricationOverview,
+  type OrderFabricationPlan,
+  type ProfileNeedPreview,
 } from '../../services/production/orderFabricationService';
 import './component-consumption.css';
 import './lona-confection.css';
+import './sales-order-cut.css';
+import './order-fabrication-control-center.css';
 
 type Props = {
   order: SalesOrder;
@@ -23,17 +27,29 @@ type Props = {
   onDone: (data: { cutSheets: Record<number, WorkSheet[]>; lonaSheets: Record<number, LonaConfectionWorkSheet>; componentSheets: Record<number, ComponentConsumptionWorkSheet>; orderManufactured: boolean }) => void;
 };
 
-type LinePreview = { lineId: number; lineNo: number; label: string; needsProfile: boolean; profileDone: boolean; needsLona: boolean; lonaDone: boolean; needsComponents: boolean; componentsDone: boolean };
-
-function linePending(p: LinePreview) {
-  return (p.needsProfile && !p.profileDone) || (p.needsLona && !p.lonaDone) || (p.needsComponents && !p.componentsDone);
-}
-
 const stepLabel = (status: string) => ({ skipped: 'No aplica', already_done: 'Ya hecho', done: 'Fabricado', error: 'Error' } as Record<string, string>)[status] || status;
+const CUT_TYPES: LonaCutType[] = ['Asimétrico', 'Retal Maxi', 'Retal Mini', 'Degradee', 'Screen', 'Telón'];
+const DEFAULT_HEM = '3';
+const DEFAULT_OVERLAP = '2.7';
+const parseCutParam = (value: string) => (value === '' ? 0 : Number(value.replace(',', '.')) || 0);
+
+type PieceRow = ProfileStockPiece & { selected: boolean; selectedQuantity: number };
 
 export function OrderFabricationModal({ order, companyId, onClose, onDone }: Props) {
   const [loading, setLoading] = useState(true);
-  const [previews, setPreviews] = useState<LinePreview[]>([]);
+  const [loadError, setLoadError] = useState('');
+  const [overview, setOverview] = useState<OrderFabricationOverview | null>(null);
+
+  const [profileMode, setProfileMode] = useState<Record<string, 'AUTOMATIC' | 'MANUAL'>>({});
+  const [profilePieces, setProfilePieces] = useState<Record<string, PieceRow[]>>({});
+  const [profilePiecesLoading, setProfilePiecesLoading] = useState<Record<string, boolean>>({});
+
+  const [lonaCutType, setLonaCutType] = useState<Record<string, LonaCutType>>({});
+  const [lonaHem, setLonaHem] = useState<Record<string, string>>({});
+  const [lonaOverlap, setLonaOverlap] = useState<Record<string, string>>({});
+
+  const [componentWarehouse, setComponentWarehouse] = useState<Record<string, number>>({});
+
   const [running, setRunning] = useState(false);
   const [outcomes, setOutcomes] = useState<LineFabricationOutcome[] | null>(null);
   const [orderManufactured, setOrderManufactured] = useState(false);
@@ -41,51 +57,135 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
   const [reportData, setReportData] = useState<{ cutSheets: WorkSheet[]; lonaSheets: LonaConfectionWorkSheet[]; componentSheets: ComponentConsumptionWorkSheet[] } | null>(null);
 
   const lines = order.lines || [];
+  const orderWarehouseId = (order as any).warehouse_id == null ? null : Number((order as any).warehouse_id);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    (async () => {
-      const built = await Promise.all(
-        lines.map(async (line: any) => {
-          const requirements = getLineRequirements(line);
-          const [profileDone, lonaDone, componentsDone] = await Promise.all([
-            requirements.needsProfile ? isLineProfileDone(line) : Promise.resolve(true),
-            requirements.needsLona ? isLineLonaDone(line) : Promise.resolve(true),
-            requirements.needsComponents ? isLineComponentsDone(line) : Promise.resolve(true),
-          ]);
-          const preview: LinePreview = {
-            lineId: Number(line.id),
-            lineNo: Number(line.line_no),
-            label: line.description || line.product?.code || `Línea ${line.line_no}`,
-            needsProfile: requirements.needsProfile,
-            profileDone,
-            needsLona: requirements.needsLona,
-            lonaDone,
-            needsComponents: requirements.needsComponents,
-            componentsDone,
-          };
-          return preview;
-        })
-      );
-      if (active) {
-        setPreviews(built);
-        setLoading(false);
-      }
-    })();
+    setLoadError('');
+    buildOrderFabricationOverview(order, companyId)
+      .then(result => {
+        if (!active) return;
+        setOverview(result);
+        setProfileMode(Object.fromEntries(result.profileNeeds.map(n => [n.key, 'AUTOMATIC' as const])));
+        const warehouseDefaults: Record<string, number> = {};
+        result.componentNeeds.forEach(row => {
+          const preferred = orderWarehouseId ? row.options.find(o => o.warehouseId === orderWarehouseId) : null;
+          const chosen = preferred ?? row.options[0];
+          if (chosen) warehouseDefaults[row.key] = chosen.warehouseId;
+        });
+        setComponentWarehouse(warehouseDefaults);
+      })
+      .catch(err => {
+        if (active) setLoadError(err instanceof Error ? err.message : 'No se pudo analizar el pedido.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.id]);
 
-  const pendingCount = previews.filter(linePending).length;
+  const setModeFor = (need: ProfileNeedPreview, mode: 'AUTOMATIC' | 'MANUAL') => {
+    setProfileMode(prev => ({ ...prev, [need.key]: mode }));
+    if (mode === 'MANUAL' && !profilePieces[need.key] && need.profileId && need.length) {
+      setProfilePiecesLoading(prev => ({ ...prev, [need.key]: true }));
+      listProfileStockPieces({
+        companyId,
+        productId: need.profileId,
+        productCode: need.profile,
+        characteristicId: need.characteristicId,
+        characteristicCode: need.characteristicCode,
+        requiredLength: need.length,
+      })
+        .then(rows => {
+          setProfilePieces(prev => ({ ...prev, [need.key]: rows.map(r => ({ ...r, selected: false, selectedQuantity: 0 })) }));
+        })
+        .catch(() => setProfilePieces(prev => ({ ...prev, [need.key]: [] })))
+        .finally(() => setProfilePiecesLoading(prev => ({ ...prev, [need.key]: false })));
+    }
+  };
+
+  const togglePiece = (needKey: string, pieceIndex: number) => {
+    setProfilePieces(prev => {
+      const list = prev[needKey] || [];
+      const updated = list.map((piece, i) => {
+        if (i !== pieceIndex) return piece;
+        const nextSelected = !piece.selected;
+        return { ...piece, selected: nextSelected, selectedQuantity: nextSelected ? (piece.selectedQuantity > 0 ? piece.selectedQuantity : 1) : 0 };
+      });
+      return { ...prev, [needKey]: updated };
+    });
+  };
+
+  const changePieceQuantity = (needKey: string, pieceIndex: number, value: number) => {
+    setProfilePieces(prev => {
+      const list = prev[needKey] || [];
+      const updated = list.map((piece, i) => {
+        if (i !== pieceIndex) return piece;
+        const bounded = Math.min(Math.max(0, value), piece.quantity);
+        return { ...piece, selected: bounded > 0, selectedQuantity: bounded };
+      });
+      return { ...prev, [needKey]: updated };
+    });
+  };
+
+  const profileValidation = useMemo(() => {
+    if (!overview) return { valid: true, message: '' };
+    for (const need of overview.profileNeeds) {
+      if (profileMode[need.key] === 'MANUAL') {
+        const selectedQuantity = (profilePieces[need.key] || []).reduce((sum, p) => sum + p.selectedQuantity, 0);
+        if (selectedQuantity !== need.quantity) {
+          return { valid: false, message: `Selecciona ${need.quantity} pieza(s) para ${need.profile} (línea ${need.lineNo}).` };
+        }
+      }
+    }
+    return { valid: true, message: '' };
+  }, [overview, profileMode, profilePieces]);
+
+  const totalPending = overview ? overview.profileNeeds.length + overview.lonaLines.reduce((sum, l) => sum + l.result.components.length, 0) + overview.componentNeeds.length : 0;
+
+  const buildPlan = (): OrderFabricationPlan => {
+    const plan: OrderFabricationPlan = { profileMode: {}, profileManualSelections: {}, lonaOverrides: {}, componentWarehouse: {} };
+    (overview?.profileNeeds || []).forEach(need => {
+      const mode = profileMode[need.key] || 'AUTOMATIC';
+      plan.profileMode![need.key] = mode;
+      if (mode === 'MANUAL') {
+        const selected = (profilePieces[need.key] || []).filter(p => p.selectedQuantity > 0);
+        plan.profileManualSelections![need.key] = selected.map(p => ({
+          warehouseId: p.warehouseId,
+          length: p.length,
+          quantity: p.selectedQuantity,
+          characteristicId: p.characteristicId,
+          characteristicCode: p.characteristicCode,
+        }));
+      }
+    });
+    (overview?.lonaLines || []).forEach(lineEntry => {
+      lineEntry.result.components.forEach(component => {
+        const key = `${lineEntry.lineId}:${component.index}`;
+        plan.lonaOverrides![key] = {
+          cutType: lonaCutType[key] ?? 'Asimétrico',
+          hem: parseCutParam(lonaHem[key] ?? DEFAULT_HEM),
+          overlap: parseCutParam(lonaOverlap[key] ?? DEFAULT_OVERLAP),
+        };
+      });
+    });
+    (overview?.componentNeeds || []).forEach(row => {
+      const warehouseId = componentWarehouse[row.key];
+      if (warehouseId != null) plan.componentWarehouse![row.key] = warehouseId;
+    });
+    return plan;
+  };
 
   const run = async () => {
     setRunning(true);
     setError('');
     try {
-      const { outcomes: result, orderManufactured: manufactured } = await fabricateWholeOrder(order, companyId);
+      const plan = buildPlan();
+      const { outcomes: result, orderManufactured: manufactured } = await fabricateWholeOrder(order, companyId, plan);
       setOutcomes(result);
       setOrderManufactured(manufactured);
 
@@ -127,11 +227,9 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
       <div className="modal-card xl">
         <header className="modal-header">
           <div>
-            <span className="lona-eyebrow">FABRICACIÓN / PEDIDO COMPLETO</span>
-            <h2>
-              Fabricar {order.code}
-            </h2>
-            <p>Corta, confecciona y descuenta componentes de todas las líneas del pedido de una sola vez, y genera el informe de fabricación para el taller.</p>
+            <span className="lona-eyebrow">FABRICACIÓN / CENTRO DE CONTROL</span>
+            <h2>Fabricar {order.code}</h2>
+            <p>Revisa y ajusta perfiles, lonas y componentes de todas las líneas del pedido antes de fabricar de una sola vez.</p>
           </div>
           <button type="button" className="lona-close" onClick={onClose} aria-label="Cerrar">
             <X size={18} />
@@ -140,6 +238,8 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
 
         {loading ? (
           <div className="lona-empty">Analizando el pedido…</div>
+        ) : loadError ? (
+          <div className="lona-error">{loadError}</div>
         ) : outcomes ? (
           <>
             {orderManufactured && (
@@ -203,56 +303,252 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
               </button>
             </footer>
           </>
-        ) : (
+        ) : overview ? (
           <>
-            <div className="component-consumption-table-wrap">
-              <table className="component-consumption-table">
-                <thead>
-                  <tr>
-                    <th>Línea</th>
-                    <th>Corte de perfil</th>
-                    <th>Confección de lona</th>
-                    <th>Componentes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previews.map(p => (
-                    <tr key={p.lineId}>
-                      <td>
-                        <strong>Línea {p.lineNo}</strong>
-                        <span className="component-consumption-secondary">{p.label}</span>
-                      </td>
-                      <td>{!p.needsProfile ? '—' : p.profileDone ? 'Hecho' : 'Pendiente'}</td>
-                      <td>{!p.needsLona ? '—' : p.lonaDone ? 'Hecho' : 'Pendiente'}</td>
-                      <td>{!p.needsComponents ? '—' : p.componentsDone ? 'Hecho' : 'Pendiente'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="modal-body order-fabrication-control-center">
+              {overview.profileNeeds.length > 0 && (
+                <section className="ofc-section">
+                  <h3>
+                    <Scissors size={15} /> Perfiles de corte ({overview.profileNeeds.length})
+                  </h3>
+                  <div className="table-panel">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Línea</th>
+                          <th>Perfil</th>
+                          <th>Característica</th>
+                          <th>Necesidad</th>
+                          <th>Modo</th>
+                          <th>Selección</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {overview.profileNeeds.map(need => {
+                          const mode = profileMode[need.key] || 'AUTOMATIC';
+                          const pieces = profilePieces[need.key] || [];
+                          const selectedQuantity = pieces.reduce((sum, p) => sum + p.selectedQuantity, 0);
+                          return (
+                            <Fragment key={need.key}>
+                              <tr>
+                                <td>Línea {need.lineNo}</td>
+                                <td>{need.profile}</td>
+                                <td>{need.characteristic}</td>
+                                <td>
+                                  {need.quantity} × {need.length} {need.unit}
+                                </td>
+                                <td>
+                                  <div className="ofc-mode-toggle">
+                                    <button type="button" className={mode === 'AUTOMATIC' ? 'active' : ''} onClick={() => setModeFor(need, 'AUTOMATIC')}>
+                                      Automático
+                                    </button>
+                                    <button type="button" className={mode === 'MANUAL' ? 'active' : ''} onClick={() => setModeFor(need, 'MANUAL')}>
+                                      Manual
+                                    </button>
+                                  </div>
+                                </td>
+                                <td>{mode === 'AUTOMATIC' ? 'Optimización automática' : `${selectedQuantity} / ${need.quantity} seleccionadas`}</td>
+                              </tr>
+                              {mode === 'MANUAL' && (
+                                <tr className="ofc-manual-row">
+                                  <td colSpan={6}>
+                                    {profilePiecesLoading[need.key] ? (
+                                      <div className="empty-cell">Consultando stock compatible…</div>
+                                    ) : pieces.length === 0 ? (
+                                      <div className="empty-cell">No hay piezas de stock compatibles con esta necesidad.</div>
+                                    ) : (
+                                      <div className="ofc-piece-grid">
+                                        {pieces.map((piece, pieceIndex) => (
+                                          <label key={`${piece.warehouseId}-${piece.length}-${pieceIndex}`} className={`ofc-piece ${piece.selected ? 'selected' : ''}`}>
+                                            <span>
+                                              <input type="checkbox" checked={piece.selected} onChange={() => togglePiece(need.key, pieceIndex)} />
+                                              <strong>{piece.warehouseCode}</strong>
+                                            </span>
+                                            <span>
+                                              <small>
+                                                {piece.length} {need.unit}
+                                              </small>
+                                              <small>Disp. {piece.quantity}</small>
+                                            </span>
+                                            <span className="ofc-piece-qty">
+                                              <input
+                                                type="number"
+                                                min={0}
+                                                max={piece.quantity}
+                                                value={piece.selectedQuantity}
+                                                onClick={e => e.stopPropagation()}
+                                                onChange={e => changePieceQuantity(need.key, pieceIndex, Number(e.target.value) || 0)}
+                                              />
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {overview.lonaLines.length > 0 && (
+                <section className="ofc-section">
+                  <h3>
+                    <Boxes size={15} /> Confección de lona ({overview.lonaLines.reduce((sum, l) => sum + l.result.components.length, 0)})
+                  </h3>
+                  <div className="table-panel">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Línea</th>
+                          <th>Componente</th>
+                          <th>Necesidad</th>
+                          <th>Tipo de corte</th>
+                          <th>Dobladillo</th>
+                          <th>Solape</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {overview.lonaLines.flatMap(lineEntry =>
+                          lineEntry.result.components.map(component => {
+                            const key = `${lineEntry.lineId}:${component.index}`;
+                            return (
+                              <tr key={key}>
+                                <td>Línea {lineEntry.lineNo}</td>
+                                <td>
+                                  <strong>{component.productCode}</strong>
+                                  <div className="muted">{component.productName}</div>
+                                </td>
+                                <td>
+                                  {component.quantity} · {component.line ?? '—'}
+                                  {component.lineUnit ? ` ${component.lineUnit}` : ''} × {component.output ?? '—'}
+                                  {component.outputUnit ? ` ${component.outputUnit}` : ''}
+                                </td>
+                                <td>
+                                  <select value={lonaCutType[key] ?? 'Asimétrico'} onChange={e => setLonaCutType(prev => ({ ...prev, [key]: e.target.value as LonaCutType }))}>
+                                    {CUT_TYPES.map(type => (
+                                      <option key={type} value={type}>
+                                        {type}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="ofc-narrow-input"
+                                    value={lonaHem[key] ?? DEFAULT_HEM}
+                                    onChange={e => setLonaHem(prev => ({ ...prev, [key]: e.target.value }))}
+                                  />
+                                </td>
+                                <td>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="ofc-narrow-input"
+                                    value={lonaOverlap[key] ?? DEFAULT_OVERLAP}
+                                    onChange={e => setLonaOverlap(prev => ({ ...prev, [key]: e.target.value }))}
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {overview.componentNeeds.length > 0 && (
+                <section className="ofc-section">
+                  <h3>
+                    <Boxes size={15} /> Componentes ({overview.componentNeeds.length})
+                  </h3>
+                  <div className="table-panel">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Línea</th>
+                          <th>Componente</th>
+                          <th>Necesidad</th>
+                          <th>Almacén</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {overview.componentNeeds.map(row => {
+                          const selected = componentWarehouse[row.key] ?? null;
+                          return (
+                            <tr key={row.key}>
+                              <td>Línea {row.lineNo}</td>
+                              <td>
+                                <strong>{row.need.productCode}</strong>
+                                <div className="muted">{row.need.productName}</div>
+                              </td>
+                              <td>
+                                {row.need.quantity} {row.need.unitCode}
+                              </td>
+                              <td>
+                                {row.options.length === 0 ? (
+                                  <span className="component-consumption-no-stock">Sin existencias</span>
+                                ) : (
+                                  <select value={selected ?? ''} onChange={e => setComponentWarehouse(prev => ({ ...prev, [row.key]: Number(e.target.value) }))}>
+                                    {row.options.map(o => (
+                                      <option key={o.warehouseId} value={o.warehouseId}>
+                                        {o.warehouseCode} · {o.available} disp.
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {totalPending === 0 && (
+                <div className="empty-state">
+                  <CheckCircle2 size={18} />
+                  <strong>Todo ya fabricado</strong>
+                  <span>No queda ningún perfil, lona ni componente pendiente en este pedido.</span>
+                </div>
+              )}
             </div>
+
+            {!profileValidation.valid && <div className="inline-error">{profileValidation.message}</div>}
             {error && <div className="lona-error lona-error-inline">{error}</div>}
             <footer className="modal-actions-footer">
               <button type="button" className="secondary-button" onClick={onClose} disabled={running}>
                 Cancelar
               </button>
-              <button type="button" className="primary-button" disabled={running || pendingCount === 0} onClick={() => void run()}>
+              <button type="button" className="primary-button" disabled={running || totalPending === 0 || !profileValidation.valid} onClick={() => void run()}>
                 {running ? (
                   <>
                     <Loader2 size={15} className="spin" /> Fabricando pedido…
                   </>
-                ) : pendingCount === 0 ? (
+                ) : totalPending === 0 ? (
                   <>
                     <CheckCircle2 size={15} /> Todo ya fabricado
                   </>
                 ) : (
                   <>
-                    <Factory size={15} /> Fabricar pedido completo ({pendingCount} línea{pendingCount === 1 ? '' : 's'} pendiente{pendingCount === 1 ? '' : 's'})
+                    <Factory size={15} /> Fabricar pedido completo ({totalPending} pendiente{totalPending === 1 ? '' : 's'})
                   </>
                 )}
               </button>
             </footer>
           </>
-        )}
+        ) : null}
       </div>
     </div>
   );
