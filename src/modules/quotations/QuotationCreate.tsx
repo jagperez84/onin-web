@@ -51,7 +51,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const money = (n: number) =>
   n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 
-type AddressDraft = {
+export type AddressDraft = {
   source_id: number | null;
   label: string;
   street: string;
@@ -1628,7 +1628,7 @@ function QuotationLineRows({
   );
 }
 
-function AddressEditor({
+export function AddressEditor({
   title,
   addresses,
   value,

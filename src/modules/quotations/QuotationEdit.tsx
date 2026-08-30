@@ -27,11 +27,13 @@ import {
   type QuotationEditLine,
 } from "../../services/sales/quotationEditRepository";
 import {
+  customerAddresses,
   customerContactsData,
   type CustomerContactDataResult,
   type QuotationLineCharacteristicDraft,
   type QuotationLineDimensionDraft,
 } from "../../services/sales/quotationCreationRepository";
+import { AddressEditor, type AddressDraft } from "./QuotationCreate";
 import {
   calculateQuotationLineByProductId,
   type QuotationLineSnapshot,
@@ -147,6 +149,7 @@ export function QuotationEdit() {
   const [warehouseId, setWarehouseId] = useState<number | null>(null);
   const [billingId, setBillingId] = useState<number | null>(null);
   const [installationId, setInstallationId] = useState<number | null>(null);
+  const [addresses, setAddresses] = useState<any[]>([]);
 
   const [billingAddress, setBillingAddress] = useState<Address>({
     label: "",
@@ -232,6 +235,11 @@ export function QuotationEdit() {
           void customerContactsData(q.customer_id)
             .then((res) => {
               if (active) setCustomerContactData(res);
+            })
+            .catch(() => {});
+          void customerAddresses(q.customer_id)
+            .then((rows) => {
+              if (active) setAddresses(rows);
             })
             .catch(() => {});
         }
@@ -628,8 +636,12 @@ export function QuotationEdit() {
       setContactEmail("");
       setContactPhone("");
       setCustomerContactData(null);
+      setAddresses([]);
       return;
     }
+    void customerAddresses(newCustomerId)
+      .then(setAddresses)
+      .catch(() => {});
     try {
       const contactInfo = await customerContactsData(newCustomerId);
       setCustomerContactData(contactInfo);
@@ -930,6 +942,30 @@ export function QuotationEdit() {
                 ))}
               </select>
             </label>
+            <div className="address-editors-row">
+              <AddressEditor
+                title="Dirección de facturación"
+                addresses={addresses}
+                value={{ source_id: billingId, ...billingAddress }}
+                onChange={(next: AddressDraft) => {
+                  const { source_id, ...rest } = next;
+                  setBillingId(source_id);
+                  setBillingAddress(rest);
+                }}
+                onSourceChange={setBillingId}
+              />
+              <AddressEditor
+                title="Dirección de instalación"
+                addresses={addresses}
+                value={{ source_id: installationId, ...installationAddress }}
+                onChange={(next: AddressDraft) => {
+                  const { source_id, ...rest } = next;
+                  setInstallationId(source_id);
+                  setInstallationAddress(rest);
+                }}
+                onSourceChange={setInstallationId}
+              />
+            </div>
             <div
               className="quotation-contact-section"
               style={{
