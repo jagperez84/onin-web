@@ -6,7 +6,9 @@ import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkShee
 import { getComponentConsumptionWorkSheetBySalesOrderLine, type ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
 import { downloadOrderManufacturingReportPdf } from '../../services/production/orderManufacturingReportPdfService';
 import { listProfileStockPieces, type ProfileStockPiece } from '../../services/warehouse/stockRepository';
-import type { LonaCutType } from '../../services/production/lonaCutCalculationService';
+import { calculateLonaCut, type LonaCutType } from '../../services/production/lonaCutCalculationService';
+import { probeLonaStockWidth, type LonaConfectionComponent, type LonaStockRollProbe } from '../../services/production/lonaConfectionService';
+import { LonaCutDiagram } from './LonaCutDiagram';
 import {
   buildOrderFabricationOverview,
   fabricateWholeOrder,
@@ -47,6 +49,8 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
   const [lonaCutType, setLonaCutType] = useState<Record<string, LonaCutType>>({});
   const [lonaHem, setLonaHem] = useState<Record<string, string>>({});
   const [lonaOverlap, setLonaOverlap] = useState<Record<string, string>>({});
+  const [lonaProbes, setLonaProbes] = useState<Record<string, LonaStockRollProbe | null>>({});
+  const [lonaProbesLoading, setLonaProbesLoading] = useState<Record<string, boolean>>({});
 
   const [componentWarehouse, setComponentWarehouse] = useState<Record<string, number>>({});
 
@@ -75,6 +79,28 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
           if (chosen) warehouseDefaults[row.key] = chosen.warehouseId;
         });
         setComponentWarehouse(warehouseDefaults);
+
+        result.lonaLines.forEach(lineEntry => {
+          lineEntry.result.components.forEach(component => {
+            const key = `${lineEntry.lineId}:${component.index}`;
+            setLonaProbesLoading(prev => ({ ...prev, [key]: true }));
+            probeLonaStockWidth({
+              companyId,
+              productId: component.productId,
+              characteristicId: component.characteristicId,
+              characteristicCode: component.characteristicCode,
+            })
+              .then(probe => {
+                if (active) setLonaProbes(prev => ({ ...prev, [key]: probe }));
+              })
+              .catch(() => {
+                if (active) setLonaProbes(prev => ({ ...prev, [key]: null }));
+              })
+              .finally(() => {
+                if (active) setLonaProbesLoading(prev => ({ ...prev, [key]: false }));
+              });
+          });
+        });
       })
       .catch(err => {
         if (active) setLoadError(err instanceof Error ? err.message : 'No se pudo analizar el pedido.');
@@ -129,6 +155,25 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
         return { ...piece, selected: bounded > 0, selectedQuantity: bounded };
       });
       return { ...prev, [needKey]: updated };
+    });
+  };
+
+  const computeLonaCalculation = (component: LonaConfectionComponent, key: string) => {
+    const probe = lonaProbes[key];
+    if (!probe || component.line == null || component.output == null || component.line <= 0 || component.output <= 0) return null;
+    const cutType = lonaCutType[key] ?? 'Asimétrico';
+    const hem = parseCutParam(lonaHem[key] ?? DEFAULT_HEM);
+    const overlap = parseCutParam(lonaOverlap[key] ?? DEFAULT_OVERLAP);
+    return calculateLonaCut({
+      type: cutType,
+      line: component.line,
+      output: component.output,
+      selectedWidth: probe.sourceDimensions[0],
+      hem,
+      overlap,
+      stockWidth: probe.sourceDimensions[0],
+      stockLength: probe.sourceDimensions[1],
+      rotated: probe.rotated,
     });
   };
 
@@ -417,46 +462,71 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                         {overview.lonaLines.flatMap(lineEntry =>
                           lineEntry.result.components.map(component => {
                             const key = `${lineEntry.lineId}:${component.index}`;
+                            const probe = lonaProbes[key];
+                            const probeLoading = Boolean(lonaProbesLoading[key]);
+                            const calculation = computeLonaCalculation(component, key);
                             return (
-                              <tr key={key}>
-                                <td>Línea {lineEntry.lineNo}</td>
-                                <td>
-                                  <strong>{component.productCode}</strong>
-                                  <div className="muted">{component.productName}</div>
-                                </td>
-                                <td>
-                                  {component.quantity} · {component.line ?? '—'}
-                                  {component.lineUnit ? ` ${component.lineUnit}` : ''} × {component.output ?? '—'}
-                                  {component.outputUnit ? ` ${component.outputUnit}` : ''}
-                                </td>
-                                <td>
-                                  <select value={lonaCutType[key] ?? 'Asimétrico'} onChange={e => setLonaCutType(prev => ({ ...prev, [key]: e.target.value as LonaCutType }))}>
-                                    {CUT_TYPES.map(type => (
-                                      <option key={type} value={type}>
-                                        {type}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                                <td>
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    className="ofc-narrow-input"
-                                    value={lonaHem[key] ?? DEFAULT_HEM}
-                                    onChange={e => setLonaHem(prev => ({ ...prev, [key]: e.target.value }))}
-                                  />
-                                </td>
-                                <td>
-                                  <input
-                                    type="text"
-                                    inputMode="decimal"
-                                    className="ofc-narrow-input"
-                                    value={lonaOverlap[key] ?? DEFAULT_OVERLAP}
-                                    onChange={e => setLonaOverlap(prev => ({ ...prev, [key]: e.target.value }))}
-                                  />
-                                </td>
-                              </tr>
+                              <Fragment key={key}>
+                                <tr>
+                                  <td>Línea {lineEntry.lineNo}</td>
+                                  <td>
+                                    <strong>{component.productCode}</strong>
+                                    <div className="muted">{component.productName}</div>
+                                  </td>
+                                  <td>
+                                    {component.quantity} · {component.line ?? '—'}
+                                    {component.lineUnit ? ` ${component.lineUnit}` : ''} × {component.output ?? '—'}
+                                    {component.outputUnit ? ` ${component.outputUnit}` : ''}
+                                  </td>
+                                  <td>
+                                    <select value={lonaCutType[key] ?? 'Asimétrico'} onChange={e => setLonaCutType(prev => ({ ...prev, [key]: e.target.value as LonaCutType }))}>
+                                      {CUT_TYPES.map(type => (
+                                        <option key={type} value={type}>
+                                          {type}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      className="ofc-narrow-input"
+                                      value={lonaHem[key] ?? DEFAULT_HEM}
+                                      onChange={e => setLonaHem(prev => ({ ...prev, [key]: e.target.value }))}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="text"
+                                      inputMode="decimal"
+                                      className="ofc-narrow-input"
+                                      value={lonaOverlap[key] ?? DEFAULT_OVERLAP}
+                                      onChange={e => setLonaOverlap(prev => ({ ...prev, [key]: e.target.value }))}
+                                    />
+                                  </td>
+                                </tr>
+                                <tr className="ofc-manual-row">
+                                  <td colSpan={6}>
+                                    {probeLoading ? (
+                                      <div className="empty-cell">Buscando material de lona compatible…</div>
+                                    ) : !probe ? (
+                                      <div className="empty-cell">Sin material de lona compatible para {component.productCode} ({component.characteristicName || 'sin característica'}).</div>
+                                    ) : (
+                                      <div className="ofc-lona-diagram">
+                                        <LonaCutDiagram
+                                          calculation={calculation}
+                                          stockDimensions={probe.sourceDimensions}
+                                          stockUnits={probe.sourceDimensionUnits}
+                                          cutLine={component.line ?? 0}
+                                          cutOutput={component.output ?? 0}
+                                          unit={component.lineUnit || component.outputUnit || null}
+                                        />
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              </Fragment>
                             );
                           })
                         )}
