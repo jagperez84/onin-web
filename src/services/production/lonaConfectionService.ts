@@ -100,6 +100,68 @@ export async function allocateLonaStockForPieces(input:{companyId:number;product
  return allocations;
 }
 
+export type LonaStockRollProbe = { stockItemId:number; warehouseId:number; warehouseCode:string; warehouseName:string; characteristicId:number|null; characteristicCode:string|null; quantity:number; sourceDimensions:number[]; sourceDimensionUnits:string[]; rotated:boolean; };
+
+/**
+ * A diferencia de allocateLonaStockForPieces (que exige una pieza de stock ya del tamaño del
+ * corte completo), esto solo averigua qué ancho de bobina hay realmente disponible para el
+ * producto/característica, sin exigir que cubra el pedido entero. Ese ancho real es justo lo
+ * que calculateLonaCut necesita para decidir en cuántos paños dividir el corte — los tipos
+ * "Asimétrico"/"Retal Maxi"/"Retal Mini"/"Screen" existen precisamente para toldos más anchos
+ * que cualquier bobina individual, cosiendo varios paños. Se prioriza la bobina más ancha
+ * disponible, para minimizar el número de paños/costuras.
+ */
+export async function probeLonaStockWidth(input:{companyId:number;productId:number;characteristicId?:number|null;characteristicCode?:string|null}):Promise<LonaStockRollProbe|null>{
+  const c=client();
+  const{data:itemData,error:itemError}=await c.from('warehouse_stock_item').select('id,product_id,warehouse_stock_id,characteristic_id,quantity,dimension_values,dimension_units,status').eq('product_id',input.productId).gt('quantity',0).eq('status','AVAILABLE').limit(500);
+  if(itemError)throw new CoreRepositoryError(itemError.message);
+  const items=(itemData??[]) as StockItemRow[];
+  if(!items.length)return null;
+
+  const stockIds=[...new Set(items.map(row=>Number(row.warehouse_stock_id)).filter(Number.isFinite))];
+  const characteristicIds=[...new Set(items.map(row=>row.characteristic_id==null?null:Number(row.characteristic_id)).filter((id):id is number=>id!=null))];
+  const [stocksResult,characteristicsResult]=await Promise.all([stockIds.length?c.from('warehouse_stock').select('id,warehouse_id').in('id',stockIds):Promise.resolve({data:[],error:null}),characteristicIds.length?c.from('product_characteristic').select('id,code,description').in('id',characteristicIds):Promise.resolve({data:[],error:null})]);
+  if(stocksResult.error)throw new CoreRepositoryError(stocksResult.error.message);if(characteristicsResult.error)throw new CoreRepositoryError(characteristicsResult.error.message);
+  const stocks=(stocksResult.data??[]) as StockHeaderRow[];const characteristics=(characteristicsResult.data??[]) as CharacteristicRow[];const warehouseIds=[...new Set(stocks.map(row=>Number(row.warehouse_id)).filter(Number.isFinite))];const warehousesResult=warehouseIds.length?await c.from('warehouse').select('id,code,name').in('id',warehouseIds):{data:[],error:null};if(warehousesResult.error)throw new CoreRepositoryError(warehousesResult.error.message);
+  const stockById=new Map(stocks.map(row=>[Number(row.id),row]));const characteristicById=new Map(characteristics.map(row=>[Number(row.id),row]));const warehouseById=new Map(((warehousesResult.data??[]) as WarehouseRow[]).map(row=>[Number(row.id),row]));
+
+  const reqCharId=input.characteristicId!=null&&Number(input.characteristicId)>0?Number(input.characteristicId):null;
+  const reqCharCode=(typeof input.characteristicCode==='string'&&input.characteristicCode.trim().length>0)?input.characteristicCode.trim().toLowerCase():null;
+
+  let best:LonaStockRollProbe|null=null;
+  let bestWidth=-Infinity;
+  for(const row of items){
+    const characteristicId=row.characteristic_id==null?null:Number(row.characteristic_id);
+    const charObj=characteristicId==null?null:characteristicById.get(characteristicId);
+    const characteristicCode=charObj?.code??null;
+    const charCodeLower=charObj?.code?charObj.code.trim().toLowerCase():null;
+    const charDescLower=charObj?.description?charObj.description.trim().toLowerCase():null;
+    if(reqCharId!==null||reqCharCode!==null){
+      let match=false;
+      if(reqCharId!==null&&characteristicId!==null&&characteristicId===reqCharId)match=true;
+      if(reqCharCode!==null){if(charCodeLower&&charCodeLower===reqCharCode)match=true;if(charDescLower&&charDescLower===reqCharCode)match=true;}
+      if(!match)continue;
+    }else if(characteristicId!==null||characteristicCode!==null){
+      continue;
+    }
+
+    const dimensions=Array.isArray(row.dimension_values)?row.dimension_values.map(Number).filter(Number.isFinite):[];
+    const units=asStringArray(row.dimension_units);
+    if(dimensions.length<2||units.length!==dimensions.length)continue;
+    const width=dimensions[0];
+    if(!Number.isFinite(width)||width<=0)continue;
+
+    const stock=stockById.get(Number(row.warehouse_stock_id));if(!stock)continue;
+    const warehouse=warehouseById.get(Number(stock.warehouse_id));if(!warehouse)continue;
+
+    if(width>bestWidth){
+      bestWidth=width;
+      best={stockItemId:Number(row.id),warehouseId:Number(stock.warehouse_id),warehouseCode:warehouse.code??'—',warehouseName:warehouse.name??'—',characteristicId,characteristicCode,quantity:Number(row.quantity||0),sourceDimensions:dimensions,sourceDimensionUnits:units,rotated:false};
+    }
+  }
+  return best;
+}
+
 export async function resolveLonaConfectionComponents(input:{companyId:number;orderLineId:number;orderLineNo:number;reference?:string|null;snapshot:OtdSnapshot}):Promise<LonaConfectionResult>{const snapshot=input.snapshot??{};const rawComponents=Array.isArray(snapshot.components)?snapshot.components:[];const candidates=rawComponents.map((component,index)=>({component,index})).filter(({component})=>Number(component.product_id)>0);const resolved=(await Promise.all(candidates.map(async({component,index})=>{const productId=Number(component.product_id);const configuration=await loadMasterProductConfiguration(productId,input.companyId);if(!configuration.family?.confectionable)return null;const dimensions=componentDimensions(component,snapshot);const{line,output}=resolveCutDimensions(dimensions);
 const characteristicId =
   (component.characteristic_id ? Number(component.characteristic_id) : undefined) ||

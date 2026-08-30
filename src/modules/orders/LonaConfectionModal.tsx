@@ -4,12 +4,13 @@ import { CoreRepositoryError } from '../../services/core/coreRepository';
 import {
   allocateLonaStockForPieces,
   createLonaConfectionWorkSheet,
+  probeLonaStockWidth,
   resolveLonaConfectionComponents,
   type LonaConfectionComponent,
   type LonaConfectionResult,
   type LonaConfectionWorkSheet,
   type LonaPieceAllocation,
-  type LonaStockCandidate,
+  type LonaStockRollProbe,
 } from '../../services/production/lonaConfectionService';
 import { executeLonaConfectionWorkSheet } from '../../services/production/lonaConfectionExecutionService';
 import { downloadLonaConfectionPdf } from '../../services/production/lonaConfectionPdfService';
@@ -58,7 +59,7 @@ function computeCutCalculation(
   cutType: LonaCutType,
   hem: number,
   overlap: number,
-  probe: LonaStockCandidate | null
+  probe: LonaStockRollProbe | null
 ): LonaCutCalculationResult | null {
   const width = component.line;
   const height = component.output;
@@ -83,7 +84,7 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
 
   const [cutTypes, setCutTypes] = useState<Record<number, LonaCutType>>({});
   const [cutParameters, setCutParameters] = useState<Record<number, CutParameters>>({});
-  const [probeCandidates, setProbeCandidates] = useState<Record<number, LonaStockCandidate | null>>({});
+  const [probeCandidates, setProbeCandidates] = useState<Record<number, LonaStockRollProbe | null>>({});
   const [allocations, setAllocations] = useState<Record<number, LonaPieceAllocation[]>>({});
   const [stockLoading, setStockLoading] = useState<Record<number, boolean>>({});
   const [creating, setCreating] = useState<Record<number, boolean>>({});
@@ -183,16 +184,13 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
       const timer = window.setTimeout(async () => {
         if (!active) return;
         try {
-          const probeAllocation = await allocateLonaStockForPieces({
+          const probe = await probeLonaStockWidth({
             companyId,
             productId: component.productId,
             characteristicId: component.characteristicId,
             characteristicCode: component.characteristicCode,
-            pieces: [{ width: component.line as number, length: component.output as number, label: 'Necesidad' }],
-            unit: component.lineUnit,
           });
           if (!active) return;
-          const probe = probeAllocation[0]?.candidate ?? null;
           setProbeCandidates(previous => ({ ...previous, [index]: probe }));
 
           if (!probe) {

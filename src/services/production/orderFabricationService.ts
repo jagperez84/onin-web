@@ -8,6 +8,7 @@ import { executeManualProfileCutWithWorkSheet, getWorkSheetsBySalesOrderLine, ty
 import {
   allocateLonaStockForPieces,
   createLonaConfectionWorkSheet,
+  probeLonaStockWidth,
   resolveLonaConfectionComponents,
   type LonaConfectionComponent,
   type LonaConfectionResult,
@@ -300,15 +301,12 @@ async function autoFabricateLonaComponent(input: {
   if (component.line == null || component.output == null || component.line <= 0 || component.output <= 0) {
     throw new Error(`El componente de lona ${component.productCode} no tiene dimensiones válidas.`);
   }
-  const probeAllocation = await allocateLonaStockForPieces({
+  const probe = await probeLonaStockWidth({
     companyId: input.companyId,
     productId: component.productId,
     characteristicId: component.characteristicId,
     characteristicCode: component.characteristicCode,
-    pieces: [{ width: component.line, length: component.output, label: 'Necesidad' }],
-    unit: component.lineUnit,
   });
-  const probe = probeAllocation[0]?.candidate ?? null;
   if (!probe) throw new Error(`Sin material de lona compatible para ${component.productCode} (${component.characteristicName || 'sin característica'}).`);
 
   const calculation = calculateLonaCut({
