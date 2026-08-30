@@ -628,7 +628,10 @@ export function OtdEditor() {
               dimension_1: Number(sc.dimension_1 || 0),
               dimension_2:
                 sc.dimension_2 != null ? Number(sc.dimension_2) : null,
-              dimension_values: sc.dimension_values || [
+              // Always derive from dimension_1/dimension_2 (the fields this
+              // editor actually maintains) instead of trusting sc.dimension_values,
+              // which never gets updated when a row is edited after creation.
+              dimension_values: [
                 Number(sc.dimension_1 || 0),
                 ...(sc.dimension_2 != null ? [Number(sc.dimension_2)] : []),
               ],
@@ -682,7 +685,7 @@ export function OtdEditor() {
             dimension_1: Number(sc.dimension_1 || 0),
             dimension_2:
               sc.dimension_2 != null ? Number(sc.dimension_2) : null,
-            dimension_values: sc.dimension_values || [
+            dimension_values: [
               Number(sc.dimension_1 || 0),
               ...(sc.dimension_2 != null ? [Number(sc.dimension_2)] : []),
             ],
@@ -736,7 +739,7 @@ export function OtdEditor() {
         scales: scales.map((sc) => ({
           dimension_1: Number(sc.dimension_1 || 0),
           dimension_2: sc.dimension_2 != null ? Number(sc.dimension_2) : null,
-          dimension_values: sc.dimension_values || [
+          dimension_values: [
             Number(sc.dimension_1 || 0),
             ...(sc.dimension_2 != null ? [Number(sc.dimension_2)] : []),
           ],

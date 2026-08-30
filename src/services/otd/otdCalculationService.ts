@@ -379,10 +379,10 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
     list.push({
       ...r,
       product_id: pid,
-      dimension_values:
-        Array.isArray(r.dimension_values) && r.dimension_values.length
-          ? r.dimension_values
-          : [Number(r.dimension_1), ...(r.dimension_2 == null ? [] : [Number(r.dimension_2)])],
+      // dimension_1/dimension_2 are the columns the scale editors actually
+      // maintain; dimension_values can go stale when a row is edited after
+      // creation, so it must never be trusted over the two source columns.
+      dimension_values: [Number(r.dimension_1), ...(r.dimension_2 == null ? [] : [Number(r.dimension_2)])],
       attribute_values: r.attribute_values && typeof r.attribute_values === 'object' ? r.attribute_values : {},
     });
     byProductScales.set(pid, list);
@@ -608,10 +608,10 @@ export async function fetchProductForOtdComponent(productId: number): Promise<{
   const scales: OtdScale[] = (scalesRes.data ?? []).map((r: any) => ({
     ...r,
     product_id: productId,
-    dimension_values:
-      Array.isArray(r.dimension_values) && r.dimension_values.length
-        ? r.dimension_values
-        : [Number(r.dimension_1), ...(r.dimension_2 == null ? [] : [Number(r.dimension_2)])],
+    // dimension_1/dimension_2 are the columns the scale editors actually
+    // maintain; dimension_values can go stale when a row is edited after
+    // creation, so it must never be trusted over the two source columns.
+    dimension_values: [Number(r.dimension_1), ...(r.dimension_2 == null ? [] : [Number(r.dimension_2)])],
     attribute_values:
       r.attribute_values && typeof r.attribute_values === 'object' ? r.attribute_values : {},
   }));

@@ -23,10 +23,12 @@ function client() {
   return supabase;
 }
 
+// dimension_1/dimension_2 are the columns the scale editor actually maintains;
+// dimension_values is a derived convenience array that the editor never keeps
+// in sync when a row's dimension_1/dimension_2 are edited after creation, so
+// it must never be trusted over the two source columns — always rebuild it
+// from them instead of reading whatever (possibly stale) array was stored.
 function normalizeDimensionValues(row: any): number[] {
-  if (Array.isArray(row.dimension_values) && row.dimension_values.length) {
-    return row.dimension_values.map((v: any) => Number(v));
-  }
   const values = [Number(row.dimension_1)];
   if (row.dimension_2 != null) values.push(Number(row.dimension_2));
   return values;
