@@ -133,7 +133,18 @@ export function PaymentMethodList() {
   );
 }
 
+// React Router reuses the same component instance when only the :id param
+// changes across sibling routes ("/nuevo" vs "/:id") since both render this
+// same component type at the same tree position — it does not remount on
+// its own. Without forcing a remount, state like `editing` could survive a
+// create→redirect-to-detail transition and leave the form in an
+// inconsistent state. Keying by id guarantees a fresh mount every time.
 export function PaymentMethodDetail() {
+  const { id } = useParams();
+  return <PaymentMethodDetailInner key={id ?? "new"} />;
+}
+
+function PaymentMethodDetailInner() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNew = id === "nuevo";

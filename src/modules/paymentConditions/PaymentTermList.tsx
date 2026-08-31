@@ -143,7 +143,16 @@ export function PaymentTermList() {
   );
 }
 
+// Same fix as PaymentMethodDetail: force a remount when the :id param
+// changes between "nuevo" and a real id (React Router reuses the component
+// instance across sibling routes otherwise, since both render this same
+// component type at the same tree position).
 export function PaymentTermDetail() {
+  const { id } = useParams();
+  return <PaymentTermDetailInner key={id ?? "new"} />;
+}
+
+function PaymentTermDetailInner() {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNew = id === "nuevo";
