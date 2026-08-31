@@ -1,0 +1,99 @@
+.payment-conditions-page .toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.payment-conditions-page select {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+.payment-conditions-page .readonly-field {
+  background: var(--canvas-stripe);
+  color: var(--muted);
+}
+.payment-conditions-page .page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.payment-conditions-page .actions-col {
+  width: 72px;
+  text-align: right;
+}
+.payment-conditions-page .form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.payment-conditions-page .muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.payment-conditions-page .payment-term-installments {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.payment-conditions-page .payment-term-installments-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.payment-conditions-page .payment-term-installments-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+}
+.payment-conditions-page .payment-term-installments td input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.payment-conditions-page .payment-term-total {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+.payment-conditions-page .payment-term-total.mismatch {
+  color: var(--status-danger-fg);
+}
+@media (max-width: 760px) {
+  .payment-conditions-page .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .payment-conditions-page .search-box {
+    max-width: none;
+  }
+  .payment-conditions-page .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .payment-conditions-page .form-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .payment-conditions-page .form-footer .page-actions {
+    justify-content: flex-end;
+  }
+  .payment-conditions-page table {
+    min-width: 640px;
+  }
+}
