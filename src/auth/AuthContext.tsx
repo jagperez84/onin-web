@@ -8,12 +8,15 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { listMyCompanies, switchMyCompany, type CompanyOption } from "../services/core/companyRepository";
 
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
   loading: boolean;
   configured: boolean;
+  listCompanies: () => Promise<CompanyOption[]>;
+  switchCompany: (companyId: number) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
 };
@@ -60,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       configured,
+      listCompanies: async () => listMyCompanies(),
+      switchCompany: async (companyId) => switchMyCompany(companyId),
       signIn: async (email, password) => {
         if (!supabase)
           return {
