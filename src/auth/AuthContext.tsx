@@ -79,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error ? new Error(error.message) : null };
       },
       signOut: async () => {
+        sessionStorage.removeItem("onin.company-selected");
         if (!supabase) return { error: null };
         const { error } = await supabase.auth.signOut();
         return { error: error ? new Error(error.message) : null };
