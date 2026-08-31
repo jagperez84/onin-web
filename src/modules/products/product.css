@@ -29,10 +29,10 @@
 .soft-delete-banner {
   margin-bottom: 16px;
   padding: 11px 13px;
-  border: 1px solid #e8d59a;
+  border: 1px solid var(--status-warning-border);
   border-radius: 8px;
-  background: #fff8df;
-  color: #6f5200;
+  background: var(--accent-soft);
+  color: var(--status-warning-fg);
   font-size: 13px;
 }
 .product-detail-grid {
@@ -84,11 +84,11 @@
 .product-save-actions {
   position: sticky;
   bottom: 14px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--topbar-bg);
   border: 1px solid var(--border);
   border-radius: 9px;
   padding: 12px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow-hover);
   z-index: 10;
 }
 .product-save-actions .secondary-button {
@@ -174,8 +174,8 @@
 }
 .icon-action {
   border: 1px solid var(--border);
-  background: #fff;
-  color: #365066;
+  background: var(--surface);
+  color: var(--text);
   border-radius: 6px;
   padding: 6px 8px;
   cursor: pointer;
@@ -184,7 +184,7 @@
   justify-content: center;
 }
 .icon-action:hover {
-  background: #f3f7fa;
+  background: var(--surface-subtle);
 }
 .icon-action.danger {
   color: var(--danger);
@@ -200,7 +200,7 @@
   min-height: 42px;
   border: 1px solid var(--border);
   border-radius: 7px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   padding: 9px 38px 9px 12px;
   text-align: left;
@@ -213,18 +213,18 @@
   font-weight: 500;
 }
 .entity-lookup-trigger:hover {
-  border-color: #8fa8bc;
-  background: #fbfdff;
+  border-color: var(--border-hover);
+  background: var(--surface-subtle);
 }
 .entity-lookup-placeholder {
-  color: #7b8ea0;
+  color: var(--muted);
 }
 .entity-lookup-clear {
   position: absolute;
   right: 8px;
   border: 0;
   background: transparent;
-  color: #6b7e90;
+  color: var(--muted);
   padding: 4px;
   display: inline-flex;
   cursor: pointer;
@@ -232,7 +232,7 @@
 .entity-lookup-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.35);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -242,10 +242,10 @@
 .entity-lookup-dialog {
   width: min(620px, 100%);
   max-height: min(720px, 90vh);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  box-shadow: var(--shadow-lg);
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   overflow: hidden;
@@ -275,7 +275,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  color: #6b7e90;
+  color: var(--muted);
 }
 .entity-lookup-search input {
   border: 0 !important;
@@ -293,7 +293,7 @@
 }
 .entity-lookup-result {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   padding: 10px 12px;
   display: flex;
@@ -306,12 +306,12 @@
   font: inherit;
 }
 .entity-lookup-result:hover {
-  background: #f6f9fb;
-  border-color: #9db2c3;
+  background: var(--row-hover);
+  border-color: var(--border-hover);
 }
 .entity-lookup-result.selected {
-  border-color: #2b6f9e;
-  background: #eef6fc;
+  border-color: var(--primary);
+  background: var(--primary-soft);
 }
 .entity-lookup-dialog > .actions {
   padding: 12px 18px;
@@ -335,7 +335,7 @@
   background: var(--page-bg, var(--canvas-stripe));
   overflow-x: auto;
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--shadow);
 }
 .product-profile-section-nav a {
   display: inline-flex;
@@ -344,7 +344,7 @@
   padding: 7px 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
@@ -352,14 +352,14 @@
 }
 .product-profile-section-nav a:hover {
   background: var(--canvas-stripe);
-  color: #0f172a;
+  color: var(--text);
   border-color: var(--muted-2);
 }
 .product-profile-section-nav a.active {
-  background: #eaf2f8;
-  color: #0f4c81;
-  border-color: #8fb3d1;
-  box-shadow: inset 0 -2px 0 #2b6f9e;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  border-color: var(--primary);
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 .product-profile-anchor {
   scroll-margin-top: 116px;

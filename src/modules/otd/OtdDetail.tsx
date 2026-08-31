@@ -812,7 +812,7 @@ export function OtdDetail() {
                             <div>
                               <strong>{product.code}</strong>
                               <div
-                                style={{ fontSize: "12px", color: "#475569" }}
+                                style={{ fontSize: "12px", color: "var(--muted)" }}
                               >
                                 {product.commercial_description ||
                                   product.technical_description ||
@@ -863,7 +863,7 @@ export function OtdDetail() {
                               </strong>
                             )
                           ) : (
-                            <span style={{ color: "#64748b" }}>
+                            <span style={{ color: "var(--muted)" }}>
                               Incluido en base (€ 0)
                             </span>
                           )}
@@ -890,7 +890,7 @@ export function OtdDetail() {
                               : ""}
                           </span>
                         ) : (
-                          <span style={{ color: "#64748b" }}>
+                          <span style={{ color: "var(--muted)" }}>
                             Sin característica seleccionada
                           </span>
                         )}

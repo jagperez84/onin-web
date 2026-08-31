@@ -230,11 +230,11 @@ export function QuotationPdfPreviewModal({
                 gap: "12px",
               }}
             >
-              <AlertCircle size={32} style={{ color: "#c4897a" }} />
-              <h4 style={{ margin: 0, color: "#0f172a" }}>
+              <AlertCircle size={32} style={{ color: "var(--danger)" }} />
+              <h4 style={{ margin: 0, color: "var(--text)" }}>
                 Error al generar el PDF
               </h4>
-              <p style={{ margin: 0, color: "#64748b", fontSize: "13px" }}>
+              <p style={{ margin: 0, color: "var(--muted)", fontSize: "13px" }}>
                 {error}
               </p>
             </div>

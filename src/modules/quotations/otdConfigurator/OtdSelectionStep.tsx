@@ -88,7 +88,7 @@ export function OtdSelectionStep({
             border: "1px dashed #cbd5e1",
           }}
         >
-          <p style={{ color: "#64748b", fontSize: "14px" }}>
+          <p style={{ color: "var(--muted)", fontSize: "14px" }}>
             No se encontraron OTDs disponibles con ese criterio.
           </p>
         </div>

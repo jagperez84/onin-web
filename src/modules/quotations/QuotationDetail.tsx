@@ -570,7 +570,7 @@ export function QuotationDetail() {
             className="secondary-button"
             onClick={() => setPdfModalOpen(true)}
             title="Previsualizar documento PDF comercial"
-            style={{ background: "#fff" }}
+            style={{ background: "var(--surface)" }}
           >
             <FileText size={15} /> Ver PDF
           </button>
@@ -579,7 +579,7 @@ export function QuotationDetail() {
             className="secondary-button"
             onClick={() => void generateAndDownloadQuotationPdf(data.id)}
             title="Descargar presupuesto oficial en PDF"
-            style={{ background: "#fff", padding: "8px 10px" }}
+            style={{ background: "var(--surface)", padding: "8px 10px" }}
           >
             <Download size={15} />
           </button>
@@ -693,7 +693,7 @@ export function QuotationDetail() {
               )}
             </div>
             <div
-              style={{ textAlign: "right", fontSize: "12px", color: "#64748b" }}
+              style={{ textAlign: "right", fontSize: "12px", color: "var(--muted)" }}
             >
               {(customerParty?.phone || data.contact_phone) && (
                 <div>Tel: {customerParty?.phone || data.contact_phone}</div>
@@ -714,7 +714,7 @@ export function QuotationDetail() {
                   Contacto del Presupuesto
                 </span>
                 {hasSpecificContact && (
-                  <UserCheck size={15} style={{ color: "#2563eb" }} />
+                  <UserCheck size={15} style={{ color: "var(--primary)" }} />
                 )}
               </div>
             </div>
@@ -746,7 +746,7 @@ export function QuotationDetail() {
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: "11.5px", color: "#64748b" }}>
+              <div style={{ fontSize: "11.5px", color: "var(--muted)" }}>
                 Se emplearán los canales de comunicación generales de la empresa
                 cliente.
               </div>

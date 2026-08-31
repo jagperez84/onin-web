@@ -105,7 +105,7 @@ export function QuotationCancelModal({
               <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
               <div>
                 <strong>¿Deseas cancelar y ocultar este presupuesto?</strong>
-                <p style={{ margin: "4px 0 0", color: "#7f1d1d" }}>
+                <p style={{ margin: "4px 0 0", color: "var(--status-danger-fg)" }}>
                   Al cancelarlo, este presupuesto en borrador quedará anulado y se
                   ocultará de las vistas activas de ventas.
                 </p>
