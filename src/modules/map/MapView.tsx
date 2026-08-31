@@ -441,12 +441,14 @@ function PointRow({
   point,
   zones,
   selected,
+  autoGeocoding,
   onSelect,
   onUpdated,
 }: {
   point: MapPoint;
   zones: Zone[];
   selected: boolean;
+  autoGeocoding: boolean;
   onSelect: () => void;
   onUpdated: (patch: Partial<MapPoint>) => void;
 }) {
@@ -491,7 +493,10 @@ function PointRow({
           <MapPin size={14} />
         </Link>
       </div>
-      {!geocoded && (
+      {!geocoded && autoGeocoding && (
+        <span className="map-locate-auto">Localizando dirección…</span>
+      )}
+      {!geocoded && !autoGeocoding && (
         <GeocodeRow point={point} onLocated={(lat, lon) => onUpdated({ latitude: lat, longitude: lon })} />
       )}
     </li>
@@ -511,6 +516,50 @@ export function MapView() {
   const [onlyUngeocoded, setOnlyUngeocoded] = useState(false);
   const [activeZoneIds, setActiveZoneIds] = useState<Set<number | null>>(new Set());
   const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [autoGeocodingKeys, setAutoGeocodingKeys] = useState<Set<string>>(new Set());
+  const [geocodeProgress, setGeocodeProgress] = useState<{ done: number; total: number } | null>(null);
+  const cancelledRef = useRef(false);
+
+  useEffect(() => () => { cancelledRef.current = true; }, []);
+
+  // Geocodifica automáticamente, en segundo plano, cada medición/montaje que
+  // todavía no tenga coordenadas pero sí una dirección guardada — usando el
+  // mismo buscador de OpenStreetMap del formulario de direcciones. Se procesa
+  // de uno en uno con una pausa entre peticiones para respetar el límite de
+  // uso de Nominatim (máx. 1 petición/segundo).
+  async function runAutoGeocode(pts: MapPoint[]) {
+    const candidates = pts.filter((p) => p.latitude == null && p.longitude == null && fullAddress(p).trim().length > 0);
+    if (!candidates.length) return;
+    setAutoGeocodingKeys(new Set(candidates.map(pointKey)));
+    setGeocodeProgress({ done: 0, total: candidates.length });
+    for (let i = 0; i < candidates.length; i++) {
+      if (cancelledRef.current) return;
+      const candidate = candidates[i];
+      const key = pointKey(candidate);
+      try {
+        const results = await searchAddress(fullAddress(candidate));
+        const best = results[0];
+        if (best) {
+          const lat = Number(best.lat);
+          const lon = Number(best.lon);
+          await saveMapPointLocation(candidate, lat, lon);
+          if (!cancelledRef.current) updatePoint(key, { latitude: lat, longitude: lon });
+        }
+      } catch {
+        // Dirección no localizable automáticamente: queda disponible el
+        // buscador manual de la fila para corregirla a mano.
+      }
+      if (cancelledRef.current) return;
+      setAutoGeocodingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      setGeocodeProgress({ done: i + 1, total: candidates.length });
+      if (i < candidates.length - 1) await new Promise((r) => setTimeout(r, 1100));
+    }
+    if (!cancelledRef.current) setGeocodeProgress(null);
+  }
 
   async function load() {
     try {
@@ -520,6 +569,7 @@ export function MapView() {
       setPoints(pts);
       setZones(zs);
       setActiveZoneIds(new Set([null, ...zs.map((z) => z.id)]));
+      void runAutoGeocode(pts);
     } catch (e) {
       setError(e instanceof CoreRepositoryError ? e.message : "No se pudieron cargar los datos del mapa.");
     } finally {
@@ -585,7 +635,18 @@ export function MapView() {
           <input type="checkbox" checked={onlyUngeocoded} onChange={(e) => setOnlyUngeocoded(e.target.checked)} />
           Solo sin localizar ({ungeocodedCount})
         </label>
+        {ungeocodedCount > 0 && !geocodeProgress && (
+          <button type="button" className="map-geocode-retry" onClick={() => void runAutoGeocode(points)}>
+            Reintentar geocodificación automática
+          </button>
+        )}
       </div>
+
+      {geocodeProgress && (
+        <div className="map-geocode-progress">
+          Localizando direcciones automáticamente… ({geocodeProgress.done}/{geocodeProgress.total})
+        </div>
+      )}
 
       {loading ? (
         <div className="loading-block">Cargando mapa…</div>
@@ -620,6 +681,7 @@ export function MapView() {
                         point={p}
                         zones={zones}
                         selected={focusKey === key}
+                        autoGeocoding={autoGeocodingKeys.has(key)}
                         onSelect={() => setFocusKey(key)}
                         onUpdated={(patch) => updatePoint(key, patch)}
                       />
