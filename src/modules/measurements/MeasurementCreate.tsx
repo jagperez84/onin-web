@@ -145,6 +145,7 @@ export function MeasurementCreate() {
         site_country_code: address.country_code || "ES",
         site_latitude: null,
         site_longitude: null,
+        zone_id: null,
         contact_method: form.contact_method || null,
         commercial_name: form.commercial_name || null,
         assigned_user_id: form.assigned_user_id || null,

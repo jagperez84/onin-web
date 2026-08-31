@@ -16,6 +16,9 @@ export type SalesOrder = {
   reference: string | null;
   notes: string | null;
   created_at?: string;
+  installation_latitude: number | null;
+  installation_longitude: number | null;
+  zone_id: number | null;
   net_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -165,7 +168,7 @@ export type SalesOrderSortField = 'created_at' | 'requested_delivery_date';
 export async function listSalesOrders(search = '', sortBy: SalesOrderSortField = 'created_at', ascending = false): Promise<SalesOrder[]> {
   const c = client();
   const cid = await companyId();
-  let q = c.from('sales_order').select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,total_amount,created_at,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name))').eq('company_id', cid).order(sortBy, { ascending, nullsFirst: false }).order('id', { ascending: false });
+  let q = c.from('sales_order').select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,total_amount,created_at,installation_latitude,installation_longitude,zone_id,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name))').eq('company_id', cid).order(sortBy, { ascending, nullsFirst: false }).order('id', { ascending: false });
   const term = search.trim().replace(/[%_]/g, '');
   if (term) q = q.or(`code.ilike.%${term}%,reference.ilike.%${term}%`);
   const { data, error } = await q;
@@ -199,6 +202,18 @@ export async function updateSalesOrder(id: number, values: { requested_delivery_
     requested_delivery_date: values.requested_delivery_date || null,
     reference: values.reference?.trim() || null,
     notes: values.notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  }).eq('company_id', cid).eq('id', id);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function updateSalesOrderLocation(id: number, values: { installation_latitude: number | null; installation_longitude: number | null; zone_id?: number | null }): Promise<void> {
+  const c = client();
+  const cid = await companyId();
+  const { error } = await c.from('sales_order').update({
+    installation_latitude: values.installation_latitude,
+    installation_longitude: values.installation_longitude,
+    ...(values.zone_id !== undefined ? { zone_id: values.zone_id } : {}),
     updated_at: new Date().toISOString(),
   }).eq('company_id', cid).eq('id', id);
   if (error) throw new CoreRepositoryError(error.message);
