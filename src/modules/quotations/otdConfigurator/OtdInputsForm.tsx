@@ -56,7 +56,7 @@ export function OtdInputsForm({
               color: "#0f172a",
             }}
           >
-            <Ruler size={16} style={{ color: "#0284c7" }} />
+            <Ruler size={16} style={{ color: "var(--primary)" }} />
             <h4
               style={{
                 margin: 0,
@@ -176,7 +176,7 @@ export function OtdInputsForm({
               color: "#0f172a",
             }}
           >
-            <Sliders size={16} style={{ color: "#0284c7" }} />
+            <Sliders size={16} style={{ color: "var(--primary)" }} />
             <h4
               style={{
                 margin: 0,

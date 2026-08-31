@@ -4,11 +4,11 @@
 .otd-increment-type select {
   width: 100%;
   font: inherit;
-  border: 1px solid #d0d5dd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 9px;
-  background: #fff;
-  color: #344054;
+  background: var(--surface);
+  color: var(--text);
 }
 .otd-increment-type + input {
   margin-top: 0;
@@ -17,6 +17,6 @@
   overflow: visible;
 }
 .otd-increment-type select:focus {
-  outline: 2px solid rgba(84, 104, 255, 0.15);
-  border-color: #98a2b3;
+  outline: 2px solid var(--focus-ring);
+  border-color: var(--border-hover);
 }

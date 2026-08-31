@@ -445,7 +445,7 @@ export function OtdLineConfiguratorModal({
           <div className="modal-title-group">
             <div
               className="modal-icon-badge"
-              style={{ background: "#0284c7", color: "#ffffff" }}
+              style={{ background: "var(--primary)", color: "var(--primary-contrast)" }}
             >
               <Sparkles size={20} />
             </div>
@@ -491,12 +491,12 @@ export function OtdLineConfiguratorModal({
           {/* STEP 2: Interactive Parameter Configuration */}
           {selectedOtdId && loadingRuntime && (
             <div
-              style={{ textAlign: "center", padding: "60px", color: "#64748b" }}
+              style={{ textAlign: "center", padding: "60px", color: "var(--muted)" }}
             >
               <Loader2
                 size={32}
                 className="animate-spin"
-                style={{ margin: "0 auto 14px", color: "#0284c7" }}
+                style={{ margin: "0 auto 14px", color: "var(--primary)" }}
               />
               <p style={{ fontSize: "15px" }}>
                 Cargando motor de cálculo y parámetros del OTD…

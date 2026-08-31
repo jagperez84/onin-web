@@ -13,7 +13,7 @@
   display: inline-block;
   margin-top: 3px;
   font-size: 11px;
-  color: #9a6700;
+  color: var(--status-warning-fg);
 }
 .measurement-status {
   display: inline-flex;
@@ -109,7 +109,7 @@
 }
 .measurement-save-bar .primary-button {
   min-width: 170px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+  box-shadow: var(--shadow-hover);
 }
 .next-action {
   width: 100%;
@@ -117,7 +117,7 @@
   border: 0;
   border-radius: 10px;
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-contrast);
   font-weight: 700;
   font-size: 14px;
   display: flex;
@@ -177,7 +177,7 @@
 .measurement-customer-results button:hover,
 .measurement-customer-results button.selected {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 .measurement-customer-results span {
   color: var(--muted);
@@ -269,9 +269,9 @@
 }
 .measurement-photo-error {
   padding: 10px 12px;
-  border: 1px solid #e8cfc7;
+  border: 1px solid var(--status-danger-border);
   background: var(--danger-soft);
-  color: #96594b;
+  color: var(--status-danger-fg);
   border-radius: 9px;
   font-size: 13px;
   margin-bottom: 12px;
@@ -332,7 +332,7 @@
 }
 .measurement-photo-card figcaption button:hover {
   color: var(--danger);
-  border-color: #e8cfc7;
+  border-color: var(--status-danger-border);
 }
 .spin {
   animation: measurement-photo-spin 0.9s linear infinite;
@@ -440,8 +440,8 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: var(--canvas, #f8fafc);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--canvas-stripe);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
 }
@@ -458,14 +458,14 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: var(--muted, #64748b);
+  color: var(--muted);
   margin-bottom: 2px;
 }
 
 .linked-quotation-code {
   font-size: 18px;
   font-weight: 800;
-  color: var(--text, #0f172a);
+  color: var(--text);
 }
 
 .linked-quotation-meta {
@@ -473,7 +473,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   padding-top: 10px;
-  border-top: 1px solid var(--border, #e2e8f0);
+  border-top: 1px solid var(--border);
   font-size: 12.5px;
 }
 
@@ -484,7 +484,7 @@
 }
 
 .linked-quotation-meta span {
-  color: var(--muted, #64748b);
+  color: var(--muted);
   font-size: 11px;
 }
 
@@ -506,10 +506,10 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--success-soft);
+  border: 1px solid var(--status-success-border);
   border-radius: 10px;
-  color: #166534;
+  color: var(--status-success-fg);
   font-size: 13px;
   line-height: 1.5;
 }

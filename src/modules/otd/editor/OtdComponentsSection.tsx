@@ -252,7 +252,7 @@ export function OtdComponentsSection({
                           <Loader2
                             size={14}
                             className="animate-spin"
-                            style={{ color: "#64748b" }}
+                            style={{ color: "var(--muted)" }}
                           />
                         ) : null}
                         <button

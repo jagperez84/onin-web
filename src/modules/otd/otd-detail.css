@@ -11,8 +11,8 @@
 
 .otd-detail-badge.active {
   background: var(--success-soft);
-  color: #4e7a55;
-  border: 1px solid #c9dcc7;
+  color: var(--status-success-fg);
+  border: 1px solid var(--status-success-border);
 }
 
 .otd-detail-badge.inactive {
@@ -37,7 +37,7 @@
 .otd-detail-val-box .val-text {
   font-size: 14px;
   font-weight: 500;
-  color: #0f172a;
+  color: var(--text);
   padding: 8px 12px;
   background: var(--canvas-stripe);
   border: 1px solid var(--border);
@@ -50,8 +50,8 @@
 .otd-detail-val-box .val-text code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
-  color: #1e293b;
-  background: #edf2f7;
+  color: var(--text);
+  background: var(--canvas-stripe);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -89,7 +89,7 @@
   background: var(--canvas-stripe);
   padding: 2px 6px;
   border-radius: 4px;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-detail-formula-banner {
@@ -118,7 +118,7 @@
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .otd-variables-table {
@@ -152,7 +152,7 @@
   font-size: 12.5px;
   background: var(--primary-soft);
   color: var(--primary-hover);
-  border: 1px solid #d6e0dc;
+  border: 1px solid var(--status-info-border);
   padding: 3px 8px;
   border-radius: 5px;
   display: inline-block;
@@ -169,7 +169,7 @@
 .otd-detail-char-box {
   margin-top: 14px;
   padding: 12px 14px;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 7px;
   display: flex;
@@ -185,14 +185,14 @@
 
 .otd-detail-char-box span {
   font-size: 13px;
-  color: #1e293b;
+  color: var(--text);
 }
 
 .otd-detail-char-box code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   background: var(--canvas-stripe);
-  color: #0f172a;
+  color: var(--text);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -200,7 +200,7 @@
 .otd-detail-dims-wrap {
   margin-top: 14px;
   padding: 12px 14px;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 7px;
 }
@@ -240,8 +240,8 @@
 .otd-detail-dim-item code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--surface);
+  color: var(--text);
   border: 1px solid var(--border);
   padding: 3px 6px;
   border-radius: 4px;

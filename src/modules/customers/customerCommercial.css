@@ -1,5 +1,5 @@
 .commercial-subsection {
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border);
   padding-top: 18px;
   margin-top: 18px;
 }
@@ -38,10 +38,10 @@
   left: 0;
   right: 0;
   top: calc(100% + 4px);
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: var(--shadow-hover);
   max-height: 260px;
   overflow: auto;
 }
@@ -53,9 +53,9 @@
   text-align: left;
   padding: 9px 11px;
   border: 0;
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
-  color: #0f172a;
+  color: var(--text);
 }
 .entity-search-option:hover {
   background: var(--canvas-stripe);
@@ -74,7 +74,7 @@
   color: var(--danger);
 }
 .icon-action.danger:hover {
-  background: #fee2e2;
+  background: var(--danger-soft);
 }
 .field-sm {
   max-width: 130px;

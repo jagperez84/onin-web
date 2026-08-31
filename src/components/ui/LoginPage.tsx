@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function LoginPage() {
   const { user, configured, signIn } = useAuth();
@@ -41,6 +42,7 @@ export function LoginPage() {
 
   return (
     <main className="auth-page">
+      <ThemeToggle />
       <section className="auth-card" aria-labelledby="login-title">
         <div className="auth-brand">ONIN</div>
         <div className="auth-eyebrow">ACCESO</div>

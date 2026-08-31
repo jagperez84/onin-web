@@ -16,7 +16,7 @@
   margin: 4px 0 6px;
   font-size: 28px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-runtime-head p {
@@ -39,7 +39,7 @@
 }
 
 .otd-runtime-back:hover {
-  color: #0f172a;
+  color: var(--text);
 }
 
 .otd-runtime-actions-top {
@@ -52,9 +52,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #c9dcc7;
+  border: 1px solid var(--status-success-border);
   background: var(--success-soft);
-  color: #4e7a55;
+  color: var(--status-success-fg);
   border-radius: 9999px;
   padding: 6px 12px;
   font-size: 12px;
@@ -66,7 +66,7 @@
   align-items: center;
   gap: 8px;
   background: var(--primary-hover);
-  color: #fff;
+  color: var(--primary-contrast);
   border: none;
   padding: 10px 18px;
   border-radius: 8px;
@@ -89,7 +89,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
   padding: 8px 14px;
@@ -117,11 +117,11 @@
 }
 
 .otd-runtime-card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow);
 }
 
 .runtime-card-head {
@@ -136,7 +136,7 @@
   margin: 0 0 4px;
   font-size: 18px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .runtime-card-head p {
@@ -148,7 +148,7 @@
 .runtime-price-badge {
   font-size: 22px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
   background: var(--canvas-stripe);
   padding: 6px 14px;
   border-radius: 8px;
@@ -176,8 +176,8 @@
 }
 
 .tag-dimension {
-  background: #e0e7ff;
-  color: #4338ca;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
   font-size: 10px;
   font-weight: 600;
   padding: 2px 6px;
@@ -186,7 +186,7 @@
 }
 
 .text-danger {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .runtime-input,
@@ -196,16 +196,16 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 9px 12px;
-  background: #fff;
-  color: #0f172a;
+  background: var(--surface);
+  color: var(--text);
   outline: none;
   transition: border-color 0.15s;
 }
 
 .runtime-input:focus,
 .runtime-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .input-with-unit {
@@ -233,8 +233,8 @@
   padding: 12px 16px;
   border-radius: 8px;
   background: var(--accent-soft);
-  border: 1px solid #fef3c7;
-  color: #8a7248;
+  border: 1px solid var(--status-warning-border);
+  color: var(--status-warning-fg);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -251,14 +251,22 @@
 
 /* Base Price Special Row */
 .otd-clean-component-row.base-price-row {
-  background: linear-gradient(135deg, var(--success-soft) 0%, #e0f2fe 100%);
-  border: 1.5px solid #bae6fd;
-  box-shadow: 0 2px 5px rgba(2, 132, 199, 0.06);
+  background: linear-gradient(
+    135deg,
+    var(--success-soft) 0%,
+    var(--primary-soft) 100%
+  );
+  border: 1.5px solid var(--status-info-border);
+  box-shadow: var(--shadow);
 }
 
 .otd-clean-component-row.base-price-row:hover {
-  background: linear-gradient(135deg, #ecfdf5 0%, #d6e0dc 100%);
-  border-color: #7dd3fc;
+  background: linear-gradient(
+    135deg,
+    var(--success-soft) 0%,
+    var(--primary-soft) 100%
+  );
+  border-color: var(--status-info-border);
 }
 
 .badge-base-included {
@@ -267,8 +275,8 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  background: #0284c7;
-  color: #ffffff;
+  background: var(--primary);
+  color: var(--primary-contrast);
   padding: 2px 8px;
   border-radius: 9999px;
   text-transform: uppercase;
@@ -291,9 +299,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #fef3c7;
-  color: #8a7248;
-  border: 1px solid #ddd0b0;
+  background: var(--accent-soft);
+  color: var(--status-warning-fg);
+  border: 1px solid var(--status-warning-border);
   border-radius: 6px;
   padding: 4px 10px;
   font-size: 12px;
@@ -319,13 +327,13 @@
 }
 
 .otd-clean-component-row:hover {
-  background: #fff;
+  background: var(--surface);
   border-color: var(--border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow);
 }
 
 .otd-clean-component-row.is-error {
-  border-color: #e8cfc7;
+  border-color: var(--status-danger-border);
   background: var(--danger-soft);
 }
 
@@ -343,7 +351,7 @@
   flex-wrap: wrap;
   gap: 8px;
   font-size: 15px;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .comp-code {
@@ -361,8 +369,8 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 600;
-  background: #fef3c7;
-  color: #8a7248;
+  background: var(--accent-soft);
+  color: var(--status-warning-fg);
   padding: 2px 8px;
   border-radius: 9999px;
 }
@@ -380,8 +388,8 @@
   display: inline-block;
   margin-top: 4px;
   font-size: 11px;
-  color: #0369a1;
-  background: #e0f2fe;
+  color: var(--primary-hover);
+  background: var(--primary-soft);
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 500;
@@ -422,7 +430,7 @@
   height: 32px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   color: var(--muted);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -430,14 +438,14 @@
 
 .comp-btn-action:hover {
   background: var(--canvas-stripe);
-  color: #0f172a;
+  color: var(--text);
   border-color: var(--muted-2);
 }
 
 .comp-btn-action.text-danger:hover {
-  background: #fee2e2;
-  color: #96594b;
-  border-color: #e8cfc7;
+  background: var(--danger-soft);
+  color: var(--status-danger-fg);
+  border-color: var(--status-danger-border);
 }
 
 /* 3-Pill Mathematical Composition Bar */
@@ -458,15 +466,15 @@
   flex-direction: column;
   gap: 3px;
   padding: 10px 14px;
-  background: #fff;
+  background: var(--surface);
   border-radius: 8px;
   border: 1px solid var(--border);
 }
 
 .math-item.highlight-total {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #fff;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
 }
 
 .math-label {
@@ -484,11 +492,11 @@
 .math-amount {
   font-size: 18px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .math-item.highlight-total .math-amount {
-  color: #38bdf8;
+  color: var(--primary);
   font-size: 20px;
 }
 
@@ -507,8 +515,8 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   margin-top: 6px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: var(--surface);
+  box-shadow: var(--shadow-hover);
 }
 
 .search-result-item {
@@ -550,13 +558,13 @@
 }
 
 .otd-clean-component-row:hover {
-  background: #fff;
+  background: var(--surface);
   border-color: var(--border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow);
 }
 
 .otd-clean-component-row.is-error {
-  border-color: #e8cfc7;
+  border-color: var(--status-danger-border);
   background: var(--danger-soft);
 }
 
@@ -571,7 +579,7 @@
   align-items: center;
   gap: 8px;
   font-size: 15px;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .comp-code {
@@ -589,8 +597,8 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 600;
-  background: #fef3c7;
-  color: #8a7248;
+  background: var(--accent-soft);
+  color: var(--status-warning-fg);
   padding: 2px 8px;
   border-radius: 9999px;
 }
@@ -608,8 +616,8 @@
   display: inline-block;
   margin-top: 4px;
   font-size: 11px;
-  color: #0369a1;
-  background: #e0f2fe;
+  color: var(--primary-hover);
+  background: var(--primary-soft);
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 500;
@@ -636,7 +644,7 @@
 
 .comp-total-price {
   font-size: 17px;
-  color: #0f172a;
+  color: var(--text);
 }
 
 /* Office Summary Bar */
@@ -645,8 +653,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  background: #0f172a;
-  color: #fff;
+  background: var(--text);
+  color: var(--bg);
   border-radius: 10px;
   gap: 20px;
 }
@@ -667,7 +675,7 @@
 .summary-amount {
   font-size: 26px;
   font-weight: 700;
-  color: #fff;
+  color: var(--bg);
 }
 
 .summary-hint {
@@ -744,7 +752,7 @@
 
 .var-name {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text);
 }
 
 .var-code {
@@ -759,7 +767,7 @@
 }
 
 .var-val strong {
-  color: #0f172a;
+  color: var(--text);
   font-size: 13px;
 }
 
@@ -777,7 +785,7 @@
   padding: 10px 14px;
   background: var(--canvas-stripe);
   font-weight: 700;
-  color: #475467;
+  color: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
@@ -803,12 +811,12 @@
 
 .tag-comp-type.basic {
   background: var(--canvas-stripe);
-  color: #475467;
+  color: var(--muted);
 }
 
 .tag-comp-type.improvement {
-  background: #fef3c7;
-  color: #8a7248;
+  background: var(--accent-soft);
+  color: var(--status-warning-fg);
 }
 
 /* Modals */
@@ -832,7 +840,7 @@
 .mini-price {
   font-size: 18px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .quote-select-field label {

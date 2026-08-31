@@ -199,7 +199,7 @@ export function CustomerCreate() {
           <h1>Nuevo cliente</h1>
           <p>Alta de cliente con ID generado automáticamente.</p>
           {fromQuotation && (
-            <p style={{ marginTop: "6px", color: "#2563eb", fontWeight: 600 }}>
+            <p style={{ marginTop: "6px", color: "var(--primary)", fontWeight: 600 }}>
               Datos precargados desde el presupuesto. Completa los datos fiscales y confirma el alta.
             </p>
           )}

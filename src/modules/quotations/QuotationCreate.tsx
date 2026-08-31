@@ -913,7 +913,7 @@ export function QuotationCreate() {
                   >
                     <User
                       size={16}
-                      style={{ color: "var(--color-primary, #5c7a74)" }}
+                      style={{ color: "var(--primary)" }}
                     />
                     <span
                       style={{
@@ -1294,7 +1294,7 @@ function QuotationLineRows({
               >
                 OTD
               </span>
-              <strong style={{ fontSize: "13px", color: "#33393b" }}>
+              <strong style={{ fontSize: "13px", color: "var(--text)" }}>
                 {snapshot?.otd_code || snapshot?.otd_name || "Personalizado"}
               </strong>
             </div>

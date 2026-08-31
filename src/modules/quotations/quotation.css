@@ -55,7 +55,7 @@
 }
 
 .quotation-kpi {
-  background: var(--surface, #fff);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px 18px;
@@ -74,9 +74,9 @@
 }
 
 .quotation-kpi-link:hover {
-  border-color: #dad8d0;
+  border-color: var(--border-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(51, 57, 59, 0.06);
+  box-shadow: var(--shadow-hover);
 }
 
 .quotation-kpi-warning .quotation-kpi-icon {
@@ -295,13 +295,13 @@
 }
 
 .renew-quick-btn {
-  background: #a98f68 !important;
-  color: #fff !important;
-  border-color: #8a7248 !important;
+  background: var(--accent) !important;
+  color: var(--primary-contrast) !important;
+  border-color: var(--accent) !important;
 }
 
 .renew-quick-btn:hover {
-  background: #8a7248 !important;
+  background: var(--accent) !important;
 }
 
 /* =========================================================
@@ -329,22 +329,22 @@
 
 .workflow-banner.sent {
   background: var(--primary-soft);
-  border-color: #cddcd6;
+  border-color: var(--status-info-border);
 }
 
 .workflow-banner.accepted {
   background: var(--success-soft);
-  border-color: #c9dcc7;
+  border-color: var(--status-success-border);
 }
 
 .workflow-banner.rejected {
   background: var(--danger-soft);
-  border-color: #e8cfc7;
+  border-color: var(--status-danger-border);
 }
 
 .workflow-banner.expired {
   background: var(--accent-soft);
-  border-color: #ddd0b0;
+  border-color: var(--status-warning-border);
 }
 
 .workflow-banner-text {
@@ -370,15 +370,15 @@
 }
 
 .workflow-banner.accepted .banner-title-with-badge {
-  color: #4e7a55;
+  color: var(--status-success-fg);
 }
 
 .workflow-banner.rejected .banner-title-with-badge {
-  color: #96594b;
+  color: var(--status-danger-fg);
 }
 
 .workflow-banner.expired .banner-title-with-badge {
-  color: #8a7248;
+  color: var(--status-warning-fg);
 }
 
 .workflow-banner-text span {
@@ -396,21 +396,21 @@
 
 .success-btn,
 .success-action-btn {
-  background: #6e9b6e !important;
-  color: #fff !important;
-  border-color: #4e7a55 !important;
+  background: var(--success) !important;
+  color: var(--primary-contrast) !important;
+  border-color: var(--success) !important;
 }
 
 .success-btn:hover,
 .success-action-btn:hover {
-  background: #4e7a55 !important;
+  background: var(--success) !important;
 }
 
 .danger-btn,
 .danger-action-btn {
   color: var(--danger) !important;
-  border-color: #e8cfc7 !important;
-  background: #fff !important;
+  border-color: var(--status-danger-border) !important;
+  background: var(--surface) !important;
 }
 
 .danger-btn:hover,
@@ -421,19 +421,19 @@
 
 .renew-btn,
 .renew-action-btn {
-  background: #a98f68 !important;
-  color: #fff !important;
-  border-color: #8a7248 !important;
+  background: var(--accent) !important;
+  color: var(--primary-contrast) !important;
+  border-color: var(--accent) !important;
 }
 
 .renew-btn:hover,
 .renew-action-btn:hover {
-  background: #8a7248 !important;
+  background: var(--accent) !important;
 }
 
 .albaran-btn {
   background: var(--primary) !important;
-  color: #fff !important;
+  color: var(--primary-contrast) !important;
   font-weight: 700;
 }
 
@@ -526,26 +526,26 @@
 
 .quotation-status-bar.sent {
   background: var(--primary-soft);
-  border: 1px solid #cddcd6;
+  border: 1px solid var(--status-info-border);
   color: var(--primary-hover);
 }
 
 .quotation-status-bar.accepted {
   background: var(--success-soft);
-  border: 1px solid #c9dcc7;
-  color: #4e7a55;
+  border: 1px solid var(--status-success-border);
+  color: var(--status-success-fg);
 }
 
 .quotation-status-bar.rejected {
   background: var(--danger-soft);
-  border: 1px solid #e8cfc7;
-  color: #96594b;
+  border: 1px solid var(--status-danger-border);
+  color: var(--status-danger-fg);
 }
 
 .quotation-status-bar.expired {
   background: var(--accent-soft);
-  border: 1px solid #ddd0b0;
-  color: #8a7248;
+  border: 1px solid var(--status-warning-border);
+  color: var(--status-warning-fg);
 }
 
 .quotation-status-bar-left {
@@ -632,7 +632,7 @@
 
 .quotation-contact-person-card {
   background: var(--primary-soft);
-  border: 1px solid #cddcd6;
+  border: 1px solid var(--status-info-border);
   border-radius: 8px;
   padding: 12px 14px;
   display: flex;
@@ -653,7 +653,7 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--primary-hover);
-  background: #d6e0dc;
+  background: var(--primary-soft);
   padding: 2px 7px;
   border-radius: 4px;
 }
@@ -1063,7 +1063,7 @@
   box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 7px;
-  background: #ffffff;
+  background: var(--surface);
   color: var(--text);
   padding: 9px 12px;
   font-size: 13.5px;
@@ -1079,7 +1079,7 @@
 .modal-body .form-group textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(110, 139, 133, 0.18);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .modal-body .form-group input::placeholder,
@@ -1215,7 +1215,7 @@
   font-family: var(--font-mono);
   color: var(--text);
   font-size: 12px;
-  background: rgba(0, 0, 0, 0.04);
+  background: var(--surface-subtle);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -1224,7 +1224,7 @@
 
 .send-action-btn {
   background: var(--primary) !important;
-  color: #fff !important;
+  color: var(--primary-contrast) !important;
   border-color: var(--primary) !important;
   font-weight: 700 !important;
   padding: 9px 16px !important;
@@ -1232,7 +1232,7 @@
   display: inline-flex !important;
   align-items: center !important;
   gap: 8px !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .send-action-btn:hover:not(:disabled) {
@@ -1250,9 +1250,9 @@
   gap: 12px;
   padding: 12px 14px;
   background: var(--accent-soft);
-  border: 1px solid #ddd0b0;
+  border: 1px solid var(--status-warning-border);
   border-radius: 8px;
-  color: #8a7248;
+  color: var(--status-warning-fg);
 }
 
 .renew-info-icon {
@@ -1282,7 +1282,7 @@
 .preset-date-btn {
   padding: 9px 8px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   border-radius: 7px;
   font-size: 11.5px;
   font-weight: 600;
@@ -1315,14 +1315,14 @@
 
 .status-confirm-box.accept {
   background: var(--success-soft);
-  border: 1px solid #c9dcc7;
-  color: #3d5f42;
+  border: 1px solid var(--status-success-border);
+  color: var(--status-success-fg);
 }
 
 .status-confirm-box.reject {
   background: var(--danger-soft);
-  border: 1px solid #e8cfc7;
-  color: #6b4438;
+  border: 1px solid var(--status-danger-border);
+  color: var(--status-danger-fg);
 }
 
 .status-confirm-box.neutral {
@@ -1349,7 +1349,7 @@
   background: var(--success-soft);
   border-radius: 6px;
   font-size: 13px;
-  color: #4e7a55;
+  color: var(--status-success-fg);
 }
 
 /* Specific: Albarán / Delivery Note Creation & Document */
@@ -1358,7 +1358,7 @@
   gap: 12px;
   padding: 12px 16px;
   background: var(--primary-soft);
-  border: 1px solid #cddcd6;
+  border: 1px solid var(--status-info-border);
   border-radius: 8px;
   color: var(--primary-hover);
 }
@@ -1415,9 +1415,9 @@
   gap: 10px;
   padding: 10px 14px;
   background: var(--success-soft);
-  border: 1px solid #c9dcc7;
+  border: 1px solid var(--status-success-border);
   border-radius: 8px;
-  color: #4e7a55;
+  color: var(--status-success-fg);
   font-size: 13px;
 }
 
@@ -1727,12 +1727,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: var(--primary-soft);
+  border: 1px solid var(--status-info-border);
   border-radius: 10px;
   padding: 10px 16px;
   margin-bottom: 16px;
-  color: #1e40af;
+  color: var(--status-info-fg);
   font-size: 13px;
 }
 

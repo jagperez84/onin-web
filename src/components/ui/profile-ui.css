@@ -9,13 +9,13 @@
 }
 .onin-message-log.error {
   background: var(--danger-soft);
-  border-color: #f3c5c1;
-  color: #96594b;
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-fg);
 }
 .onin-message-log.success {
   background: var(--success-soft);
-  border-color: #b9dfc9;
-  color: #5c7b5c;
+  border-color: var(--status-success-border);
+  color: var(--status-success-fg);
 }
 .onin-message-log strong {
   font-size: 12px;
@@ -24,7 +24,7 @@
   font-size: 13px;
 }
 .onin-message-log:focus {
-  outline: 3px solid rgba(29, 95, 143, 0.18);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .profile-save-bar {
@@ -36,10 +36,10 @@
   margin: 8px auto 24px;
   padding: 12px;
   max-width: 1500px;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 9px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--shadow-hover);
 }
 .profile-save-bar .primary-button {
   min-width: 120px;

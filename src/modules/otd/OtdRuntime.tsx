@@ -1247,7 +1247,7 @@ export function OtdRuntime() {
                     editingCompModal.comp.code ||
                     "Ningún artículo seleccionado"}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
                   Código:{" "}
                   <code>
                     {editingCompModal.comp.product?.code ||
@@ -1422,7 +1422,7 @@ export function OtdRuntime() {
                         marginBottom: 6,
                       }}
                     >
-                      <Ruler size={14} style={{ color: "#0284c7" }} />
+                      <Ruler size={14} style={{ color: "var(--primary)" }} />
                       <span>
                         Dimensiones y Fórmulas de Corte del Artículo (
                         {editingCompModal.comp.dimensions.length})

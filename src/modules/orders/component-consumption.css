@@ -22,7 +22,7 @@
 .component-consumption-table td {
   padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
@@ -34,24 +34,24 @@
 .component-consumption-table select {
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border);
   font-size: 13px;
 }
 
 .component-consumption-secondary {
   display: block;
-  color: #6b7280;
+  color: var(--muted);
   font-size: 12px;
 }
 
 .component-consumption-no-stock {
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 12px;
 }
 
 .component-consumption-warning {
   display: block;
-  color: #b45309;
+  color: var(--status-warning-fg);
   font-size: 11px;
   margin-top: 2px;
 }
@@ -62,8 +62,8 @@
   gap: 8px;
   margin: 0 24px 12px;
   padding: 10px 12px;
-  background: #ecfdf5;
-  color: #065f46;
+  background: var(--success-soft);
+  color: var(--status-success-fg);
   border-radius: 8px;
   font-size: 13px;
 }

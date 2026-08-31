@@ -722,7 +722,7 @@ export function QuotationLineConfigurator({
                     }}
                   >
                     <div>
-                      <strong style={{ fontSize: "14px", color: "#0f172a" }}>
+                      <strong style={{ fontSize: "14px", color: "var(--text)" }}>
                         Artículo seleccionado:{" "}
                         {selectedProductInfo
                           ? `${selectedProductInfo.code} · ${selectedProductInfo.label}`
@@ -830,7 +830,7 @@ export function QuotationLineConfigurator({
                   <RefreshCw
                     size={28}
                     className="spin"
-                    style={{ margin: "0 auto 12px", color: "#0284c7" }}
+                    style={{ margin: "0 auto 12px", color: "var(--primary)" }}
                   />
                   <div style={{ fontSize: "15px", fontWeight: 500 }}>
                     Cargando configuración maestra del artículo…
@@ -900,7 +900,7 @@ export function QuotationLineConfigurator({
                           <label>
                             Variante del producto
                             <span
-                              style={{ color: "#0284c7", fontSize: "11px" }}
+                              style={{ color: "var(--primary)", fontSize: "11px" }}
                             >
                               (Determina PVP, incrementos y escalado
                               condicionado)
@@ -1052,7 +1052,7 @@ export function QuotationLineConfigurator({
                         </div>
                       ) : (
                         masterConfig.characteristics.length === 0 && (
-                          <p style={{ color: "#64748b", fontSize: "13px" }}>
+                          <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                             Este artículo no tiene características ni variantes
                             configurables definidas en el maestro.
                           </p>
@@ -1328,7 +1328,7 @@ export function QuotationLineConfigurator({
                               </tbody>
                             </table>
                           ) : (
-                            <p style={{ color: "#64748b", fontSize: "13px" }}>
+                            <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                               Este artículo no tiene despiece asignado en el
                               catálogo maestro.
                             </p>
@@ -1468,7 +1468,7 @@ export function QuotationLineConfigurator({
 
                           {!previewSnapshot.cuts.canvas_cuts.length &&
                             !previewSnapshot.cuts.profile_cuts.length && (
-                              <p style={{ color: "#64748b", fontSize: "13px" }}>
+                              <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                                 No hay cálculos de corte aplicables para esta
                                 configuración de producto.
                               </p>
@@ -1634,7 +1634,7 @@ export function QuotationLineConfigurator({
                               </table>
                             </div>
                           ) : (
-                            <p style={{ color: "#64748b", fontSize: "13px" }}>
+                            <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                               El artículo no requiere seguimiento de stock o no
                               hay almacén asignado.
                             </p>
@@ -1766,7 +1766,7 @@ export function QuotationLineConfigurator({
                           }}
                         >
                           <span>Importe total neto:</span>
-                          <strong style={{ color: "#0f172a" }}>
+                          <strong style={{ color: "var(--text)" }}>
                             {formatEuro(previewSnapshot.pricing.net_amount)}
                           </strong>
                         </div>
@@ -1792,7 +1792,7 @@ export function QuotationLineConfigurator({
                 </div>
                 <div>
                   <span>Importe total línea: </span>
-                  <strong style={{ color: "#0284c7" }}>
+                  <strong style={{ color: "var(--primary)" }}>
                     {formatEuro(previewSnapshot.pricing.total_amount)}
                   </strong>
                 </div>
