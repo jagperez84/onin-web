@@ -1,13 +1,21 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 
-export type InvoiceStatus = 'ISSUED' | 'CANCELLED';
+export type InvoiceStatus = 'ISSUED' | 'RECTIFIED';
+export type InvoiceType = 'ORIGINAL' | 'RECTIFICATIVA';
+export type VerifactuStatus = 'NOT_SENT' | 'PENDING' | 'SENT' | 'ERROR';
 
 export type InvoiceInstallment = {
   sequence: number;
   percentage: number;
   due_date: string;
   amount: number;
+};
+
+export type InvoiceTaxBreakdown = {
+  tax_percent: number;
+  base_amount: number;
+  tax_amount: number;
 };
 
 export type InvoiceLine = {
@@ -47,8 +55,22 @@ export type Invoice = {
   discount_amount: number;
   tax_amount: number;
   total_amount: number;
+  series: string;
+  invoice_type: InvoiceType;
+  rectifies_invoice_id: number | null;
+  rectified_by_invoice_id: number | null;
+  rectification_reason: string | null;
+  issuer_tax_id: string | null;
+  issuer_legal_name: string | null;
+  issuer_address: string | null;
+  customer_tax_id: string | null;
+  chain_sequence: number | null;
+  record_hash: string | null;
+  hash_algorithm: string;
+  verifactu_status: VerifactuStatus;
   lines?: InvoiceLine[];
   installments?: InvoiceInstallment[];
+  tax_breakdown?: InvoiceTaxBreakdown[];
 };
 
 function client() {
@@ -78,7 +100,7 @@ function mapPartyCustomer(value: any): string | undefined {
 }
 
 const LIST_SELECT =
-  'id,code,sales_order_id,customer_id,issue_date,status,reference,total_amount,sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name))';
+  'id,code,sales_order_id,customer_id,issue_date,status,invoice_type,reference,total_amount,sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name))';
 
 export async function listInvoices(search = ''): Promise<Invoice[]> {
   const c = client();
@@ -97,10 +119,12 @@ export async function listInvoices(search = ''): Promise<Invoice[]> {
 
 const DETAIL_SELECT =
   'id,code,sales_order_id,customer_id,issue_date,status,reference,notes,payment_method_id,payment_term_id,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,net_amount,discount_amount,tax_amount,total_amount,' +
+  'series,invoice_type,rectifies_invoice_id,rectified_by_invoice_id,rectification_reason,issuer_tax_id,issuer_legal_name,issuer_address,customer_tax_id,chain_sequence,record_hash,hash_algorithm,verifactu_status,' +
   'sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name)),' +
   'payment_method:payment_method_id(name),payment_term:payment_term_id(name),' +
   'lines:invoice_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount),' +
-  'installments:invoice_installment(sequence,percentage,due_date,amount)';
+  'installments:invoice_installment(sequence,percentage,due_date,amount),' +
+  'tax_breakdown:invoice_tax_breakdown(tax_percent,base_amount,tax_amount)';
 
 export async function getInvoice(id: number): Promise<Invoice | null> {
   const c = client();
@@ -117,13 +141,14 @@ export async function getInvoice(id: number): Promise<Invoice | null> {
     payment_term_name: one(row.payment_term)?.name ?? null,
     lines: (row.lines || []).sort((a: any, b: any) => a.line_no - b.line_no),
     installments: (row.installments || []).sort((a: any, b: any) => a.sequence - b.sequence),
+    tax_breakdown: row.tax_breakdown || [],
   } as Invoice;
 }
 
 export async function getInvoiceBySalesOrderId(salesOrderId: number): Promise<Invoice | null> {
   const c = client();
   const cid = await companyId();
-  const { data, error } = await c.from('invoice').select(LIST_SELECT).eq('company_id', cid).eq('sales_order_id', salesOrderId).neq('status', 'CANCELLED').order('id', { ascending: false }).limit(1).maybeSingle();
+  const { data, error } = await c.from('invoice').select(LIST_SELECT).eq('company_id', cid).eq('sales_order_id', salesOrderId).eq('status', 'ISSUED').eq('invoice_type', 'ORIGINAL').order('id', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new CoreRepositoryError(error.message);
   if (!data) return null;
   const row = data as any;
@@ -139,8 +164,11 @@ export async function createInvoiceFromSalesOrder(salesOrderId: number): Promise
   return invoice;
 }
 
-export async function cancelInvoice(id: number): Promise<void> {
+export async function createRectifyingInvoice(id: number, reason: string): Promise<Invoice> {
   const c = client();
-  const { error } = await c.rpc('cancel_invoice', { p_invoice_id: id });
+  const { data, error } = await c.rpc('create_rectifying_invoice', { p_invoice_id: id, p_reason: reason });
   if (error) throw new CoreRepositoryError(error.message);
+  const invoice = await getInvoice(Number(data));
+  if (!invoice) throw new CoreRepositoryError('La factura rectificativa se ha creado pero no se ha podido recuperar.');
+  return invoice;
 }

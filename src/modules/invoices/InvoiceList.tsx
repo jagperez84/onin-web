@@ -5,8 +5,9 @@ import { listInvoices, type Invoice } from '../../services/sales/invoiceService'
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import '../orders/sales-order.css';
 
-const statusLabel: Record<string,string>={ISSUED:'Emitida',CANCELLED:'Cancelada'};
-const statusTone: Record<string,string>={ISSUED:'success',CANCELLED:'danger'};
+const statusLabel: Record<string,string>={ISSUED:'Emitida',RECTIFIED:'Rectificada'};
+const statusTone: Record<string,string>={ISSUED:'success',RECTIFIED:''};
+const typeLabel: Record<string,string>={ORIGINAL:'',RECTIFICATIVA:'Rectificativa'};
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const date=(v:string)=>new Date(`${v}T00:00:00`).toLocaleDateString('es-ES');
 
@@ -32,7 +33,7 @@ export function InvoiceList(){
     <thead><tr><th>Factura</th><th>Pedido</th><th>Referencia</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th className="numeric">Total</th><th></th></tr></thead>
     <tbody>
      {loading?<tr><td colSpan={8} className="sales-order-empty">Cargando facturas…</td></tr>:rows.length===0?<tr><td colSpan={8} className="sales-order-empty">No hay facturas.</td></tr>:rows.map(r=><tr key={r.id}>
-      <td><Link className="sales-order-code" to={`/facturacion/facturas/${r.id}`}>{r.code}</Link></td>
+      <td><Link className="sales-order-code" to={`/facturacion/facturas/${r.id}`}>{r.code}</Link>{typeLabel[r.invoice_type]&&<span className="status-pill neutral" style={{marginLeft:'6px'}}>{typeLabel[r.invoice_type]}</span>}</td>
       <td><Link className="sales-order-document-link" to={`/ventas/pedidos/${r.sales_order_id}`}>{r.sales_order_code||r.sales_order_id}</Link></td>
       <td>{r.reference||'—'}</td>
       <td><strong>{r.customer_name||'—'}</strong></td>
