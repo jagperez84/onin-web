@@ -207,12 +207,12 @@ export async function updateSalesOrder(id: number, values: { requested_delivery_
   if (error) throw new CoreRepositoryError(error.message);
 }
 
-export async function updateSalesOrderLocation(id: number, values: { installation_latitude: number | null; installation_longitude: number | null; zone_id?: number | null }): Promise<void> {
+export async function updateSalesOrderLocation(id: number, values: { installation_latitude?: number | null; installation_longitude?: number | null; zone_id?: number | null }): Promise<void> {
   const c = client();
   const cid = await companyId();
   const { error } = await c.from('sales_order').update({
-    installation_latitude: values.installation_latitude,
-    installation_longitude: values.installation_longitude,
+    ...(values.installation_latitude !== undefined ? { installation_latitude: values.installation_latitude } : {}),
+    ...(values.installation_longitude !== undefined ? { installation_longitude: values.installation_longitude } : {}),
     ...(values.zone_id !== undefined ? { zone_id: values.zone_id } : {}),
     updated_at: new Date().toISOString(),
   }).eq('company_id', cid).eq('id', id);
