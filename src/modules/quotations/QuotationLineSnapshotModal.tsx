@@ -171,7 +171,7 @@ export function QuotationLineSnapshotModal({
             {/* Inputs Overview */}
             <div
               className="configurator-card"
-              style={{ padding: "14px 18px", background: "#f8fafc" }}
+              style={{ padding: "14px 18px", background: "var(--canvas-stripe)" }}
             >
               <div
                 style={{
@@ -212,7 +212,7 @@ export function QuotationLineSnapshotModal({
                     >
                       {inp.name}
                     </span>
-                    <strong style={{ color: "#0f172a" }}>
+                    <strong style={{ color: "var(--text)" }}>
                       {inp.display_value}
                     </strong>
                   </div>
@@ -241,7 +241,7 @@ export function QuotationLineSnapshotModal({
                       <tr key={idx}>
                         <td>
                           <strong>{comp.product_code}</strong>
-                          <div style={{ fontSize: "11px", color: "#64748b" }}>
+                          <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                             {comp.product_name}
                           </div>
                           {comp.characteristic_name && (
@@ -269,7 +269,7 @@ export function QuotationLineSnapshotModal({
                         </td>
                         <td>
                           {comp.quantity}{" "}
-                          <span style={{ fontSize: "11px", color: "#64748b" }}>
+                          <span style={{ fontSize: "11px", color: "var(--muted)" }}>
                             {comp.unit_symbol || comp.unit_code || "ud"}
                           </span>
                         </td>
@@ -297,7 +297,7 @@ export function QuotationLineSnapshotModal({
                             <div>
                               <strong>{formatEuro(comp.base_price)}</strong>
                               <div
-                                style={{ fontSize: "10px", color: "#64748b" }}
+                                style={{ fontSize: "10px", color: "var(--muted)" }}
                               >
                                 Paso: {comp.scale_step_used.dimension_1} ×{" "}
                                 {comp.scale_step_used.dimension_2 ?? "—"}{" "}
@@ -310,7 +310,7 @@ export function QuotationLineSnapshotModal({
                         </td>
                         <td>
                           {comp.increment_amount > 0 ? (
-                            <span style={{ color: "#b45309", fontWeight: 600 }}>
+                            <span style={{ color: "var(--status-warning-fg)", fontWeight: 600 }}>
                               +{formatEuro(comp.increment_amount)}
                               <small
                                 style={{
@@ -334,7 +334,7 @@ export function QuotationLineSnapshotModal({
                           <strong>{formatEuro(comp.unit_price)}</strong>
                         </td>
                         <td>
-                          <strong style={{ color: "#0f172a" }}>
+                          <strong style={{ color: "var(--text)" }}>
                             {formatEuro(comp.total_price)}
                           </strong>
                         </td>
@@ -387,7 +387,7 @@ export function QuotationLineSnapshotModal({
             <div className="configurator-footer-summary">
               <div>
                 <span>Total OTD Calculado: </span>
-                <strong style={{ color: "#0284c7", fontSize: "18px" }}>
+                <strong style={{ color: "var(--primary)", fontSize: "18px" }}>
                   {formatEuro(otdSnap.total_amount || 0)}
                 </strong>
               </div>
@@ -559,7 +559,7 @@ export function QuotationLineSnapshotModal({
               }}
             >
               <div>
-                <strong style={{ color: "#475569" }}>Dimensiones:</strong>
+                <strong style={{ color: "var(--muted)" }}>Dimensiones:</strong>
                 <div>
                   {(standardSnap.dimensions || [])
                     .map((d) => `${d.name}: ${d.value ?? 0} ${d.unit_code}`)
@@ -567,7 +567,7 @@ export function QuotationLineSnapshotModal({
                 </div>
               </div>
               <div>
-                <strong style={{ color: "#475569" }}>Variante / Color:</strong>
+                <strong style={{ color: "var(--muted)" }}>Variante / Color:</strong>
                 <div>
                   {standardSnap.selected_variant?.description ||
                     standardSnap.selected_variant?.code ||
@@ -575,7 +575,7 @@ export function QuotationLineSnapshotModal({
                 </div>
               </div>
               <div>
-                <strong style={{ color: "#475569" }}>Características:</strong>
+                <strong style={{ color: "var(--muted)" }}>Características:</strong>
                 <div>
                   {(standardSnap.selected_attributes || [])
                     .map((a) => `${a.name}: ${a.value_label}`)
@@ -583,7 +583,7 @@ export function QuotationLineSnapshotModal({
                 </div>
               </div>
               <div>
-                <strong style={{ color: "#475569" }}>Cantidad & Dto:</strong>
+                <strong style={{ color: "var(--muted)" }}>Cantidad & Dto:</strong>
                 <div>
                   {standardSnap.quantity} {article?.base_unit_code} ·{" "}
                   {pricing?.discount_percent}% Dto.
@@ -655,7 +655,7 @@ export function QuotationLineSnapshotModal({
                       <tr key={comp.id}>
                         <td>
                           <strong>{comp.code}</strong>
-                          <div style={{ fontSize: "11px", color: "#64748b" }}>
+                          <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                             {comp.description}
                           </div>
                         </td>
@@ -687,7 +687,7 @@ export function QuotationLineSnapshotModal({
                   </tbody>
                 </table>
               ) : (
-                <p style={{ color: "#64748b", fontSize: "13px" }}>
+                <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                   Sin despiece en snapshot.
                 </p>
               )}
@@ -735,7 +735,7 @@ export function QuotationLineSnapshotModal({
                           </td>
                           <td>{c.cloth_strips_count}</td>
                           <td>{c.total_area_m2} m²</td>
-                          <td style={{ fontSize: "11px", color: "#64748b" }}>
+                          <td style={{ fontSize: "11px", color: "var(--muted)" }}>
                             {c.confection_notes}
                           </td>
                         </tr>
@@ -840,7 +840,7 @@ export function QuotationLineSnapshotModal({
                   </tbody>
                 </table>
               ) : (
-                <p style={{ color: "#64748b", fontSize: "13px" }}>
+                <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                   Sin seguimiento de stock en este snapshot.
                 </p>
               )}
@@ -857,7 +857,7 @@ export function QuotationLineSnapshotModal({
             </div>
             <div>
               <span>Total Línea: </span>
-              <strong style={{ color: "#0284c7" }}>
+              <strong style={{ color: "var(--primary)" }}>
                 {formatEuro(pricing?.total_amount ?? 0)}
               </strong>
             </div>

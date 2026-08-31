@@ -150,7 +150,7 @@ export function ProductInheritedMeasurementPanel({ productId, onError }: Props) 
         >
           <AlertCircle
             size={32}
-            style={{ margin: "0 auto 10px", color: "var(--muted, #736b5e)" }}
+            style={{ margin: "0 auto 10px", color: "var(--muted)" }}
           />
           <h3 style={{ margin: "0 0 6px", fontSize: "15px", fontWeight: 600 }}>
             Sin Tipo de Medida asociado
@@ -190,7 +190,7 @@ export function ProductInheritedMeasurementPanel({ productId, onError }: Props) 
               <span>CÁLCULO / FÓRMULA</span>
               <strong>
                 {measurementType.formula ? (
-                  <code style={{ fontSize: "12px", color: "var(--primary-dark, #2b4c7e)" }}>
+                  <code style={{ fontSize: "12px", color: "var(--primary)" }}>
                     fx: {measurementType.formula}
                   </code>
                 ) : (
@@ -235,7 +235,7 @@ export function ProductInheritedMeasurementPanel({ productId, onError }: Props) 
               >
                 DIMENSIONES DE ENTRADA ({dimensions.length})
               </h3>
-              <p style={{ margin: 0, fontSize: "13px", color: "var(--muted, #64748b)" }}>
+              <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
                 Las variables {dimensions.map((d) => d.code).join(", ")} se introducen en las
                 líneas de presupuesto y alimentan la fórmula de cálculo del artículo.
               </p>
@@ -261,7 +261,7 @@ export function ProductInheritedMeasurementPanel({ productId, onError }: Props) 
                   style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}
                 >
                   <thead>
-                    <tr style={{ background: "var(--canvas-stripe, #f8fafc)", textAlign: "left" }}>
+                    <tr style={{ background: "var(--canvas-stripe)", textAlign: "left" }}>
                       <th style={{ padding: "8px 12px", width: "45px", fontWeight: 700 }}>#</th>
                       <th style={{ padding: "8px 12px", width: "160px", fontWeight: 700 }}>
                         Variable
@@ -281,7 +281,7 @@ export function ProductInheritedMeasurementPanel({ productId, onError }: Props) 
                     {dimensions.map((dim, idx) => (
                       <tr
                         key={dim.id ?? idx}
-                        style={{ borderBottom: "1px solid var(--border-light, #f1f5f9)" }}
+                        style={{ borderBottom: "1px solid var(--border)" }}
                       >
                         <td style={{ padding: "10px 12px", color: "var(--muted)" }}>
                           <span

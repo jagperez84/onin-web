@@ -360,7 +360,7 @@ export function OtdBreakdownPanel({
                       gap: "6px",
                     }}
                   >
-                    <strong style={{ color: "#0f172a", fontSize: "12px" }}>
+                    <strong style={{ color: "var(--text)", fontSize: "12px" }}>
                       Escalado Base OTD ({runtimeData.otd.code})
                     </strong>
                     <span
@@ -376,7 +376,7 @@ export function OtdBreakdownPanel({
                       Base
                     </span>
                   </div>
-                  <div style={{ color: "#64748b", fontSize: "11px" }}>
+                  <div style={{ color: "var(--muted)", fontSize: "11px" }}>
                     Tarifa base calculada por medidas (
                     {calculation.otdScaleStepUsed
                       ? `${calculation.otdScaleStepUsed.dimension_1}x${calculation.otdScaleStepUsed.dimension_2 ?? ""}${runtimeData.workUnit ? ` ${runtimeData.workUnit.symbol || runtimeData.workUnit.code}` : ""}`
@@ -651,7 +651,7 @@ export function OtdBreakdownPanel({
                         border: "1px solid #efeee9",
                       }}
                     >
-                      <strong style={{ color: "#0f172a" }}>
+                      <strong style={{ color: "var(--text)" }}>
                         {c.product_code || c.code}
                       </strong>
                       <div
@@ -723,7 +723,7 @@ export function OtdBreakdownPanel({
               </thead>
               <tbody>
                 {Object.entries(calculation.resolvedVariables).map(([k, v]) => (
-                  <tr key={k} style={{ borderBottom: "1px solid #f8fafc" }}>
+                  <tr key={k} style={{ borderBottom: "1px solid var(--canvas-stripe)" }}>
                     <td
                       style={{
                         padding: "6px 8px",

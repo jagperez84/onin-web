@@ -314,7 +314,7 @@ export function OtdComponentEditModal({
                   >
                     <div>
                       <strong>{p.code}</strong>
-                      <div style={{ fontSize: "11.5px", color: "#64748b" }}>
+                      <div style={{ fontSize: "11.5px", color: "var(--muted)" }}>
                         {p.commercial_description ||
                           p.technical_description ||
                           "Sin descripción"}
@@ -375,7 +375,7 @@ export function OtdComponentEditModal({
               }}
             >
               Código:{" "}
-              <code style={{ color: "#0369a1", fontWeight: 600 }}>
+              <code style={{ color: "var(--status-info-fg)", fontWeight: 600 }}>
                 {editingCompModal.comp.product?.code ||
                   editingCompModal.comp.code ||
                   "—"}
@@ -611,7 +611,7 @@ export function OtdComponentEditModal({
                   marginBottom: "6px",
                 }}
               >
-                <Ruler size={14} style={{ color: "#0284c7" }} />
+                <Ruler size={14} style={{ color: "var(--primary)" }} />
                 <span>
                   Dimensiones y Fórmulas de Corte del Artículo ({comp.dimensions.length})
                 </span>
@@ -698,7 +698,7 @@ export function OtdComponentEditModal({
             type="button"
             className="primary-button"
             onClick={onSave}
-            style={{ background: "#0284c7", borderColor: "#0284c7" }}
+            style={{ background: "var(--primary)", borderColor: "var(--primary)" }}
           >
             <CheckCircle2 size={15} /> Guardar Componente
           </button>

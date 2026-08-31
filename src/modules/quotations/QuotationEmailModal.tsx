@@ -363,7 +363,7 @@ export function QuotationEmailModal({
                 gap: "4px",
               }}
             >
-              <Building size={13} style={{ color: "#64748b" }} />
+              <Building size={13} style={{ color: "var(--muted)" }} />
               <strong>{customerName}</strong>
             </span>
             {storedContactName && (
@@ -385,8 +385,8 @@ export function QuotationEmailModal({
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ color: "#64748b", fontSize: "11.5px" }}>Total:</span>
-            <strong style={{ color: "#0f172a", fontSize: "14px" }}>
+            <span style={{ color: "var(--muted)", fontSize: "11.5px" }}>Total:</span>
+            <strong style={{ color: "var(--text)", fontSize: "14px" }}>
               {quotation.total_amount.toLocaleString("es-ES", {
                 style: "currency",
                 currency: "EUR",
@@ -442,7 +442,7 @@ export function QuotationEmailModal({
                     gap: "4px",
                   }}
                 >
-                  <Sparkles size={13} style={{ color: "#f59e0b" }} /> Plantilla
+                  <Sparkles size={13} style={{ color: "var(--accent)" }} /> Plantilla
                   de mensaje:
                 </span>
                 <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
@@ -496,7 +496,7 @@ export function QuotationEmailModal({
                       margin: 0,
                     }}
                   >
-                    Destinatario <strong style={{ color: "#ef4444" }}>*</strong>
+                    Destinatario <strong style={{ color: "var(--danger)" }}>*</strong>
                   </label>
                   {!showCc && (
                     <button
@@ -674,7 +674,7 @@ export function QuotationEmailModal({
                     margin: 0,
                   }}
                 >
-                  Asunto <strong style={{ color: "#ef4444" }}>*</strong>
+                  Asunto <strong style={{ color: "var(--danger)" }}>*</strong>
                 </label>
                 <input
                   id="email-subject"
@@ -760,7 +760,7 @@ export function QuotationEmailModal({
                   >
                     De:
                   </span>
-                  <span style={{ color: "#0f172a" }}>
+                  <span style={{ color: "var(--text)" }}>
                     Departamento Comercial &lt;ventas@empresa.com&gt;
                   </span>
                 </div>
@@ -774,7 +774,7 @@ export function QuotationEmailModal({
                   >
                     Para:
                   </span>
-                  <span style={{ color: "#0f172a", fontWeight: 600 }}>
+                  <span style={{ color: "var(--text)", fontWeight: 600 }}>
                     {effectiveRecipientName} &lt;
                     {recipient || "sin especificar"}&gt;
                   </span>
@@ -790,7 +790,7 @@ export function QuotationEmailModal({
                     >
                       CC:
                     </span>
-                    <span style={{ color: "#475569" }}>{cc}</span>
+                    <span style={{ color: "var(--muted)" }}>{cc}</span>
                   </div>
                 )}
                 <div style={{ display: "flex", gap: "8px" }}>
@@ -803,7 +803,7 @@ export function QuotationEmailModal({
                   >
                     Asunto:
                   </span>
-                  <span style={{ color: "#0f172a", fontWeight: 700 }}>
+                  <span style={{ color: "var(--text)", fontWeight: 700 }}>
                     {subject}
                   </span>
                 </div>
@@ -894,7 +894,7 @@ export function QuotationEmailModal({
                   >
                     {quotation.code}.pdf
                   </span>
-                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  <span style={{ fontSize: "11px", color: "var(--muted)" }}>
                     Documento oficial con desglose de partidas y condiciones
                     económicas
                   </span>

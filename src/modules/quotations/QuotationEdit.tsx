@@ -967,7 +967,7 @@ export function QuotationEdit() {
                 >
                   <User
                     size={16}
-                    style={{ color: "var(--color-primary, #5c7a74)" }}
+                    style={{ color: "var(--primary)" }}
                   />
                   <span
                     style={{
@@ -1200,7 +1200,7 @@ export function QuotationEdit() {
                                 OTD
                               </span>
                               <strong
-                                style={{ fontSize: "13px", color: "#33393b" }}
+                                style={{ fontSize: "13px", color: "var(--text)" }}
                               >
                                 {(snapshot as any)?.otd_code ||
                                   (snapshot as any)?.otd_name ||

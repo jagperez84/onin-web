@@ -9,7 +9,7 @@
   border: 1px solid var(--border);
   border-radius: 7px;
   padding: 0 10px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
 }
 .warehouse-page .readonly-field {

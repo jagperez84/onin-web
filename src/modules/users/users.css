@@ -29,7 +29,7 @@
   cursor: pointer;
 }
 .measure-toggle.on {
-  background: #ecfdf5;
+  background: var(--success-soft);
 }
 .users-page .icon-btn {
   border: 0;

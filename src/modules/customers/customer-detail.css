@@ -10,7 +10,7 @@
   background: var(--page-bg, var(--canvas-stripe));
   overflow-x: auto;
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--shadow);
 }
 .customer-section-nav a {
   display: inline-flex;
@@ -19,7 +19,7 @@
   padding: 7px 11px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--text);
   font-size: 13px;
   font-weight: 600;
@@ -27,15 +27,15 @@
 }
 .customer-section-nav a:hover {
   background: var(--canvas-stripe);
-  color: #0f172a;
+  color: var(--text);
   border-color: var(--muted-2);
 }
 .customer-section-nav a.primary,
 .customer-section-nav a.active {
-  background: #eaf2f8;
-  color: #0f4c81;
-  border-color: #8fb3d1;
-  box-shadow: inset 0 -2px 0 #2b6f9e;
+  background: var(--primary-soft);
+  color: var(--status-info-fg);
+  border-color: var(--primary);
+  box-shadow: inset 0 -2px 0 var(--primary);
 }
 .customer-detail-anchor {
   scroll-margin-top: 116px;
@@ -71,7 +71,7 @@
 }
 .entity-search-clear:hover {
   background: var(--canvas-stripe);
-  color: #0f172a;
+  color: var(--text);
 }
 .customer-commercial-link-hint {
   color: var(--muted);

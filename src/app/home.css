@@ -56,8 +56,8 @@
   align-items: center;
   gap: 5px;
   background: var(--accent-soft);
-  color: #8a7a5b;
-  border: 1px solid #ddd0b8;
+  color: var(--status-warning-fg);
+  border: 1px solid var(--status-warning-border);
   border-radius: 999px;
   padding: 4px 8px;
   font-size: 11px;

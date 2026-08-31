@@ -31,7 +31,7 @@
 
 .order-fabrication-control-center .ofc-mode-toggle button.active {
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-contrast);
 }
 
 .order-fabrication-control-center .ofc-manual-row td {
