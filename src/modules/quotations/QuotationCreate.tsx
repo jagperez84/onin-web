@@ -1278,6 +1278,7 @@ function QuotationLineRows({
           ) || [];
 
   return (
+    <>
     <tr
       className={`quotation-line-row ${snapshot ? "line-has-snapshot" : ""} ${priceMissing ? "line-price-missing" : ""}`}
     >
@@ -1543,13 +1544,6 @@ function QuotationLineRows({
               </div>
             </div>
           )}
-
-        <CommentsPanel
-          compact
-          comments={line.comments}
-          onChange={(comments) => onLinePatch({ comments })}
-          placeholder="Comentario para esta línea…"
-        />
       </td>
       <td className="col-quantity">
         <input
@@ -1648,6 +1642,16 @@ function QuotationLineRows({
         </div>
       </td>
     </tr>
+    <tr className="line-comments-row">
+      <td colSpan={9}>
+        <CommentsPanel
+          comments={line.comments}
+          onChange={(comments) => onLinePatch({ comments })}
+          placeholder="Comentario para esta línea…"
+        />
+      </td>
+    </tr>
+    </>
   );
 }
 

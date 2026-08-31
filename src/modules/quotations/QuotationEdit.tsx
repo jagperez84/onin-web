@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
@@ -1171,8 +1171,8 @@ export function QuotationEdit() {
                           ) || [];
 
                   return (
+                    <Fragment key={`${line.id}-${i}`}>
                     <tr
-                      key={`${line.id}-${i}`}
                       className={`quotation-line-row ${snapshot ? "line-has-snapshot" : ""} ${priceMissing ? "line-price-missing" : ""}`}
                     >
                       <td className="col-line-no">
@@ -1485,13 +1485,6 @@ export function QuotationEdit() {
                               </div>
                             </div>
                           )}
-
-                        <CommentsPanel
-                          compact
-                          comments={line.comments}
-                          onChange={(comments) => updateLine(i, { comments })}
-                          placeholder="Comentario para esta línea…"
-                        />
                       </td>
                       <td className="col-quantity">
                         <input
@@ -1611,6 +1604,16 @@ export function QuotationEdit() {
                         </div>
                       </td>
                     </tr>
+                    <tr className="line-comments-row">
+                      <td colSpan={9}>
+                        <CommentsPanel
+                          comments={line.comments}
+                          onChange={(comments) => updateLine(i, { comments })}
+                          placeholder="Comentario para esta línea…"
+                        />
+                      </td>
+                    </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>
