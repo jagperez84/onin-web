@@ -8,6 +8,7 @@ import {
   FileText,
 } from "lucide-react";
 import { updateQuotationStatus } from "../../services/sales/quotationRepository";
+import { addQuotationComment } from "../../services/sales/quotationCommentService";
 
 interface Props {
   isOpen: boolean;
@@ -51,19 +52,20 @@ export function QuotationStatusModal({
     setLoading(true);
     setError("");
     try {
-      let updatedNotes = quotation.notes || "";
+      await updateQuotationStatus(quotation.id, targetStatus);
       if (isReject) {
-        const rejectionNote = `[RECHAZADO: ${rejectionReason}${comments ? ` - ${comments}` : ""} - ${new Date().toLocaleDateString("es-ES")}]`;
-        updatedNotes = updatedNotes
-          ? `${updatedNotes}\n${rejectionNote}`
-          : rejectionNote;
+        await addQuotationComment({
+          quotationId: quotation.id,
+          text: `Rechazado: ${rejectionReason}${comments ? ` — ${comments}` : ""}`,
+          isPublic: false,
+        });
       } else if (isAccept) {
-        const acceptNote = `[ACEPTADO por el cliente - ${new Date().toLocaleDateString("es-ES")}]`;
-        updatedNotes = updatedNotes
-          ? `${updatedNotes}\n${acceptNote}`
-          : acceptNote;
+        await addQuotationComment({
+          quotationId: quotation.id,
+          text: "Aceptado por el cliente",
+          isPublic: false,
+        });
       }
-      await updateQuotationStatus(quotation.id, targetStatus, updatedNotes);
       onSuccess(targetStatus);
       onClose();
     } catch (err) {

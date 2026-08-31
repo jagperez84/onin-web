@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
-import { quotationOptions, type QuotationLineDimensionDraft, type QuotationLineCharacteristicDraft, type ProductLineBehavior } from './quotationCreationRepository';
+import { quotationOptions, type QuotationLineDimensionDraft, type QuotationLineCharacteristicDraft, type QuotationCommentDraft, type ProductLineBehavior } from './quotationCreationRepository';
 import { getProductLineDefinition, type ProductLineDefinition } from '../catalog/productDefinitionRepository';
 
 export type QuotationEditLine = {
@@ -13,6 +13,7 @@ export type QuotationEditLine = {
   discount_percent: number;
   tax_rate_id: number | null;
   tax_percent: number;
+  comments: QuotationCommentDraft[];
   line_behavior_id: number | null;
   line_behavior_snapshot: ProductLineBehavior | null;
   product_definition_snapshot?: ProductLineDefinition | null;
@@ -26,7 +27,7 @@ export type QuotationEditData = {
   contact_id: number | null; contact_name: string; contact_email: string; contact_phone: string;
   billing_address_id: number | null; installation_address_id: number | null;
   billing_address: { label: string; street: string; postal_code: string; city: string; region: string }; installation_address: { label: string; street: string; postal_code: string; city: string; region: string };
-  payment_method_id: number | null; payment_term_id: number | null; tax_rate_id: number | null; tax_percent: number; issue_date: string; valid_until: string | null; reference: string; notes: string; status: string; lines: QuotationEditLine[];
+  payment_method_id: number | null; payment_term_id: number | null; tax_rate_id: number | null; tax_percent: number; issue_date: string; valid_until: string | null; reference: string; notes: string; status: string; comments: QuotationCommentDraft[]; lines: QuotationEditLine[];
 };
 
 function client() { if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase; }
@@ -133,6 +134,28 @@ export async function quotationForEdit(id: number): Promise<QuotationEditData> {
       specific_data: line.specific_data ?? {},
     }));
 
+  const { data: commentRows, error: commentsError } = await c
+    .from('quotation_comment')
+    .select('quotation_line_id,text,is_public')
+    .eq('quotation_id', Number(q.id))
+    .order('created_at');
+  if (commentsError) throw new CoreRepositoryError(commentsError.message);
+
+  const headerComments: QuotationCommentDraft[] = [];
+  const commentsByLineId = new Map<number, QuotationCommentDraft[]>();
+  for (const row of (commentRows ?? []) as any[]) {
+    const draft: QuotationCommentDraft = { text: row.text, is_public: Boolean(row.is_public) };
+    if (row.quotation_line_id == null) {
+      headerComments.push(draft);
+    } else {
+      const lineId = Number(row.quotation_line_id);
+      const list = commentsByLineId.get(lineId) ?? [];
+      list.push(draft);
+      commentsByLineId.set(lineId, list);
+    }
+  }
+  const linesWithComments = lines.map(line => ({ ...line, comments: commentsByLineId.get(line.id) ?? [] }));
+
   return {
     id: Number(q.id),
     code: q.code,
@@ -168,7 +191,8 @@ export async function quotationForEdit(id: number): Promise<QuotationEditData> {
     reference: q.reference ?? '',
     notes: q.notes ?? '',
     status: q.status,
-    lines,
+    comments: headerComments,
+    lines: linesWithComments,
   };
 }
 
@@ -215,7 +239,7 @@ export async function updateQuotation(input: {
   valid_until: string | null;
   status?: string;
   reference: string;
-  notes: string;
+  comments: QuotationCommentDraft[];
   lines: Array<Omit<QuotationEditLine, 'id'>>;
 }) {
   const c = client();
@@ -298,7 +322,6 @@ export async function updateQuotation(input: {
     issue_date: input.issue_date,
     valid_until: input.valid_until || null,
     reference: input.reference.trim() || null,
-    notes: input.notes.trim() || null,
     net_amount: net,
     discount_amount: discount,
     tax_amount: tax,
@@ -335,6 +358,9 @@ export async function updateQuotation(input: {
 
   if (headerError) throw new CoreRepositoryError(headerError.message);
 
+  const { error: commentsDeleteError } = await c.from('quotation_comment').delete().eq('quotation_id', input.id);
+  if (commentsDeleteError) throw new CoreRepositoryError(commentsDeleteError.message);
+
   const oldIds = (existingLines ?? []).map((row: any) => Number(row.id));
   if (oldIds.length) {
     const { error: dimensionsError } = await c.from('quotation_line_dimension').delete().in('quotation_line_id', oldIds);
@@ -357,6 +383,12 @@ export async function updateQuotation(input: {
   const lineIds = new Map((created as any[]).map(row => [Number(row.line_no), Number(row.id)]));
   const dimensions: any[] = [];
   const characteristics: any[] = [];
+  const comments: any[] = (input.comments ?? []).map(cm => ({
+    quotation_id: input.id,
+    quotation_line_id: null,
+    text: cm.text,
+    is_public: cm.is_public,
+  }));
 
   input.lines.forEach((line, index) => {
     const quotationLineId = lineIds.get(index + 1);
@@ -371,6 +403,10 @@ export async function updateQuotation(input: {
     for (const ch of snapshotCharacteristics(snapshot, line.characteristics ?? [])) {
       characteristics.push({ ...ch, quotation_line_id: quotationLineId });
     }
+
+    for (const cm of line.comments ?? []) {
+      comments.push({ quotation_id: input.id, quotation_line_id: quotationLineId, text: cm.text, is_public: cm.is_public });
+    }
   });
 
   if (dimensions.length) {
@@ -380,6 +416,11 @@ export async function updateQuotation(input: {
 
   if (characteristics.length) {
     const { error } = await c.from('quotation_line_characteristic').insert(characteristics);
+    if (error) throw new CoreRepositoryError(error.message);
+  }
+
+  if (comments.length) {
+    const { error } = await c.from('quotation_comment').insert(comments);
     if (error) throw new CoreRepositoryError(error.message);
   }
 

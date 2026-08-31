@@ -34,6 +34,7 @@ import {
   type QuotationLineDimensionDraft,
 } from "../../services/sales/quotationCreationRepository";
 import { AddressEditor, type AddressDraft } from "./QuotationCreate";
+import { CommentsPanel, withOtdNotesComment, type CommentItem } from "./CommentsPanel";
 import {
   calculateQuotationLineByProductId,
   type QuotationLineSnapshot,
@@ -58,7 +59,8 @@ type Address = {
   city: string;
   region: string;
 };
-type EditLine = QuotationEditLine & {
+type EditLine = Omit<QuotationEditLine, "comments"> & {
+  comments: CommentItem[];
   configuration_snapshot?: QuotationLineSnapshot | any | null;
 };
 type Option = { id: number; label: string; code?: string; price?: number };
@@ -74,6 +76,7 @@ function blankLine(): EditLine {
     discount_percent: 0,
     tax_rate_id: null,
     tax_percent: 21,
+    comments: [],
     line_behavior_id: null,
     line_behavior_snapshot: null,
     product_definition_snapshot: null,
@@ -171,7 +174,7 @@ export function QuotationEdit() {
   const [issueDate, setIssueDate] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [reference, setReference] = useState("");
-  const [notes, setNotes] = useState("");
+  const [headerComments, setHeaderComments] = useState<CommentItem[]>([]);
   const [lines, setLines] = useState<EditLine[]>([]);
   const [toast, setToast] = useState("");
 
@@ -221,7 +224,7 @@ export function QuotationEdit() {
         setIssueDate(q.issue_date);
         setValidUntil(q.valid_until || "");
         setReference(q.reference);
-        setNotes(q.notes);
+        setHeaderComments(q.comments.map((c) => ({ text: c.text, isPublic: c.is_public })));
         setContactId(q.contact_id ?? null);
         setContactName(q.contact_name ?? "");
         setContactEmail(q.contact_email ?? "");
@@ -243,6 +246,7 @@ export function QuotationEdit() {
         // Hydrate configuration_snapshot from specific_data if present
         const hydratedLines: EditLine[] = q.lines.map((l) => ({
           ...l,
+          comments: l.comments.map((c) => ({ text: c.text, isPublic: c.is_public })),
           configuration_snapshot:
             (l.specific_data?.configuration_snapshot as
               QuotationLineSnapshot | undefined) ||
@@ -331,6 +335,7 @@ export function QuotationEdit() {
                   description: desc,
                   unit_price: Number(otdSnap.total_amount || 0),
                   dimensions: dimDrafts,
+                  comments: withOtdNotesComment(l.comments, otdSnap.notes),
                   specific_data: {
                     ...l.specific_data,
                     configuration_snapshot: enrichedSnapshot,
@@ -353,6 +358,7 @@ export function QuotationEdit() {
             discount_percent: 0,
             tax_rate_id: null,
             tax_percent: 21,
+            comments: withOtdNotesComment([], otdSnap.notes),
             line_behavior_id: null,
             line_behavior_snapshot: null,
             product_definition_snapshot: null,
@@ -584,7 +590,8 @@ export function QuotationEdit() {
       unit_price: lineData.unitPrice,
       discount_percent: existingLine?.discount_percent ?? 0,
       tax_rate_id: existingLine?.tax_rate_id ?? null,
-      tax_percent: existingLine?.tax_percent ?? 0,
+      tax_percent: existingLine?.tax_percent ?? 21,
+      comments: withOtdNotesComment(existingLine?.comments ?? [], snap.notes),
       line_behavior_id: null,
       line_behavior_snapshot: null,
       product_definition_snapshot: null,
@@ -710,7 +717,7 @@ export function QuotationEdit() {
             ? "SENT"
             : (data?.status ?? "SENT"),
         reference,
-        notes,
+        comments: headerComments.map((c) => ({ text: c.text, is_public: c.isPublic })),
         lines: lines.map((l) => ({
           line_no: l.line_no,
           product_id: l.product_id,
@@ -720,6 +727,7 @@ export function QuotationEdit() {
           discount_percent: l.discount_percent,
           tax_rate_id: l.tax_rate_id,
           tax_percent: l.tax_percent,
+          comments: l.comments.map((c) => ({ text: c.text, is_public: c.isPublic })),
           line_behavior_id: l.line_behavior_id,
           line_behavior_snapshot: l.line_behavior_snapshot,
           product_definition_snapshot: l.product_definition_snapshot,
@@ -1477,6 +1485,13 @@ export function QuotationEdit() {
                               </div>
                             </div>
                           )}
+
+                        <CommentsPanel
+                          compact
+                          comments={line.comments}
+                          onChange={(comments) => updateLine(i, { comments })}
+                          placeholder="Comentario para esta línea…"
+                        />
                       </td>
                       <td className="col-quantity">
                         <input
@@ -1618,18 +1633,17 @@ export function QuotationEdit() {
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel quotation-notes-panel">
           <div className="panel-head">
             <div>
-              <h2>Observaciones</h2>
-              <p>Notas internas o información adicional del presupuesto.</p>
+              <h2>Comentarios</h2>
+              <p>
+                Los comentarios marcados como <strong>público</strong> se imprimen en el PDF
+                del presupuesto; el resto son internos y se heredan al pedido.
+              </p>
             </div>
           </div>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={5}
-          />
+          <CommentsPanel comments={headerComments} onChange={setHeaderComments} placeholder="Comentario para el presupuesto…" />
         </section>
 
         <div className="profile-save-bar">

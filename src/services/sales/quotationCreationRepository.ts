@@ -8,7 +8,8 @@ export type ProductLineBehavior={id:number;company_id:number;code:string;name:st
 export type QuotationProductOption={id:number;label:string;code?:string;price?:number;lineBehavior:ProductLineBehavior|null};
 export type QuotationLineDimensionDraft={code:string;name:string;value:number|null;unit_id:number|null;unit_code?:string;unit_symbol?:string|null;sort_order:number};
 export type QuotationLineCharacteristicDraft={attribute_id:number|null;attribute_value_id:number|null;value_text:string|null;value_number:number|null;value_boolean:boolean|null};
-export type QuotationLineDraft={product_id:number|null;description:string;quantity:number;unit_price:number;discount_percent:number;tax_rate_id:number|null;tax_percent:number;dimensions?:QuotationLineDimensionDraft[];characteristics?:QuotationLineCharacteristicDraft[];specific_data?:Record<string,unknown>};
+export type QuotationCommentDraft={text:string;is_public:boolean};
+export type QuotationLineDraft={product_id:number|null;description:string;quantity:number;unit_price:number;discount_percent:number;tax_rate_id:number|null;tax_percent:number;comments?:QuotationCommentDraft[];dimensions?:QuotationLineDimensionDraft[];characteristics?:QuotationLineCharacteristicDraft[];specific_data?:Record<string,unknown>};
 export type QuotationAddressDraft={source_id:number|null;label:string;street:string;postal_code:string;city:string;region:string};
 export type CustomerDiscount={discount_percent:number;level:'article'|'familia'};
 
@@ -112,7 +113,7 @@ export async function createQuotation(input: {
   issue_date: string;
   valid_until: string | null;
   reference: string;
-  notes: string;
+  comments: QuotationCommentDraft[];
   lines: QuotationLineDraft[];
 }): Promise<number> {
   const c = client();
@@ -218,7 +219,6 @@ export async function createQuotation(input: {
     valid_until: input.valid_until || null,
     status: 'DRAFT',
     reference: input.reference.trim() || null,
-    notes: input.notes.trim() || null,
     net_amount: net,
     discount_amount: discount,
     tax_amount: tax,
@@ -267,6 +267,12 @@ export async function createQuotation(input: {
   const lineIdByNo = new Map((createdLines as any[]).map(row => [Number(row.line_no), Number(row.id)]));
   const dimensions: any[] = [];
   const characteristics: any[] = [];
+  const comments: any[] = (input.comments ?? []).map(cm => ({
+    quotation_id: header.id,
+    quotation_line_id: null,
+    text: cm.text,
+    is_public: cm.is_public,
+  }));
 
   input.lines.forEach((line, index) => {
     const quotationLineId = lineIdByNo.get(index + 1);
@@ -281,6 +287,10 @@ export async function createQuotation(input: {
     for (const ch of characteristicsFromDefinition(definition, line.characteristics)) {
       characteristics.push({ ...ch, quotation_line_id: quotationLineId });
     }
+
+    for (const cm of line.comments ?? []) {
+      comments.push({ quotation_id: header.id, quotation_line_id: quotationLineId, text: cm.text, is_public: cm.is_public });
+    }
   });
 
   if (dimensions.length) {
@@ -293,6 +303,14 @@ export async function createQuotation(input: {
 
   if (characteristics.length) {
     const { error } = await c.from('quotation_line_characteristic').insert(characteristics);
+    if (error) {
+      await c.from('quotation').delete().eq('id', header.id);
+      throw new CoreRepositoryError(error.message);
+    }
+  }
+
+  if (comments.length) {
+    const { error } = await c.from('quotation_comment').insert(comments);
     if (error) {
       await c.from('quotation').delete().eq('id', header.id);
       throw new CoreRepositoryError(error.message);

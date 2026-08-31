@@ -44,6 +44,7 @@ import {
 import { MessageLog } from "../../components/ui/MessageLog";
 import { ProfileSaveBar } from "../../components/ui/ProfileSaveBar";
 import { Toast } from "../../components/ui/Toast";
+import { CommentsPanel, withOtdNotesComment, type CommentItem } from "./CommentsPanel";
 import "./quotation-create.css";
 import "./quotation-configurator.css";
 
@@ -67,6 +68,7 @@ type Line = {
   discount_percent: number;
   tax_rate_id: number | null;
   tax_percent: number;
+  comments: CommentItem[];
   line_behavior: ProductLineBehavior | null;
   product_definition_snapshot: ProductLineDefinition | null;
   dimensions: QuotationLineDimensionDraft[];
@@ -91,6 +93,7 @@ const blank = (): Line => ({
   discount_percent: 0,
   tax_rate_id: null,
   tax_percent: 21,
+  comments: [],
   line_behavior: null,
   product_definition_snapshot: null,
   dimensions: [],
@@ -166,7 +169,7 @@ export function QuotationCreate() {
   const [issueDate, setIssueDate] = useState(today());
   const [validUntil, setValidUntil] = useState("");
   const [reference, setReference] = useState("");
-  const [notes, setNotes] = useState("");
+  const [headerComments, setHeaderComments] = useState<CommentItem[]>([]);
   const [lines, setLines] = useState<Line[]>([blank()]);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
@@ -269,6 +272,7 @@ export function QuotationCreate() {
         discount_percent: 0,
         tax_rate_id: null,
         tax_percent: 21,
+        comments: withOtdNotesComment([], otdSnap.notes),
         line_behavior: null,
         product_definition_snapshot: null,
         dimensions: dimDrafts,
@@ -370,6 +374,7 @@ export function QuotationCreate() {
         discount_percent: discount?.discount_percent ?? 0,
         tax_rate_id: current?.tax_rate_id ?? null,
         tax_percent: current?.tax_percent ?? 21,
+        comments: current?.comments ?? [],
         line_behavior: p?.lineBehavior ?? null,
         product_definition_snapshot: clone(definition),
         dimensions: dimensionsFromDefinition(definition),
@@ -439,6 +444,7 @@ export function QuotationCreate() {
       discount_percent: 0,
       tax_rate_id: existingLine?.tax_rate_id ?? null,
       tax_percent: existingLine?.tax_percent ?? 21,
+      comments: withOtdNotesComment(existingLine?.comments ?? [], snap.notes),
       line_behavior: null,
       product_definition_snapshot: null,
       dimensions: lineData.dimensions,
@@ -670,7 +676,7 @@ export function QuotationCreate() {
         issue_date: issueDate,
         valid_until: validUntil || null,
         reference,
-        notes,
+        comments: headerComments.map((c) => ({ text: c.text, is_public: c.isPublic })),
         lines: lines.map((l) => ({
           product_id: l.product_id,
           description: l.description,
@@ -679,6 +685,7 @@ export function QuotationCreate() {
           discount_percent: l.discount_percent,
           tax_rate_id: l.tax_rate_id,
           tax_percent: l.tax_percent,
+          comments: l.comments.map((c) => ({ text: c.text, is_public: c.isPublic })),
           dimensions: l.dimensions,
           characteristics: l.characteristics,
           specific_data: {
@@ -1135,16 +1142,16 @@ export function QuotationCreate() {
           </div>
         </section>
         <section className="panel quotation-notes-panel">
-          <label className="wide-field">
-            <span className="sr-only">Observaciones</span>
-            <textarea
-              aria-label="Observaciones"
-              placeholder="Observaciones generales del presupuesto…"
-              rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </label>
+          <div className="panel-head">
+            <div>
+              <h2>Comentarios</h2>
+              <p>
+                Los comentarios marcados como <strong>público</strong> se imprimen en el PDF
+                del presupuesto; el resto son internos y se heredan al pedido.
+              </p>
+            </div>
+          </div>
+          <CommentsPanel comments={headerComments} onChange={setHeaderComments} placeholder="Comentario para el presupuesto…" />
         </section>
       </form>
       <ProfileSaveBar
@@ -1536,6 +1543,13 @@ function QuotationLineRows({
               </div>
             </div>
           )}
+
+        <CommentsPanel
+          compact
+          comments={line.comments}
+          onChange={(comments) => onLinePatch({ comments })}
+          placeholder="Comentario para esta línea…"
+        />
       </td>
       <td className="col-quantity">
         <input

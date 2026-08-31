@@ -39,6 +39,8 @@ import {
 } from "../../services/sales/deliveryNoteService";
 import { generateAndDownloadQuotationPdf } from "../../services/sales/quotationPdfService";
 import { getQuotationConversionStatus } from "../../services/sales/salesOrderService";
+import { listQuotationComments, type QuotationComment } from "../../services/sales/quotationCommentService";
+import { CommentsPanel } from "./CommentsPanel";
 import { QuotationLineSnapshotModal } from "./QuotationLineSnapshotModal";
 import { QuotationEmailModal } from "./QuotationEmailModal";
 import { QuotationRenewModal } from "./QuotationRenewModal";
@@ -165,6 +167,7 @@ export function QuotationDetail() {
   const [orderConversionState, setOrderConversionState] = useState<
     "none" | "partial" | "full"
   >("none");
+  const [comments, setComments] = useState<QuotationComment[]>([]);
 
   async function loadQuotation() {
     try {
@@ -259,6 +262,7 @@ export function QuotationDetail() {
       q.contact_phone = cPhone || null;
 
       setData(q as unknown as Detail);
+      void listQuotationComments(Number(id)).then(setComments).catch(() => {});
       setExistingDeliveryNote(getDeliveryNoteByQuotationId(Number(id)));
       if (q.status === "ACCEPTED") {
         try {
@@ -825,26 +829,19 @@ export function QuotationDetail() {
             </div>
           </div>
 
-          {/* Observations & Notes if present */}
-          {data.notes ? (
-            <div className="quotation-notes-box">
-              <div className="quotation-notes-box-title">
-                <FileText size={14} /> Observaciones Comerciales
-              </div>
-              <div>{data.notes}</div>
+          {/* Comments (replace the old single "Observaciones" field) */}
+          <div className="quotation-notes-box">
+            <div className="quotation-notes-box-title">
+              <FileText size={14} /> Comentarios
             </div>
-          ) : (
-            <div
-              style={{
-                fontSize: "12px",
-                color: "#94a3b8",
-                fontStyle: "italic",
-                marginTop: "auto",
-              }}
-            >
-              Sin observaciones comerciales registradas.
-            </div>
-          )}
+            <CommentsPanel
+              readOnly
+              comments={comments
+                .filter((c) => c.quotationLineId === null)
+                .map((c) => ({ text: c.text, isPublic: c.isPublic }))}
+              emptyLabel="Sin comentarios registrados."
+            />
+          </div>
         </section>
       </div>
 
@@ -955,6 +952,15 @@ export function QuotationDetail() {
                                       : ""
                                   }`}
                             </div>
+                          )}
+                          {comments.some((c) => c.quotationLineId === l.id) && (
+                            <CommentsPanel
+                              readOnly
+                              compact
+                              comments={comments
+                                .filter((c) => c.quotationLineId === l.id)
+                                .map((c) => ({ text: c.text, isPublic: c.isPublic }))}
+                            />
                           )}
                         </td>
                         <td className="numeric">

@@ -55,6 +55,7 @@ export interface QuotationLinePdfDTO {
   net_amount: number;
   tax_amount: number;
   total_amount: number;
+  public_comments: string[];
 }
 
 export interface QuotationPdfDTO {
@@ -64,7 +65,7 @@ export interface QuotationPdfDTO {
   valid_until: string | null;
   status: string;
   reference: string | null;
-  notes: string | null;
+  public_comments: string[];
   commercial_name?: string | null;
   warehouse_name?: string | null;
   payment_method_name?: string | null;
@@ -268,6 +269,26 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
   const rawLines = (q.lines || []) as any[];
   rawLines.sort((a, b) => Number(a.line_no) - Number(b.line_no));
 
+  // Comentarios: solo se imprimen los marcados como públicos, de cabecera o de cada línea.
+  const { data: publicCommentRows } = await c
+    .from('quotation_comment')
+    .select('quotation_line_id,text')
+    .eq('quotation_id', quotationId)
+    .eq('is_public', true)
+    .order('created_at');
+  const headerPublicComments: string[] = [];
+  const linePublicCommentsById = new Map<number, string[]>();
+  for (const row of (publicCommentRows ?? []) as any[]) {
+    if (row.quotation_line_id == null) {
+      headerPublicComments.push(row.text);
+    } else {
+      const lineId = Number(row.quotation_line_id);
+      const list = linePublicCommentsById.get(lineId) ?? [];
+      list.push(row.text);
+      linePublicCommentsById.set(lineId, list);
+    }
+  }
+
   const linesDto: QuotationLinePdfDTO[] = rawLines.map(line => {
     const p = line.product;
     const spec = line.specific_data || {};
@@ -359,6 +380,7 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
       net_amount: net,
       tax_amount: tax,
       total_amount: total,
+      public_comments: linePublicCommentsById.get(Number(line.id)) ?? [],
     };
   });
 
@@ -385,7 +407,7 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
     valid_until: q.valid_until,
     status: q.status,
     reference: q.reference?.trim() || null,
-    notes: q.notes?.trim() || null,
+    public_comments: headerPublicComments,
     commercial_name: commercialName,
     warehouse_name: warehouseName,
     payment_method_name: paymentMethodName,
@@ -611,6 +633,9 @@ export function buildQuotationPdf(dto: QuotationPdfDTO): jsPDF {
     if (line.characteristics_text) {
       detailsParts.push(line.characteristics_text);
     }
+    for (const comment of line.public_comments) {
+      detailsParts.push(comment);
+    }
     const detailsStr = detailsParts.join('\n');
 
     return [
@@ -708,17 +733,17 @@ export function buildQuotationPdf(dto: QuotationPdfDTO): jsPDF {
     conditionsY += 2;
   }
 
-  if (dto.notes) {
+  if (dto.public_comments.length) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(...primaryColor);
-    doc.text('OBSERVACIONES', margin, conditionsY + 3);
+    doc.text('COMENTARIOS', margin, conditionsY + 3);
     conditionsY += 7;
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...secondaryColor);
-    const splitNotes = doc.splitTextToSize(dto.notes, leftInfoWidth);
+    const splitNotes = doc.splitTextToSize(dto.public_comments.join('\n'), leftInfoWidth);
     doc.text(splitNotes, margin, conditionsY);
     conditionsY += (splitNotes.length * 3.8);
   }
