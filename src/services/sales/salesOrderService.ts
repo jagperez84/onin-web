@@ -15,6 +15,7 @@ export type SalesOrder = {
   status: SalesOrderStatus;
   reference: string | null;
   notes: string | null;
+  created_at?: string;
   net_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -159,10 +160,12 @@ export async function getSalesOrder(id: number): Promise<SalesOrder | null> {
   return { ...data, quotation_code: quotation?.code, customer_name: customer.name, lines: (data.lines || []).sort((a: any, b: any) => a.line_no - b.line_no) } as SalesOrder;
 }
 
-export async function listSalesOrders(search = ''): Promise<SalesOrder[]> {
+export type SalesOrderSortField = 'created_at' | 'requested_delivery_date';
+
+export async function listSalesOrders(search = '', sortBy: SalesOrderSortField = 'created_at', ascending = false): Promise<SalesOrder[]> {
   const c = client();
   const cid = await companyId();
-  let q = c.from('sales_order').select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,total_amount,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name))').eq('company_id', cid).order('issue_date', { ascending: false }).order('id', { ascending: false });
+  let q = c.from('sales_order').select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,total_amount,created_at,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name))').eq('company_id', cid).order(sortBy, { ascending, nullsFirst: false }).order('id', { ascending: false });
   const term = search.trim().replace(/[%_]/g, '');
   if (term) q = q.or(`code.ilike.%${term}%,reference.ilike.%${term}%`);
   const { data, error } = await q;
