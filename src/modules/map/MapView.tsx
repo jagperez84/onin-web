@@ -11,6 +11,7 @@ import {
   Hammer,
   Search,
   X,
+  Calendar,
 } from "lucide-react";
 import {
   listMapPoints,
@@ -72,6 +73,32 @@ function fullAddress(p: MapPoint): string {
   return [p.street, p.city].filter(Boolean).join(", ");
 }
 
+function formatDate(v: string): string {
+  return new Date(`${v}T00:00:00`).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysStr(base: Date, days: number): string {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfWeekStr(): string {
+  const d = new Date();
+  const offset = (d.getDay() + 6) % 7; // lunes = 0
+  return addDaysStr(d, -offset);
+}
+
+function endOfWeekStr(): string {
+  const d = new Date();
+  const offset = (d.getDay() + 6) % 7;
+  return addDaysStr(d, 6 - offset);
+}
+
 // ---------------------------------------------------------------------------
 // Mapa (Leaflet vanilla — sin react-leaflet para evitar el gotcha de assets
 // de los iconos por defecto: los marcadores son divIcon con color por zona).
@@ -130,8 +157,9 @@ function MapCanvas({
       });
       const marker = L.marker([p.latitude, p.longitude], { icon });
       const address = fullAddress(p) || "Sin dirección";
+      const dateLine = p.date ? `<span>${p.kind === "medicion" ? "Medición" : "Montaje"}: ${formatDate(p.date)}</span>` : "";
       marker.bindPopup(
-        `<div class="map-popup"><strong>${p.code}</strong><span>${p.customerName || "—"}</span><span>${address}</span><span class="map-popup-status">${statusLabel(p)}</span></div>`
+        `<div class="map-popup"><strong>${p.code}</strong><span>${p.customerName || "—"}</span><span>${address}</span>${dateLine}<span class="map-popup-status">${statusLabel(p)}</span></div>`
       );
       marker.addTo(layer);
       markersRef.current.set(pointKey(p), marker);
@@ -465,6 +493,7 @@ function PointRow({
   }
 
   const geocoded = point.latitude != null && point.longitude != null;
+  const isToday = point.date === todayStr();
 
   return (
     <li className={`map-point-row ${selected ? "selected" : ""}`}>
@@ -476,6 +505,10 @@ function PointRow({
         </span>
         <span className={`status-pill neutral map-point-status`}>{statusLabel(point)}</span>
       </button>
+      <div className={`map-point-date ${isToday ? "today" : ""} ${!point.date ? "unset" : ""}`}>
+        <Calendar size={12} />
+        {point.date ? <span>{formatDate(point.date)}{isToday ? " · hoy" : ""}</span> : <span>Sin fecha planificada</span>}
+      </div>
       <div className="map-point-footer">
         <select
           value={point.zoneId ?? ""}
@@ -514,6 +547,8 @@ export function MapView() {
   const [showMediciones, setShowMediciones] = useState(true);
   const [showMontajes, setShowMontajes] = useState(true);
   const [onlyUngeocoded, setOnlyUngeocoded] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [activeZoneIds, setActiveZoneIds] = useState<Set<number | null>>(new Set());
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const [autoGeocodingKeys, setAutoGeocodingKeys] = useState<Set<string>>(new Set());
@@ -597,18 +632,23 @@ export function MapView() {
 
   const visiblePoints = useMemo(
     () =>
-      points.filter((p) => {
-        if (p.kind === "medicion" && !showMediciones) return false;
-        if (p.kind === "montaje" && !showMontajes) return false;
-        if (onlyUngeocoded) return p.latitude == null || p.longitude == null;
-        return activeZoneIds.has(p.zoneId);
-      }),
-    [points, showMediciones, showMontajes, onlyUngeocoded, activeZoneIds]
+      points
+        .filter((p) => {
+          if (p.kind === "medicion" && !showMediciones) return false;
+          if (p.kind === "montaje" && !showMontajes) return false;
+          if (dateFrom && (!p.date || p.date < dateFrom)) return false;
+          if (dateTo && (!p.date || p.date > dateTo)) return false;
+          if (onlyUngeocoded) return p.latitude == null || p.longitude == null;
+          return activeZoneIds.has(p.zoneId);
+        })
+        .sort((a, b) => (a.date || "9999-99-99").localeCompare(b.date || "9999-99-99")),
+    [points, showMediciones, showMontajes, onlyUngeocoded, activeZoneIds, dateFrom, dateTo]
   );
 
   const mediicionesCount = points.filter((p) => p.kind === "medicion").length;
   const montajesCount = points.filter((p) => p.kind === "montaje").length;
   const ungeocodedCount = points.filter((p) => p.latitude == null || p.longitude == null).length;
+  const dateFilterActive = Boolean(dateFrom || dateTo);
 
   return (
     <div className="module-page map-view-page">
@@ -642,6 +682,28 @@ export function MapView() {
         )}
       </div>
 
+      <div className="map-date-filter">
+        <Calendar size={14} />
+        <span className="map-date-filter-label">Fecha de planificación</span>
+        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} aria-label="Desde" />
+        <span>–</span>
+        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} aria-label="Hasta" />
+        <button type="button" className="secondary-button" onClick={() => { setDateFrom(todayStr()); setDateTo(todayStr()); }}>
+          Hoy
+        </button>
+        <button type="button" className="secondary-button" onClick={() => { setDateFrom(startOfWeekStr()); setDateTo(endOfWeekStr()); }}>
+          Esta semana
+        </button>
+        <button type="button" className="secondary-button" onClick={() => { setDateFrom(todayStr()); setDateTo(addDaysStr(new Date(), 7)); }}>
+          Próximos 7 días
+        </button>
+        {dateFilterActive && (
+          <button type="button" className="map-geocode-retry" onClick={() => { setDateFrom(""); setDateTo(""); }}>
+            Quitar filtro de fecha
+          </button>
+        )}
+      </div>
+
       {geocodeProgress && (
         <div className="map-geocode-progress">
           Localizando direcciones automáticamente… ({geocodeProgress.done}/{geocodeProgress.total})
@@ -669,7 +731,7 @@ export function MapView() {
                 <div className="empty-state">
                   <MapPin size={22} />
                   <strong>Sin resultados</strong>
-                  <span>Ajusta los filtros para ver mediciones o montajes.</span>
+                  <span>{dateFilterActive ? "No hay mediciones ni montajes planificados en ese rango de fechas." : "Ajusta los filtros para ver mediciones o montajes."}</span>
                 </div>
               ) : (
                 <ul className="map-point-list">
