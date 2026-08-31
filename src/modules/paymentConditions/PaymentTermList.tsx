@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Edit3, Eye, Handshake, Plus, Save, Search, Trash2, Undo2 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import {
@@ -154,8 +154,12 @@ export function PaymentTermDetail() {
 
 function PaymentTermDetailInner() {
   const { id } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
-  const isNew = id === "nuevo";
+  // La ruta "/nuevo" es literal (no tiene :id en su patrón), así que en ese
+  // caso useParams().id es undefined, nunca el string "nuevo" — hay que
+  // comprobar también la propia ruta, igual que hace WarehouseDetail.
+  const isNew = id === "nuevo" || location.pathname.endsWith("/nuevo");
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [data, setData] = useState<PaymentTerm | null>(null);
   const [form, setForm] = useState<PaymentTermForm>(emptyForm());
