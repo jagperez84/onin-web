@@ -145,16 +145,18 @@ export function InvoiceDetail(){
    <section className="quotation-card">
     <h2>Plazos de cobro</h2>
     <div className="card-table"><table>
-     <thead><tr><th>#</th><th>% del importe</th><th>Vencimiento</th><th>Importe</th></tr></thead>
+     <thead><tr><th>#</th><th>% del importe</th><th>Vencimiento</th><th>Importe</th><th>Estado</th></tr></thead>
      <tbody>
       {(data.installments||[]).map(i=><tr key={i.sequence}>
        <td>{i.sequence}</td>
        <td>{i.percentage}%</td>
        <td>{date(i.due_date)}</td>
        <td>{money(i.amount)}</td>
+       <td><span className={`status-pill ${i.status==='COLLECTED'?'success':''}`}>{i.status==='COLLECTED'?'Cobrado':'Pendiente'}</span></td>
       </tr>)}
      </tbody>
     </table></div>
+    <p style={{marginTop:'10px'}}><Link to="/facturacion/cobros" className="secondary-button">Gestionar cobros</Link></p>
    </section>
   </div>
 

@@ -5,11 +5,18 @@ export type InvoiceStatus = 'ISSUED' | 'RECTIFIED';
 export type InvoiceType = 'ORIGINAL' | 'RECTIFICATIVA';
 export type VerifactuStatus = 'NOT_SENT' | 'PENDING' | 'SENT' | 'ERROR';
 
+export type InstallmentStatus = 'PENDING' | 'COLLECTED';
+
 export type InvoiceInstallment = {
+  id: number;
   sequence: number;
   percentage: number;
   due_date: string;
   amount: number;
+  status: InstallmentStatus;
+  collected_amount: number | null;
+  collected_date: string | null;
+  collected_notes: string | null;
 };
 
 export type InvoiceTaxBreakdown = {
@@ -123,7 +130,7 @@ const DETAIL_SELECT =
   'sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name)),' +
   'payment_method:payment_method_id(name),payment_term:payment_term_id(name),' +
   'lines:invoice_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount),' +
-  'installments:invoice_installment(sequence,percentage,due_date,amount),' +
+  'installments:invoice_installment(id,sequence,percentage,due_date,amount,status,collected_amount,collected_date,collected_notes),' +
   'tax_breakdown:invoice_tax_breakdown(tax_percent,base_amount,tax_amount)';
 
 export async function getInvoice(id: number): Promise<Invoice | null> {
@@ -171,4 +178,28 @@ export async function createRectifyingInvoice(id: number, reason: string): Promi
   const invoice = await getInvoice(Number(data));
   if (!invoice) throw new CoreRepositoryError('La factura rectificativa se ha creado pero no se ha podido recuperar.');
   return invoice;
+}
+
+export async function markInstallmentCollected(installmentId: number, values: { collected_amount: number; collected_date: string; collected_notes: string | null }): Promise<void> {
+  const c = client();
+  const { error } = await c.from('invoice_installment').update({
+    status: 'COLLECTED',
+    collected_amount: values.collected_amount,
+    collected_date: values.collected_date,
+    collected_notes: values.collected_notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', installmentId);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function markInstallmentPending(installmentId: number): Promise<void> {
+  const c = client();
+  const { error } = await c.from('invoice_installment').update({
+    status: 'PENDING',
+    collected_amount: null,
+    collected_date: null,
+    collected_notes: null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', installmentId);
+  if (error) throw new CoreRepositoryError(error.message);
 }
