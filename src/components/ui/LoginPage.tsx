@@ -1,13 +1,14 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import type { CompanyOption } from "../../services/core/companyRepository";
 import { ThemeToggle } from "./ThemeToggle";
 
+const COMPANY_SELECTED_KEY = "onin.company-selected";
+
 export function LoginPage() {
   const { user, configured, signIn, listCompanies, switchCompany } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? "/";
   const [email, setEmail] = useState("");
@@ -41,7 +42,7 @@ export function LoginPage() {
     return () => {
       active = false;
     };
-  }, [user, listCompanies]);
+  }, [listCompanies, user]);
 
   if (user && companies && companies.length <= 1)
     return <Navigate to={from} replace />;
@@ -56,10 +57,7 @@ export function LoginPage() {
     setBusy(true);
     const result = await signIn(email.trim(), password);
     setBusy(false);
-    if (result.error) {
-      setError(result.error.message);
-      return;
-    }
+    if (result.error) setError(result.error.message);
   }
 
   async function enterCompany() {
@@ -72,6 +70,7 @@ export function LoginPage() {
     try {
       const current = companies?.find((company) => company.is_current);
       if (current?.id !== selectedCompanyId) await switchCompany(selectedCompanyId);
+      sessionStorage.setItem(COMPANY_SELECTED_KEY, "1");
       window.location.assign(from);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cambiar de empresa.");
