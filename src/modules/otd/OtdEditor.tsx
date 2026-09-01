@@ -11,6 +11,7 @@ import {
   Ruler,
   X,
   AlertTriangle,
+  WandSparkles,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import {
@@ -27,6 +28,7 @@ import { OtdSelectionsSection } from "./editor/OtdSelectionsSection";
 import { OtdScalesSection } from "./editor/OtdScalesSection";
 import { OtdVariablesSection } from "./editor/OtdVariablesSection";
 import { OtdComponentsSection } from "./editor/OtdComponentsSection";
+import { OtdAssistantModal } from "./editor/OtdAssistantModal";
 import type { Otd, Selection, Variable, Component } from "./editor/types";
 import { OtdList } from "./OtdList";
 import "./otd.css";
@@ -58,6 +60,7 @@ export function OtdEditor() {
   const [scales, setScales] = useState<OtdScaleRow[]>([]);
   const [products, setProducts] = useState<Record<number, OninProduct>>({});
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
 
   // Active section for top navigator highlighting
   const [activeSection, setActiveSection] = useState("sec-identificacion");
@@ -915,6 +918,15 @@ export function OtdEditor() {
           <button
             type="button"
             className="secondary-button"
+            onClick={() => setShowAssistant(true)}
+            disabled={saving}
+            title="Asistente IA: proponer entradas, variables y componentes a partir de un prompt"
+          >
+            <WandSparkles size={15} /> Asistente IA
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
             onClick={handleCancel}
             disabled={saving}
             title="Descartar cambios y volver a la lista"
@@ -1062,6 +1074,28 @@ export function OtdEditor() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Asistente IA para proponer entradas, variables y componentes */}
+      {showAssistant && (
+        <OtdAssistantModal
+          units={units}
+          selections={selections}
+          variables={variables}
+          components={components}
+          onClose={() => setShowAssistant(false)}
+          onAccept={(result) => {
+            if (result.selections.length) {
+              setSelections((prev) => [...prev, ...result.selections]);
+            }
+            if (result.variables.length) {
+              setVariables((prev) => [...prev, ...result.variables]);
+            }
+            if (result.components.length) {
+              setComponents((prev) => [...prev, ...result.components]);
+            }
+          }}
+        />
       )}
     </div>
   );

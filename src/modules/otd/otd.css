@@ -1476,3 +1476,79 @@
   color: var(--otd-var-fg, #7e22ce);
 }
 
+/* Asistente IA del OTD (OtdAssistantModal) */
+.otd-assistant-results {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 6px;
+}
+.otd-assistant-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.otd-assistant-group-title {
+  font-size: 12.5px;
+  color: var(--text);
+}
+.otd-assistant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.otd-assistant-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--canvas-stripe);
+}
+.otd-assistant-item.invalid {
+  background: var(--danger-soft);
+  border-color: var(--status-danger-border);
+}
+.otd-assistant-item-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.otd-assistant-item.invalid .otd-assistant-item-check {
+  cursor: not-allowed;
+}
+.otd-assistant-item-check input {
+  margin-top: 3px;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+.otd-assistant-item-check > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.otd-assistant-item-title {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.otd-assistant-item-detail {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-family: monospace;
+  word-break: break-word;
+}
+.otd-assistant-item-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--status-danger-fg);
+}
+
