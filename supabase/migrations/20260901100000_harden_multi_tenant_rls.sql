@@ -1,0 +1,103 @@
+create or replace function public.current_company_id() returns bigint language sql stable security definer set search_path=public as $$ select ua.company_id from public.user_account ua where ua.auth_user_id=auth.uid() limit 1 $$;
+
+-- Direct company-owned entities.
+do $$ declare t text; begin foreach t in array array['color','customer_family_discount','document_series','document_type','magnitude','otd','party','price_list','product','product_attribute','product_family','product_line_behavior','product_mounting_type','product_type','purchase_document','sales_document','stock_movement','stock_movement_type','stock_reservation','tax_rate','unit','unit_conversion','warehouse','product_control_type'] loop execute format('alter table public.%I enable row level security',t); execute format('drop policy if exists %I on public.%I',t||'_company_access',t); execute format('create policy %I on public.%I for all using (company_id=public.current_company_id()) with check (company_id=public.current_company_id())',t||'_company_access',t); end loop; end $$;
+
+drop policy if exists company_member_select on public.company;
+create policy company_member_select on public.company for select using (exists(select 1 from public.user_company uc join public.user_account ua on ua.id=uc.user_account_id where ua.auth_user_id=auth.uid() and uc.company_id=company.id));
+
+-- Measurements.
+drop policy if exists measurement_authenticated_insert on public.measurement;
+drop policy if exists measurement_authenticated_select on public.measurement;
+drop policy if exists measurement_authenticated_update on public.measurement;
+create policy measurement_company_insert on public.measurement for insert with check (company_id=public.current_company_id());
+create policy measurement_company_select on public.measurement for select using (company_id=public.current_company_id());
+create policy measurement_company_update on public.measurement for update using (company_id=public.current_company_id()) with check (company_id=public.current_company_id());
+
+drop policy if exists measurement_type_authenticated_insert on public.measurement_type;
+drop policy if exists measurement_type_authenticated_select on public.measurement_type;
+drop policy if exists measurement_type_authenticated_update on public.measurement_type;
+create policy measurement_type_company_insert on public.measurement_type for insert with check (company_id=public.current_company_id());
+create policy measurement_type_company_select on public.measurement_type for select using (company_id=public.current_company_id());
+create policy measurement_type_company_update on public.measurement_type for update using (company_id=public.current_company_id()) with check (company_id=public.current_company_id());
+
+alter table public.measurement_activity enable row level security;
+drop policy if exists measurement_activity_authenticated_insert on public.measurement_activity;
+drop policy if exists measurement_activity_authenticated_select on public.measurement_activity;
+create policy measurement_activity_company_insert on public.measurement_activity for insert with check (exists(select 1 from public.measurement m where m.id=measurement_id and m.company_id=public.current_company_id()));
+create policy measurement_activity_company_select on public.measurement_activity for select using (exists(select 1 from public.measurement m where m.id=measurement_id and m.company_id=public.current_company_id()));
+
+alter table public.measurement_photo enable row level security;
+drop policy if exists measurement_photo_insert_assigned on public.measurement_photo;
+drop policy if exists measurement_photo_select_assigned on public.measurement_photo;
+drop policy if exists measurement_photo_delete_assigned on public.measurement_photo;
+create policy measurement_photo_company_select on public.measurement_photo for select using (exists(select 1 from public.measurement m where m.id=measurement_id and m.company_id=public.current_company_id()));
+create policy measurement_photo_company_insert on public.measurement_photo for insert with check (exists(select 1 from public.measurement m where m.id=measurement_id and m.company_id=public.current_company_id()));
+create policy measurement_photo_company_delete on public.measurement_photo for delete using (exists(select 1 from public.measurement m where m.id=measurement_id and m.company_id=public.current_company_id()));
+
+alter table public.measurement_type_dimension enable row level security;
+drop policy if exists measurement_type_dimension_authenticated_delete on public.measurement_type_dimension;
+drop policy if exists measurement_type_dimension_authenticated_insert on public.measurement_type_dimension;
+drop policy if exists measurement_type_dimension_authenticated_select on public.measurement_type_dimension;
+drop policy if exists measurement_type_dimension_authenticated_update on public.measurement_type_dimension;
+create policy measurement_type_dimension_company_select on public.measurement_type_dimension for select using (exists(select 1 from public.measurement_type mt where mt.id=measurement_type_id and mt.company_id=public.current_company_id()));
+create policy measurement_type_dimension_company_insert on public.measurement_type_dimension for insert with check (exists(select 1 from public.measurement_type mt where mt.id=measurement_type_id and mt.company_id=public.current_company_id()));
+create policy measurement_type_dimension_company_update on public.measurement_type_dimension for update using (exists(select 1 from public.measurement_type mt where mt.id=measurement_type_id and mt.company_id=public.current_company_id())) with check (exists(select 1 from public.measurement_type mt where mt.id=measurement_type_id and mt.company_id=public.current_company_id()));
+create policy measurement_type_dimension_company_delete on public.measurement_type_dimension for delete using (exists(select 1 from public.measurement_type mt where mt.id=measurement_type_id and mt.company_id=public.current_company_id()));
+
+-- Customers and their child data inherit company through party.
+alter table public.address enable row level security;
+alter table public.contact enable row level security;
+alter table public.customer enable row level security;
+create policy customer_company_access on public.customer for all using (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id()));
+create policy address_company_access on public.address for all using (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id()));
+create policy contact_company_access on public.contact for all using (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id()));
+
+-- Warehouse stock inherits company through warehouse.
+alter table public.warehouse_stock enable row level security;
+alter table public.warehouse_stock_item enable row level security;
+create policy warehouse_stock_company_access on public.warehouse_stock for all using (exists(select 1 from public.warehouse w where w.id=warehouse_id and w.company_id=public.current_company_id())) with check (exists(select 1 from public.warehouse w where w.id=warehouse_id and w.company_id=public.current_company_id()));
+create policy warehouse_stock_item_company_access on public.warehouse_stock_item for all using (exists(select 1 from public.warehouse_stock ws join public.warehouse w on w.id=ws.warehouse_id where ws.id=warehouse_stock_id and w.company_id=public.current_company_id())) with check (exists(select 1 from public.warehouse_stock ws join public.warehouse w on w.id=ws.warehouse_id where ws.id=warehouse_stock_id and w.company_id=public.current_company_id()));
+
+-- OTD children inherit company through OTD.
+do $$ declare t text; begin foreach t in array array['otd_breakdown','otd_component','otd_rule','otd_selection','otd_selection_option','otd_variable','otd_version'] loop execute format('alter table public.%I enable row level security',t); end loop; end $$;
+create policy otd_breakdown_company_access on public.otd_breakdown for all using (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id()));
+create policy otd_component_company_access on public.otd_component for all using (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id()));
+create policy otd_rule_company_access on public.otd_rule for all using (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id()));
+create policy otd_selection_company_access on public.otd_selection for all using (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id()));
+create policy otd_variable_company_access on public.otd_variable for all using (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id()));
+create policy otd_version_company_access on public.otd_version for all using (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd o where o.id=otd_id and o.company_id=public.current_company_id()));
+create policy otd_selection_option_company_access on public.otd_selection_option for all using (exists(select 1 from public.otd_selection s join public.otd o on o.id=s.otd_id where s.id=selection_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.otd_selection s join public.otd o on o.id=s.otd_id where s.id=selection_id and o.company_id=public.current_company_id()));
+
+-- Other child tables inherit from their company-owned parent.
+do $$ declare t text; begin foreach t in array array['party_price_list','party_role','price_list_line','product_attribute_assignment','product_attribute_value','product_characteristic','product_customer_discount','product_family_attribute','product_family_attribute_exclusion','product_scale','product_supplier','purchase_document_line','sales_document_line','sales_document_otd','stock_reservation_item','invoice_payment','invoice_installment','invoice_line','invoice_tax_breakdown','quotation_comment','quotation_line_characteristic','quotation_line_dimension','sales_order_comment','sales_order_line'] loop execute format('alter table public.%I enable row level security',t); end loop; end $$;
+create policy party_price_list_company_access on public.party_price_list for all using (exists(select 1 from public.party p join public.price_list pl on pl.id=price_list_id where p.id=party_id and p.company_id=public.current_company_id() and pl.company_id=public.current_company_id())) with check (exists(select 1 from public.party p join public.price_list pl on pl.id=price_list_id where p.id=party_id and p.company_id=public.current_company_id() and pl.company_id=public.current_company_id()));
+create policy party_role_company_access on public.party_role for all using (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.party p where p.id=party_id and p.company_id=public.current_company_id()));
+create policy price_list_line_company_access on public.price_list_line for all using (exists(select 1 from public.price_list pl where pl.id=price_list_id and pl.company_id=public.current_company_id())) with check (exists(select 1 from public.price_list pl where pl.id=price_list_id and pl.company_id=public.current_company_id()));
+create policy product_attribute_assignment_company_access on public.product_attribute_assignment for all using (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id()));
+create policy product_attribute_value_company_access on public.product_attribute_value for all using (exists(select 1 from public.product_attribute a where a.id=attribute_id and a.company_id=public.current_company_id())) with check (exists(select 1 from public.product_attribute a where a.id=attribute_id and a.company_id=public.current_company_id()));
+create policy product_characteristic_company_access on public.product_characteristic for all using (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id()));
+create policy product_customer_discount_company_access on public.product_customer_discount for all using (exists(select 1 from public.product p join public.party pa on pa.id=customer_party_id where p.id=product_id and p.company_id=public.current_company_id() and pa.company_id=public.current_company_id())) with check (exists(select 1 from public.product p join public.party pa on pa.id=customer_party_id where p.id=product_id and p.company_id=public.current_company_id() and pa.company_id=public.current_company_id()));
+create policy product_family_attribute_company_access on public.product_family_attribute for all using (exists(select 1 from public.product_family f join public.product_attribute a on a.id=attribute_id where f.id=family_id and f.company_id=public.current_company_id() and a.company_id=public.current_company_id())) with check (exists(select 1 from public.product_family f join public.product_attribute a on a.id=attribute_id where f.id=family_id and f.company_id=public.current_company_id() and a.company_id=public.current_company_id()));
+create policy product_family_attribute_exclusion_company_access on public.product_family_attribute_exclusion for all using (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id()));
+create policy product_scale_company_access on public.product_scale for all using (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id())) with check (exists(select 1 from public.product p where p.id=product_id and p.company_id=public.current_company_id()));
+create policy product_supplier_company_access on public.product_supplier for all using (exists(select 1 from public.product p join public.party pa on pa.id=supplier_party_id where p.id=product_id and p.company_id=public.current_company_id() and pa.company_id=public.current_company_id())) with check (exists(select 1 from public.product p join public.party pa on pa.id=supplier_party_id where p.id=product_id and p.company_id=public.current_company_id() and pa.company_id=public.current_company_id()));
+create policy purchase_document_line_company_access on public.purchase_document_line for all using (exists(select 1 from public.purchase_document d where d.id=purchase_document_id and d.company_id=public.current_company_id())) with check (exists(select 1 from public.purchase_document d where d.id=purchase_document_id and d.company_id=public.current_company_id()));
+create policy sales_document_line_company_access on public.sales_document_line for all using (exists(select 1 from public.sales_document d where d.id=sales_document_id and d.company_id=public.current_company_id())) with check (exists(select 1 from public.sales_document d where d.id=sales_document_id and d.company_id=public.current_company_id()));
+create policy sales_document_otd_company_access on public.sales_document_otd for all using (exists(select 1 from public.sales_document_line l join public.sales_document d on d.id=l.sales_document_id where l.id=sales_document_line_id and d.company_id=public.current_company_id())) with check (exists(select 1 from public.sales_document_line l join public.sales_document d on d.id=l.sales_document_id where l.id=sales_document_line_id and d.company_id=public.current_company_id()));
+create policy stock_reservation_item_company_access on public.stock_reservation_item for all using (exists(select 1 from public.stock_reservation r where r.id=reservation_id and r.company_id=public.current_company_id())) with check (exists(select 1 from public.stock_reservation r where r.id=reservation_id and r.company_id=public.current_company_id()));
+create policy invoice_payment_company_access on public.invoice_payment for all using (company_id=public.current_company_id()) with check (company_id=public.current_company_id());
+create policy invoice_installment_company_access2 on public.invoice_installment for all using (exists(select 1 from public.invoice i where i.id=invoice_id and i.company_id=public.current_company_id())) with check (exists(select 1 from public.invoice i where i.id=invoice_id and i.company_id=public.current_company_id()));
+create policy invoice_line_company_access2 on public.invoice_line for all using (exists(select 1 from public.invoice i where i.id=invoice_id and i.company_id=public.current_company_id())) with check (exists(select 1 from public.invoice i where i.id=invoice_id and i.company_id=public.current_company_id()));
+create policy invoice_tax_breakdown_company_access2 on public.invoice_tax_breakdown for all using (exists(select 1 from public.invoice i where i.id=invoice_id and i.company_id=public.current_company_id())) with check (exists(select 1 from public.invoice i where i.id=invoice_id and i.company_id=public.current_company_id()));
+create policy quotation_comment_company_access2 on public.quotation_comment for all using (exists(select 1 from public.quotation q where q.id=quotation_id and q.company_id=public.current_company_id())) with check (exists(select 1 from public.quotation q where q.id=quotation_id and q.company_id=public.current_company_id()));
+create policy quotation_line_characteristic_company_access on public.quotation_line_characteristic for all using (exists(select 1 from public.quotation_line l join public.quotation q on q.id=l.quotation_id where l.id=quotation_line_id and q.company_id=public.current_company_id())) with check (exists(select 1 from public.quotation_line l join public.quotation q on q.id=l.quotation_id where l.id=quotation_line_id and q.company_id=public.current_company_id()));
+create policy quotation_line_dimension_company_access on public.quotation_line_dimension for all using (exists(select 1 from public.quotation_line l join public.quotation q on q.id=l.quotation_id where l.id=quotation_line_id and q.company_id=public.current_company_id())) with check (exists(select 1 from public.quotation_line l join public.quotation q on q.id=l.quotation_id where l.id=quotation_line_id and q.company_id=public.current_company_id()));
+create policy sales_order_comment_company_access2 on public.sales_order_comment for all using (exists(select 1 from public.sales_order o where o.id=sales_order_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.sales_order o where o.id=sales_order_id and o.company_id=public.current_company_id()));
+create policy sales_order_line_company_access2 on public.sales_order_line for all using (exists(select 1 from public.sales_order o where o.id=sales_order_id and o.company_id=public.current_company_id())) with check (exists(select 1 from public.sales_order o where o.id=sales_order_id and o.company_id=public.current_company_id()));
+
+alter table public.audit_log enable row level security;
+create policy audit_log_company_select on public.audit_log for select using (company_id=public.current_company_id());
+create policy audit_log_company_insert on public.audit_log for insert with check (company_id=public.current_company_id());
+
+-- document_status is global reference data; document_relation will be hardened once document polymorphic ownership is consolidated.
