@@ -34,6 +34,19 @@ export type OtdAssistantProposal = {
   notes?: string;
 };
 
+const OTD_SCOPE_TERMS = [
+  'otd', 'orden tecnica', 'orden técnica', 'despiece', 'articulo', 'artículo',
+  'producto', 'componente', 'componentes', 'material', 'materiales', 'pieza', 'piezas',
+  'medida', 'medidas', 'dimension', 'dimensión', 'dimensiones', 'ancho', 'alto', 'salida',
+  'color', 'lona', 'toldo', 'perfil', 'motor', 'brazo', 'accionamiento', 'confeccion',
+  'confección', 'formula', 'fórmula', 'variable', 'variables', 'entrada', 'entradas',
+];
+
+function isLikelyOtdRequest(prompt: string): boolean {
+  const normalized = prompt.toLocaleLowerCase('es-ES');
+  return OTD_SCOPE_TERMS.some((term) => normalized.includes(term));
+}
+
 export async function proposeOtdDraft(input: {
   prompt: string;
   unitCodes: string[];
@@ -41,6 +54,14 @@ export async function proposeOtdDraft(input: {
   existingVariables: { code: string }[];
 }): Promise<OtdAssistantProposal> {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+  if (!input.prompt.trim()) throw new CoreRepositoryError('Describe qué necesitas para el OTD.');
+
+  // UX guard only. The Edge Function repeats the scope check server-side so it
+  // cannot be bypassed by calling the function directly.
+  if (!isLikelyOtdRequest(input.prompt)) {
+    throw new CoreRepositoryError('Este asistente está especializado en OTD. Describe una necesidad relacionada con entradas, variables, fórmulas o componentes del OTD.');
+  }
+
   const { data, error } = await supabase.functions.invoke('otd-assistant', {
     body: {
       prompt: input.prompt,
