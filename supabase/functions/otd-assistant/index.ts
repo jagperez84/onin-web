@@ -106,11 +106,13 @@ Deno.serve(async (req: Request) => {
       `Variables ya existentes en este OTD: ${existingVariables.length ? existingVariables.map((v) => v.code).filter(Boolean).join(", ") : "ninguna"}.`,
     ].join("\n");
 
+    // Haiku 4.5: el modelo más económico de la gama, elegido a propósito
+    // para esta demo — la tarea (rellenar un JSON con una gramática de
+    // fórmulas cerrada y validable) no necesita el razonamiento de Opus.
     const response = await client.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 8000,
+      model: "claude-haiku-4-5",
+      max_tokens: 4096,
       system: SYSTEM_PROMPT,
-      output_config: { effort: "high" },
       messages: [
         { role: "user", content: `${contextLines}\n\nPetición del usuario:\n${prompt}` },
       ],
