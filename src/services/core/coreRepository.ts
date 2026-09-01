@@ -10,11 +10,50 @@ function requireClient(){
   return supabase;
 }
 
+/**
+ * Returns the company currently selected for the authenticated user.
+ * This is intentionally NOT the same as "all active companies": modules
+ * must never infer the working company from array position.
+ */
 export async function getActiveCompanies():Promise<Company[]>{
   const client=requireClient();
-  const {data,error}=await client.from('company').select('id,code,name,tax_id,active').eq('active',true).order('name');
+  const { data: { user }, error: authError } = await client.auth.getUser();
+  if(authError || !user) throw new CoreRepositoryError('No hay un usuario autenticado.');
+
+  const { data: account, error: accountError } = await client
+    .from('user_account')
+    .select('company_id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+  if(accountError) throw new CoreRepositoryError(accountError.message);
+  if(account?.company_id == null) throw new CoreRepositoryError('El usuario no tiene empresa asignada.');
+
+  const { data, error } = await client
+    .from('company')
+    .select('id,code,name,tax_id,active')
+    .eq('id', Number(account.company_id))
+    .eq('active', true)
+    .maybeSingle();
+  if(error) throw new CoreRepositoryError(error.message);
+  if(!data) throw new CoreRepositoryError('La empresa seleccionada no está disponible.');
+  return [data as Company];
+}
+
+/** Returns all active companies visible to the authenticated user. */
+export async function getAllActiveCompanies():Promise<Company[]>{
+  const client=requireClient();
+  const {data,error}=await client
+    .from('company')
+    .select('id,code,name,tax_id,active')
+    .eq('active',true)
+    .order('name');
   if(error) throw new CoreRepositoryError(error.message);
   return (data??[]) as Company[];
+}
+
+export async function getCurrentCompanyId():Promise<number>{
+  const companies=await getActiveCompanies();
+  return Number(companies[0].id);
 }
 
 export async function getCustomerSummaries(search=''):Promise<CustomerSummary[]>{
