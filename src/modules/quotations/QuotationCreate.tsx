@@ -23,6 +23,7 @@ import {
   createQuotation,
   customerAddresses,
   customerContactsData,
+  customerOtdDiscount,
   customerProductDiscount,
   quotationOptions,
   type CustomerContactDataResult,
@@ -51,6 +52,12 @@ import "./quotation-configurator.css";
 const today = () => new Date().toISOString().slice(0, 10);
 const money = (n: number) =>
   n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+export function otdDiscountLevelLabel(level: "article" | "familia" | "otd" | "otd_generico") {
+  if (level === "article") return "artículo";
+  if (level === "familia") return "familia";
+  if (level === "otd") return "OTD";
+  return "OTD genérico";
+}
 
 export type AddressDraft = {
   source_id: number | null;
@@ -385,7 +392,7 @@ export function QuotationCreate() {
       void recalculateLine(i, id, line.dimensions, line.characteristics, true);
       if (discount) {
         setToast(
-          `El cliente tiene descuentos aplicados (${discount.level === "article" ? "artículo" : "familia"}: ${discount.discount_percent}%).`,
+          `El cliente tiene descuentos aplicados (${otdDiscountLevelLabel(discount.level)}: ${discount.discount_percent}%).`,
         );
       }
     } catch (e) {
@@ -424,7 +431,7 @@ export function QuotationCreate() {
     setOtdModalOpen(true);
   };
 
-  const handleOtdModalConfirm = (
+  const handleOtdModalConfirm = async (
     snap: OtdConfigurationSnapshot,
     lineData: {
       description: string;
@@ -436,12 +443,15 @@ export function QuotationCreate() {
   ) => {
     const existingLine =
       otdModalLineIndex !== null ? lines[otdModalLineIndex] : null;
+    const discount = customerId
+      ? await customerOtdDiscount(customerId, lineData.otdId).catch(() => null)
+      : null;
     const newLine: Line = {
       product_id: null,
       description: lineData.description,
       quantity: lineData.quantity,
       unit_price: lineData.unitPrice,
-      discount_percent: 0,
+      discount_percent: discount?.discount_percent ?? 0,
       tax_rate_id: existingLine?.tax_rate_id ?? null,
       tax_percent: existingLine?.tax_percent ?? 21,
       comments: withOtdNotesComment(existingLine?.comments ?? [], snap.notes),
@@ -459,10 +469,14 @@ export function QuotationCreate() {
       configuration_snapshot: snap,
     };
 
+    const discountSuffix = discount
+      ? ` El cliente tiene un descuento aplicado (${otdDiscountLevelLabel(discount.level)}: ${discount.discount_percent}%).`
+      : "";
+
     if (otdModalLineIndex !== null) {
       updateLine(otdModalLineIndex, newLine);
       setToast(
-        `Línea ${otdModalLineIndex + 1} actualizada con la nueva configuración OTD.`,
+        `Línea ${otdModalLineIndex + 1} actualizada con la nueva configuración OTD.${discountSuffix}`,
       );
     } else {
       setLines((prev) => {
@@ -477,7 +491,7 @@ export function QuotationCreate() {
         return [...prev, newLine];
       });
       setToast(
-        `Configuración OTD "${snap.otd_name}" añadida como línea de presupuesto.`,
+        `Configuración OTD "${snap.otd_name}" añadida como línea de presupuesto.${discountSuffix}`,
       );
     }
   };
@@ -596,9 +610,11 @@ export function QuotationCreate() {
       }
 
       const discounted = await Promise.all(
-        lines.map(async (l) =>
-          l.product_id ? customerProductDiscount(id, l.product_id) : null,
-        ),
+        lines.map(async (l) => {
+          if (l.product_id) return customerProductDiscount(id, l.product_id);
+          const otdId = l.specific_data?.otd_id as number | undefined;
+          return otdId ? customerOtdDiscount(id, otdId) : null;
+        }),
       );
       setLines((xs) =>
         xs.map((l, index) => ({

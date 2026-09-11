@@ -29,11 +29,12 @@ import {
 import {
   customerAddresses,
   customerContactsData,
+  customerOtdDiscount,
   type CustomerContactDataResult,
   type QuotationLineCharacteristicDraft,
   type QuotationLineDimensionDraft,
 } from "../../services/sales/quotationCreationRepository";
-import { AddressEditor, type AddressDraft } from "./QuotationCreate";
+import { AddressEditor, otdDiscountLevelLabel, type AddressDraft } from "./QuotationCreate";
 import { CommentsPanel, withOtdNotesComment, type CommentItem } from "./CommentsPanel";
 import {
   calculateQuotationLineByProductId,
@@ -568,7 +569,7 @@ export function QuotationEdit() {
     setOtdModalOpen(true);
   };
 
-  const handleOtdModalConfirm = (
+  const handleOtdModalConfirm = async (
     snap: OtdConfigurationSnapshot,
     lineData: {
       description: string;
@@ -580,6 +581,10 @@ export function QuotationEdit() {
   ) => {
     const isUpdating = otdModalLineIndex !== null;
     const existingLine = isUpdating ? lines[otdModalLineIndex] : null;
+    const discount =
+      !existingLine && customerId
+        ? await customerOtdDiscount(customerId, lineData.otdId).catch(() => null)
+        : null;
 
     const newLine: EditLine = {
       id: existingLine?.id ?? 0,
@@ -588,7 +593,7 @@ export function QuotationEdit() {
       description: lineData.description,
       quantity: lineData.quantity,
       unit_price: lineData.unitPrice,
-      discount_percent: existingLine?.discount_percent ?? 0,
+      discount_percent: existingLine?.discount_percent ?? discount?.discount_percent ?? 0,
       tax_rate_id: existingLine?.tax_rate_id ?? null,
       tax_percent: existingLine?.tax_percent ?? 21,
       comments: withOtdNotesComment(existingLine?.comments ?? [], snap.notes),
@@ -608,10 +613,14 @@ export function QuotationEdit() {
       configuration_snapshot: snap,
     };
 
+    const discountSuffix = discount
+      ? ` El cliente tiene un descuento aplicado (${otdDiscountLevelLabel(discount.level)}: ${discount.discount_percent}%).`
+      : "";
+
     if (isUpdating && otdModalLineIndex !== null) {
       updateLine(otdModalLineIndex, newLine);
       setToast(
-        `Línea ${otdModalLineIndex + 1} actualizada con la nueva configuración OTD.`,
+        `Línea ${otdModalLineIndex + 1} actualizada con la nueva configuración OTD.${discountSuffix}`,
       );
     } else {
       setLines((prev) => {
@@ -626,7 +635,7 @@ export function QuotationEdit() {
         return [...prev, newLine];
       });
       setToast(
-        `Configuración OTD "${snap.otd_name}" añadida como línea de presupuesto.`,
+        `Configuración OTD "${snap.otd_name}" añadida como línea de presupuesto.${discountSuffix}`,
       );
     }
   };

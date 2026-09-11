@@ -2,6 +2,25 @@ import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from './coreRepository';
 import { sanitizeSearchTerm } from './searchSanitize';
 
+export type DiscountOtdRow = {
+  id: number;
+  customer_party_id: number;
+  otd_id: number;
+  otd_code: string;
+  otd_name: string;
+  discount_percent: number;
+  active: boolean;
+  deleted_at: string | null;
+};
+
+export type CustomerOtdGenericDiscount = {
+  id: number;
+  customer_party_id: number;
+  discount_percent: number;
+  active: boolean;
+  deleted_at: string | null;
+};
+
 export type DiscountFamilyRow = {
   id: number;
   customer_party_id: number;
@@ -179,5 +198,102 @@ export async function markCustomerProductDiscountForDeletion(id:number):Promise<
 export async function restoreCustomerProductDiscount(id:number):Promise<void>{
   const c = client();
   const { error } = await c.from('product_customer_discount').update({active:true,deleted_at:null,deleted_by:null}).eq('id',id).not('deleted_at','is',null);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function getCustomerOtdGenericDiscount(customerPartyId:number):Promise<CustomerOtdGenericDiscount|null>{
+  const c = client();
+  const { data, error } = await c.from('customer_otd_discount')
+    .select('id,customer_party_id,discount_percent,active,deleted_at')
+    .eq('customer_party_id', customerPartyId)
+    .is('otd_id', null)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (error) throw new CoreRepositoryError(error.message);
+  return data ? { ...data, discount_percent: Number(data.discount_percent) } as CustomerOtdGenericDiscount : null;
+}
+
+export async function upsertCustomerOtdGenericDiscount(companyId:number, customerPartyId:number, discountPercent:number, existingId?:number|null):Promise<void>{
+  const c = client();
+  if (existingId) {
+    const { error } = await c.from('customer_otd_discount').update({discount_percent:discountPercent,updated_at:new Date().toISOString()}).eq('id',existingId);
+    if (error) throw new CoreRepositoryError(error.message);
+  } else {
+    const { error } = await c.from('customer_otd_discount').insert({company_id:companyId,customer_party_id:customerPartyId,otd_id:null,discount_percent:discountPercent,active:true,deleted_at:null,deleted_by:null});
+    if (error) throw new CoreRepositoryError(error.message);
+  }
+}
+
+export async function markCustomerOtdGenericDiscountForDeletion(id:number):Promise<void>{
+  const c = client();
+  const { data:user } = await c.auth.getUser();
+  const { error } = await c.from('customer_otd_discount').update({active:false,deleted_at:new Date().toISOString(),deleted_by:user.user?.id ?? null}).eq('id',id).is('deleted_at',null);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function listCustomerOtdDiscounts(customerPartyId:number, includeDeleted=false):Promise<DiscountOtdRow[]>{
+  const c = client();
+  let q = c.from('customer_otd_discount')
+    .select('id,customer_party_id,otd_id,discount_percent,active,deleted_at,otd!inner(code,name)')
+    .eq('customer_party_id', customerPartyId)
+    .not('otd_id', 'is', null)
+    .order('id');
+  if (!includeDeleted) q = q.is('deleted_at', null);
+  const { data, error } = await q;
+  if (error) throw new CoreRepositoryError(error.message);
+
+  type RawOtdRow = {
+    id: number; customer_party_id: number; otd_id: number; discount_percent: number;
+    active: boolean; deleted_at: string | null; otd: { code: string; name: string } | { code: string; name: string }[];
+  };
+
+  return ((data ?? []) as unknown as RawOtdRow[]).map(r => {
+    const otd = Array.isArray(r.otd) ? r.otd[0] : r.otd;
+    if (!otd) throw new CoreRepositoryError('El OTD asociado al descuento no existe.');
+    return {
+      id: r.id,
+      customer_party_id: r.customer_party_id,
+      otd_id: r.otd_id,
+      otd_code: otd.code,
+      otd_name: otd.name,
+      discount_percent: Number(r.discount_percent),
+      active: r.active,
+      deleted_at: r.deleted_at,
+    };
+  });
+}
+
+export async function searchOtdsForDiscount(companyId:number, search=''):Promise<EntityRef[]> {
+  const c = client();
+  const term = sanitizeSearchTerm(search);
+  let q = c.from('otd').select('id,code,name').eq('company_id',companyId).eq('active',true).order('code').limit(12);
+  if (term) q = q.or(`code.ilike.%${term}%,name.ilike.%${term}%`);
+  const { data, error } = await q;
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data ?? []) as EntityRef[];
+}
+
+export async function createCustomerOtdDiscount(companyId:number, customerPartyId:number, otdId:number, discountPercent:number):Promise<void>{
+  const c = client();
+  const { error } = await c.from('customer_otd_discount').insert({company_id:companyId,customer_party_id:customerPartyId,otd_id:otdId,discount_percent:discountPercent,active:true,deleted_at:null,deleted_by:null});
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function updateCustomerOtdDiscount(id:number, discountPercent:number):Promise<void>{
+  const c = client();
+  const { error } = await c.from('customer_otd_discount').update({discount_percent:discountPercent,updated_at:new Date().toISOString()}).eq('id',id).is('deleted_at',null);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function markCustomerOtdDiscountForDeletion(id:number):Promise<void>{
+  const c = client();
+  const { data:user } = await c.auth.getUser();
+  const { error } = await c.from('customer_otd_discount').update({active:false,deleted_at:new Date().toISOString(),deleted_by:user.user?.id ?? null}).eq('id',id).is('deleted_at',null);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function restoreCustomerOtdDiscount(id:number):Promise<void>{
+  const c = client();
+  const { error } = await c.from('customer_otd_discount').update({active:true,deleted_at:null,deleted_by:null,updated_at:new Date().toISOString()}).eq('id',id).not('deleted_at','is',null);
   if (error) throw new CoreRepositoryError(error.message);
 }

@@ -11,7 +11,7 @@ export type QuotationLineCharacteristicDraft={attribute_id:number|null;attribute
 export type QuotationCommentDraft={text:string;is_public:boolean};
 export type QuotationLineDraft={product_id:number|null;description:string;quantity:number;unit_price:number;discount_percent:number;tax_rate_id:number|null;tax_percent:number;comments?:QuotationCommentDraft[];dimensions?:QuotationLineDimensionDraft[];characteristics?:QuotationLineCharacteristicDraft[];specific_data?:Record<string,unknown>};
 export type QuotationAddressDraft={source_id:number|null;label:string;street:string;postal_code:string;city:string;region:string};
-export type CustomerDiscount={discount_percent:number;level:'article'|'familia'};
+export type CustomerDiscount={discount_percent:number;level:'article'|'familia'|'otd'|'otd_generico'};
 
 export type CustomerContactItem = {
   id: number;
@@ -48,7 +48,37 @@ function characteristicsFromDefinition(definition:ProductLineDefinition|null,row
 
 export async function quotationOptions(){const c=client();const cid=await companyId();const [customers,commercials,warehouses,paymentMethods,paymentTerms,taxRates,products,units]=await Promise.all([c.from('customer').select('id,party:party_id(legal_name,trade_name)').is('deleted_at',null).order('id'),c.from('commercial').select('id,party:party_id(legal_name,trade_name)').eq('company_id',cid).eq('active',true).order('id'),c.from('warehouse').select('id,name,code').eq('company_id',cid).eq('active',true).is('deleted_at',null).order('id'),c.from('payment_method').select('id,name,code').eq('company_id',cid).eq('active',true).order('id'),c.from('payment_term').select('id,name,code').eq('company_id',cid).eq('active',true).order('id'),c.from('tax_rate').select('id,name,code,rate').eq('company_id',cid).eq('active',true).order('rate'),c.from('product').select('id,code,commercial_description,technical_description,sales_price,iva_percent').eq('company_id',cid).eq('active',true).is('deleted_at',null).order('code'),c.from('unit').select('id,code,name').eq('company_id',cid).eq('active',true).is('deleted_at',null).order('code')]);for(const r of [customers,commercials,warehouses,paymentMethods,paymentTerms,taxRates,products,units])if(r.error)throw new CoreRepositoryError(r.error.message);const productRows=products.data??[];const behaviors=await getProductLineBehaviors(productRows.map((x:any)=>Number(x.id)),cid);return{customers:(customers.data??[]).map((x:any)=>({id:x.id,label:partyName(x.party)})),commercials:(commercials.data??[]).map((x:any)=>({id:x.id,label:partyName(x.party)})),warehouses:(warehouses.data??[]).map((x:any)=>({id:x.id,label:x.code?`${x.code} · ${x.name}`:x.name})),paymentMethods:(paymentMethods.data??[]).map((x:any)=>({id:x.id,label:x.code?`${x.code} · ${x.name}`:x.name})),paymentTerms:(paymentTerms.data??[]).map((x:any)=>({id:x.id,label:x.code?`${x.code} · ${x.name}`:x.name})),taxRates:(taxRates.data??[]).map((x:any)=>({id:x.id,label:x.code?`${x.code} · ${x.name}`:x.name,rate:Number(x.rate)})),products:productRows.map((x:any)=>({id:x.id,label:x.commercial_description||x.technical_description||x.code,code:x.code,price:Number(x.sales_price||0),lineBehavior:behaviors.get(Number(x.id))??null})),units:(units.data??[]).map((u:any)=>({id:Number(u.id),code:String(u.code||''),name:String(u.name||'')}))};}
 export async function customerAddresses(customerId:number):Promise<QuotationAddress[]>{const c=client();const {data:customer,error:ce}=await c.from('customer').select('party_id').eq('id',customerId).maybeSingle();if(ce)throw new CoreRepositoryError(ce.message);if(!customer?.party_id)return[];const {data,error}=await c.from('address').select('id,label,street,postal_code,city,region,address_type').eq('party_id',customer.party_id).is('deleted_at',null).order('id');if(error)throw new CoreRepositoryError(error.message);return(data??[]) as QuotationAddress[];}
-export async function customerProductDiscount(customerId:number,productId:number):Promise<CustomerDiscount|null>{const c=client();const {data:customer,error:ce}=await c.from('customer').select('party_id').eq('id',customerId).maybeSingle();if(ce)throw new CoreRepositoryError(ce.message);if(!customer?.party_id)return null;const {data:product,error:pe}=await c.from('product').select('family_id').eq('id',productId).maybeSingle();if(pe)throw new CoreRepositoryError(pe.message);const {data:articleDiscount,error:ae}=await c.from('product_customer_discount').select('discount_percent').eq('customer_party_id',customer.party_id).eq('product_id',productId).eq('active',true).is('deleted_at',null).maybeSingle();if(ae)throw new CoreRepositoryError(ae.message);if(articleDiscount)return{discount_percent:Number(articleDiscount.discount_percent||0),level:'article'};if(!product?.family_id)return null;const {data:familyDiscount,error:fe}=await c.from('customer_family_discount').select('discount_percent').eq('customer_party_id',customer.party_id).eq('product_family_id',product.family_id).eq('active',true).is('deleted_at',null).maybeSingle();if(fe)throw new CoreRepositoryError(fe.message);return familyDiscount?{discount_percent:Number(familyDiscount.discount_percent||0),level:'familia'}:null;}
+async function articleOrFamilyDiscount(customerPartyId:number,productId:number):Promise<CustomerDiscount|null>{const c=client();const {data:product,error:pe}=await c.from('product').select('family_id').eq('id',productId).maybeSingle();if(pe)throw new CoreRepositoryError(pe.message);const {data:articleDiscount,error:ae}=await c.from('product_customer_discount').select('discount_percent').eq('customer_party_id',customerPartyId).eq('product_id',productId).eq('active',true).is('deleted_at',null).maybeSingle();if(ae)throw new CoreRepositoryError(ae.message);if(articleDiscount)return{discount_percent:Number(articleDiscount.discount_percent||0),level:'article'};if(!product?.family_id)return null;const {data:familyDiscount,error:fe}=await c.from('customer_family_discount').select('discount_percent').eq('customer_party_id',customerPartyId).eq('product_family_id',product.family_id).eq('active',true).is('deleted_at',null).maybeSingle();if(fe)throw new CoreRepositoryError(fe.message);return familyDiscount?{discount_percent:Number(familyDiscount.discount_percent||0),level:'familia'}:null;}
+
+export async function customerProductDiscount(customerId:number,productId:number):Promise<CustomerDiscount|null>{const c=client();const {data:customer,error:ce}=await c.from('customer').select('party_id').eq('id',customerId).maybeSingle();if(ce)throw new CoreRepositoryError(ce.message);if(!customer?.party_id)return null;return articleOrFamilyDiscount(customer.party_id,productId);}
+
+/**
+ * Resuelve el descuento de cliente para una línea generada desde un OTD, con prioridad:
+ * descuento específico de ese OTD > descuento del artículo al que esté vinculado el OTD
+ * (si lo tiene) > descuento de la familia de ese artículo > descuento genérico de OTD del
+ * cliente (otd_id NULL). No son sumatorios: el primer nivel que exista gana.
+ */
+export async function customerOtdDiscount(customerId:number,otdId:number):Promise<CustomerDiscount|null>{
+  const c=client();
+  const {data:customer,error:ce}=await c.from('customer').select('party_id').eq('id',customerId).maybeSingle();
+  if(ce)throw new CoreRepositoryError(ce.message);
+  if(!customer?.party_id)return null;
+
+  const {data:specific,error:se}=await c.from('customer_otd_discount').select('discount_percent').eq('customer_party_id',customer.party_id).eq('otd_id',otdId).eq('active',true).is('deleted_at',null).maybeSingle();
+  if(se)throw new CoreRepositoryError(se.message);
+  if(specific)return{discount_percent:Number(specific.discount_percent||0),level:'otd'};
+
+  const {data:otd,error:oe}=await c.from('otd').select('product_id').eq('id',otdId).maybeSingle();
+  if(oe)throw new CoreRepositoryError(oe.message);
+  if(otd?.product_id){
+    const productDiscount=await articleOrFamilyDiscount(customer.party_id,otd.product_id);
+    if(productDiscount)return productDiscount;
+  }
+
+  const {data:generic,error:ge}=await c.from('customer_otd_discount').select('discount_percent').eq('customer_party_id',customer.party_id).is('otd_id',null).eq('active',true).is('deleted_at',null).maybeSingle();
+  if(ge)throw new CoreRepositoryError(ge.message);
+  return generic?{discount_percent:Number(generic.discount_percent||0),level:'otd_generico'}:null;
+}
 
 export async function customerContactsData(customerId: number): Promise<CustomerContactDataResult> {
   const c = client();
