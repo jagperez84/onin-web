@@ -23,6 +23,7 @@ import {
   type AttributeValue,
   type CatalogKind,
   type CatalogRow,
+  type FallbackProfileEstimate,
 } from "../../services/catalog/catalogRepository";
 import {
   listMeasurementTypes,
@@ -150,7 +151,13 @@ type FormState = {
   length_enabled: boolean;
   characteristics_enabled: boolean;
   canvas_cut_enabled: boolean;
+  roll_width_m: number | null;
+  seam_allowance_width_m: number | null;
+  seam_allowance_height_m: number | null;
+  standard_bar_length_mm: number | null;
+  fallback_profile_estimates: FallbackProfileEstimate[] | null;
 };
+const emptyEstimate = (): FallbackProfileEstimate => ({ code: "", name: "", end_deduction_mm: 0, color: "" });
 const emptyForm: FormState = {
   code: "",
   name: "",
@@ -173,6 +180,11 @@ const emptyForm: FormState = {
   length_enabled: false,
   characteristics_enabled: false,
   canvas_cut_enabled: false,
+  roll_width_m: null,
+  seam_allowance_width_m: null,
+  seam_allowance_height_m: null,
+  standard_bar_length_mm: null,
+  fallback_profile_estimates: null,
 };
 const behaviorFields = [
   ["quantity_enabled", "Cantidad"],
@@ -206,6 +218,7 @@ export function ProductCatalogV1() {
     "active",
   );
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [useDefaultEstimates, setUseDefaultEstimates] = useState(true);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -309,6 +322,7 @@ export function ProductCatalogV1() {
 
   function startNew() {
     setForm({ ...emptyForm });
+    setUseDefaultEstimates(true);
     setFamilyAttributes([]);
     setAvailableFamilyAttributes([]);
     setSelectedFamilyAttrId(null);
@@ -426,7 +440,13 @@ export function ProductCatalogV1() {
       length_enabled: !!r.length_enabled,
       characteristics_enabled: !!r.characteristics_enabled,
       canvas_cut_enabled: !!r.canvas_cut_enabled,
+      roll_width_m: r.roll_width_m ?? null,
+      seam_allowance_width_m: r.seam_allowance_width_m ?? null,
+      seam_allowance_height_m: r.seam_allowance_height_m ?? null,
+      standard_bar_length_mm: r.standard_bar_length_mm ?? null,
+      fallback_profile_estimates: r.fallback_profile_estimates ?? null,
     });
+    setUseDefaultEstimates((r.fallback_profile_estimates ?? null) == null);
     setEditing(true);
     setError("");
     if (family && r.id) {
@@ -439,6 +459,19 @@ export function ProductCatalogV1() {
     }
   }
 
+  function patchEstimate(index: number, patch: Partial<FallbackProfileEstimate>) {
+    setForm((f) => ({
+      ...f,
+      fallback_profile_estimates: (f.fallback_profile_estimates ?? []).map((e, idx) => (idx === index ? { ...e, ...patch } : e)),
+    }));
+  }
+  function removeEstimate(index: number) {
+    setForm((f) => ({ ...f, fallback_profile_estimates: (f.fallback_profile_estimates ?? []).filter((_, idx) => idx !== index) }));
+  }
+  function addEstimate() {
+    setForm((f) => ({ ...f, fallback_profile_estimates: [...(f.fallback_profile_estimates ?? []), emptyEstimate()] }));
+  }
+
   async function save() {
     if (!companyId) return;
     if (!form.code.trim() || !form.name.trim()) {
@@ -448,7 +481,10 @@ export function ProductCatalogV1() {
     setSaving(true);
     setError("");
     try {
-      const saved = await upsertCatalog(kind, companyId, form);
+      const payload: FormState = behavior
+        ? { ...form, fallback_profile_estimates: useDefaultEstimates ? null : form.fallback_profile_estimates ?? [] }
+        : form;
+      const saved = await upsertCatalog(kind, companyId, payload);
       if (!form.id && saved?.id && family) {
         setForm((prev) => ({ ...prev, id: saved.id }));
         await load();
@@ -847,6 +883,131 @@ export function ProductCatalogV1() {
                         </label>
                       ))}
                     </div>
+                  </div>
+
+                  <div className="wide" style={{ marginTop: "14px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+                    <div className="form-section-title">Parámetros de corte</div>
+                    <p className="form-help">
+                      Solo se usan si "Cálculo de corte" está activo. Déjalos en blanco para usar el valor estándar de toldo enrollable.
+                    </p>
+                    <div className="form-grid">
+                      <label>
+                        Ancho de rollo (m)
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="1,20 (por defecto)"
+                          value={form.roll_width_m ?? ""}
+                          onChange={(e) => setForm({ ...form, roll_width_m: e.target.value === "" ? null : Number(e.target.value) })}
+                        />
+                      </label>
+                      <label>
+                        Margen de dobladillo lateral (m)
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0,04 (por defecto)"
+                          value={form.seam_allowance_width_m ?? ""}
+                          onChange={(e) => setForm({ ...form, seam_allowance_width_m: e.target.value === "" ? null : Number(e.target.value) })}
+                        />
+                      </label>
+                      <label>
+                        Margen de vaina/enrolle (m)
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0,25 (por defecto)"
+                          value={form.seam_allowance_height_m ?? ""}
+                          onChange={(e) => setForm({ ...form, seam_allowance_height_m: e.target.value === "" ? null : Number(e.target.value) })}
+                        />
+                      </label>
+                      <label>
+                        Longitud de barra estándar (mm)
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          placeholder="6000 (por defecto)"
+                          value={form.standard_bar_length_mm ?? ""}
+                          onChange={(e) => setForm({ ...form, standard_bar_length_mm: e.target.value === "" ? null : Number(e.target.value) })}
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="wide" style={{ marginTop: "14px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                      <div>
+                        <div className="form-section-title" style={{ marginBottom: "2px" }}>Estimación de perfiles sin despiece</div>
+                        <p className="form-help" style={{ margin: 0 }}>
+                          Perfiles a mostrar en la hoja de trabajo cuando el artículo todavía no tiene despiece configurado.
+                        </p>
+                      </div>
+                      {!useDefaultEstimates && (
+                        <button type="button" className="secondary-button compact" onClick={addEstimate}>
+                          <Plus size={14} /> Añadir perfil
+                        </button>
+                      )}
+                    </div>
+                    <label className="inline-check" style={{ marginBottom: "10px" }}>
+                      <input
+                        type="checkbox"
+                        checked={useDefaultEstimates}
+                        onChange={(e) => setUseDefaultEstimates(e.target.checked)}
+                      />
+                      <span>Usar la estimación estándar de toldo enrollable (perfil de carga + tubo de enrolle)</span>
+                    </label>
+                    {!useDefaultEstimates && (
+                      (form.fallback_profile_estimates ?? []).length === 0 ? (
+                        <p className="form-help">Sin perfiles definidos — no se mostrará ninguna estimación mientras el artículo no tenga despiece.</p>
+                      ) : (
+                        <div className="table-panel">
+                          <table>
+                            <thead>
+                              <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Descuento extremo (mm)</th>
+                                <th>Color</th>
+                                <th className="actions-col"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(form.fallback_profile_estimates ?? []).map((estimate, idx) => (
+                                <tr key={idx}>
+                                  <td>
+                                    <input value={estimate.code} onChange={(e) => patchEstimate(idx, { code: e.target.value })} />
+                                  </td>
+                                  <td>
+                                    <input value={estimate.name} onChange={(e) => patchEstimate(idx, { name: e.target.value })} />
+                                  </td>
+                                  <td>
+                                    <input
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      value={estimate.end_deduction_mm}
+                                      onChange={(e) => patchEstimate(idx, { end_deduction_mm: Number(e.target.value) })}
+                                    />
+                                  </td>
+                                  <td>
+                                    <input value={estimate.color ?? ""} placeholder="Opcional" onChange={(e) => patchEstimate(idx, { color: e.target.value })} />
+                                  </td>
+                                  <td className="actions-col">
+                                    <button type="button" className="icon-action danger" title="Eliminar perfil" onClick={() => removeEstimate(idx)}>
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    )}
                   </div>
                 </>
               )}

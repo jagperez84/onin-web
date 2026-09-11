@@ -4,6 +4,7 @@ import { markForDeletion, restoreFromDeletion } from '../core/softDeleteReposito
 import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type CatalogKind = 'families' | 'types' | 'units' | 'magnitudes' | 'colors' | 'attributes' | 'mountingTypes' | 'lineBehaviors';
+export type FallbackProfileEstimate = { code:string; name:string; end_deduction_mm:number; color?:string };
 export type CatalogRow = {
   id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
@@ -12,6 +13,11 @@ export type CatalogRow = {
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; cut_calculation_enabled?:boolean; length_enabled?:boolean;
   characteristics_enabled?:boolean; canvas_cut_enabled?:boolean;
+  // Parámetros de corte de una línea de comportamiento. Todos opcionales: si son
+  // null/undefined, cutCalculationService usa los valores históricos de toldo
+  // enrollable (ver sus constantes DEFAULT_*).
+  roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
+  standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
 };
 export type AttributeValue = { id:number; attribute_id:number; code:string; name:string; active:boolean; deleted_at?:string|null; sort_order:number };
 
@@ -22,6 +28,8 @@ type CatalogInput = {
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; cut_calculation_enabled?:boolean; length_enabled?:boolean;
   characteristics_enabled?:boolean; canvas_cut_enabled?:boolean; data_type?:string;
+  roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
+  standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
 };
 
 function client(){
@@ -67,6 +75,11 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.length_enabled=!!input.length_enabled;
    base.characteristics_enabled=!!input.characteristics_enabled;
    base.canvas_cut_enabled=!!input.canvas_cut_enabled;
+   base.roll_width_m=input.roll_width_m??null;
+   base.seam_allowance_width_m=input.seam_allowance_width_m??null;
+   base.seam_allowance_height_m=input.seam_allowance_height_m??null;
+   base.standard_bar_length_mm=input.standard_bar_length_mm??null;
+   base.fallback_profile_estimates=input.fallback_profile_estimates===undefined?null:input.fallback_profile_estimates;
  }
  if(kind==='attributes') base.data_type=input.data_type??'TEXT';
  let q=input.id?c.from(tableFor[kind]).update(base).eq('id',input.id).select().maybeSingle():c.from(tableFor[kind]).insert(base).select().maybeSingle();
