@@ -49,7 +49,9 @@ export function calculateBreakdown(input:{variables?:Record<string,number>;compo
 
 function resolveComponentPrice(c:BreakdownComponent):{price:number;cost:number}{
   if(!c.product){
-    const price=Number(c.base_price??c.price??0); const cost=Number(c.cost??price);
+    const rawPrice=c.base_price??c.price;
+    if(rawPrice==null) throw new BreakdownCalculationError(`Falta el precio en ${c.code}.`);
+    const price=Number(rawPrice); const cost=Number(c.cost??price);
     if(!Number.isFinite(price)||!Number.isFinite(cost)) throw new BreakdownCalculationError(`Precio no válido en ${c.code}.`);
     return {price,cost};
   }

@@ -102,18 +102,17 @@ describe('calculateBreakdown', () => {
     expect(result.components[0].unit_cost).toBe(15);
   });
 
-  it('HALLAZGO: un componente sin producto y sin precio configurado no avisa, calcula precio/coste 0 en silencio', () => {
-    // resolveComponentPrice hace `Number(c.base_price ?? c.price ?? 0)`: si
-    // ninguno de los dos está definido, el resultado es 0 (un número
-    // perfectamente finito), así que la comprobación de "precio no válido"
-    // nunca se dispara por precio ausente -solo por un valor explícito que
-    // no sea numérico (NaN). Un componente manual de despiece sin precio
-    // configurado entra en el presupuesto gratis, sin ningún error.
+  it('lanza un error si un componente sin producto no tiene ningún precio configurado (ni base_price ni price)', () => {
+    expect(() =>
+      calculateBreakdown({ components: [component({ base_price: undefined, price: undefined })] })
+    ).toThrow(/Falta el precio/);
+  });
+
+  it('un precio explícito de 0 es válido (componente incluido sin coste) y no dispara el error de precio ausente', () => {
     const result = calculateBreakdown({
-      components: [component({ base_price: undefined, price: undefined })],
+      components: [component({ quantity_expression: '1', base_price: 0 })],
     });
     expect(result.components[0].unit_price).toBe(0);
-    expect(result.components[0].total_price).toBe(0);
   });
 
   describe('total price/cost del despiece', () => {
