@@ -1,5 +1,29 @@
 import { useMemo, useState } from "react";
-import { BookOpen, ChevronRight, CircleHelp, FileText, Factory, Package, Ruler, Search, Settings, ShoppingCart, Users, X } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  Box,
+  CheckCircle2,
+  ChevronRight,
+  CircleHelp,
+  ClipboardList,
+  CreditCard,
+  Factory,
+  FileText,
+  Info,
+  Map,
+  Package,
+  ReceiptText,
+  Ruler,
+  Search,
+  Settings,
+  ShoppingCart,
+  Tag,
+  Truck,
+  Users,
+  Warehouse,
+  X,
+} from "lucide-react";
 import "./help.css";
 
 type HelpArticle = {
@@ -8,20 +32,476 @@ type HelpArticle = {
   summary: string;
   section: string;
   icon: typeof BookOpen;
+  route?: string;
+  status?: "Disponible" | "En desarrollo";
+  keywords: string[];
   steps: string[];
+  tips?: string[];
+  warnings?: string[];
 };
 
 const articles: HelpArticle[] = [
-  { id: "inicio", title: "Primeros pasos en ONIN", summary: "Conoce la navegación, los accesos directos y la estructura general de la aplicación.", section: "Primeros pasos", icon: BookOpen, steps: ["Utiliza el menú lateral para acceder a cada área de ONIN.", "Desde Inicio encontrarás accesos rápidos a las áreas que utilizas con más frecuencia.", "El buscador superior está preparado como punto de acceso rápido a la información de la aplicación."] },
-  { id: "clientes", title: "Gestionar clientes", summary: "Consulta, crea y actualiza la información comercial de tus clientes.", section: "Ventas", icon: Users, steps: ["Entra en Ventas > Clientes.", "Utiliza la búsqueda para localizar un cliente y abre su ficha.", "Para crear uno nuevo, selecciona Nuevo y completa los datos solicitados."] },
-  { id: "articulos", title: "Artículos y características", summary: "Gestiona el catálogo, las características y la información de los artículos.", section: "Ventas", icon: Package, steps: ["Entra en Ventas > Artículos para consultar el catálogo.", "Abre un artículo para revisar su información y configuración.", "Las características permiten trabajar con variantes como colores y otros atributos definidos para el artículo."] },
-  { id: "presupuestos", title: "Crear un presupuesto", summary: "Prepara presupuestos con líneas de artículos, cantidades, medidas, descuentos e importes.", section: "Ventas", icon: FileText, steps: ["Entra en Ventas > Presupuestos y selecciona Nuevo.", "Añade las líneas de artículos e indica cantidades y medidas cuando corresponda.", "Revisa descuentos, IVA e importe total antes de guardar el presupuesto."] },
-  { id: "almacen", title: "Consultar existencias y movimientos", summary: "Controla el stock, los movimientos, las transferencias y las reservas.", section: "Almacén", icon: Package, steps: ["Entra en Almacén > Existencias para consultar el stock disponible.", "Utiliza Movimientos para revisar entradas y salidas.", "Las Transferencias permiten gestionar movimientos entre almacenes y Reservas consultar material reservado."] },
-  { id: "mediciones", title: "Trabajar con mediciones", summary: "Registra y consulta las mediciones asociadas a trabajos y clientes.", section: "Gestión", icon: Ruler, steps: ["Entra en Gestión > Mediciones.", "Crea una medición nueva o abre una existente para consultar sus datos.", "Las mediciones pueden quedar asignadas para su revisión desde los accesos de Inicio."] },
-  { id: "produccion", title: "Producción y OTD", summary: "Consulta hojas de trabajo y gestiona las reglas de producción OTD.", section: "Producción", icon: Factory, steps: ["En Producción > Hojas de trabajo puedes consultar y abrir las hojas disponibles.", "En Producción > OTD se gestionan las configuraciones y pruebas de las reglas OTD.", "Antes de modificar una regla OTD, revisa su configuración y utiliza la opción de prueba cuando esté disponible."] },
-  { id: "facturacion", title: "Facturación y cobros", summary: "Consulta albaranes, facturas y cobros desde el área de Facturación.", section: "Facturación", icon: FileText, steps: ["Entra en Facturación > Albaranes para consultar los documentos de entrega.", "Utiliza Facturas para consultar el detalle de las facturas.", "En Cobros puedes revisar la información relacionada con los cobros registrados."] },
-  { id: "configuracion", title: "Configuración y usuarios", summary: "Administra usuarios, tipos de medida y condiciones de pago.", section: "Configuración", icon: Settings, steps: ["En Configuración > Usuarios puedes consultar y gestionar los usuarios de ONIN.", "Tipos de medida permite mantener las unidades y configuraciones de medida utilizadas por la aplicación.", "Formas de pago y Condiciones de pago centralizan la configuración comercial correspondiente."] },
-  { id: "compras", title: "Compras", summary: "Accede a proveedores y documentos de compra desde el menú de Compras.", section: "Compras", icon: ShoppingCart, steps: ["Utiliza Compras > Proveedores para acceder a la gestión de proveedores.", "Pedidos de compra y Albaranes de compra están disponibles desde el mismo bloque de navegación.", "Si una funcionalidad todavía no está disponible en tu versión, consulta con el administrador de ONIN."] },
+  {
+    id: "inicio",
+    title: "Primeros pasos en ONIN",
+    summary: "Aprende a moverte por la aplicación, localizar funciones y entender la estructura general de ONIN.",
+    section: "Primeros pasos",
+    icon: BookOpen,
+    keywords: ["inicio", "navegación", "menú", "buscar", "usuario", "sesión"],
+    steps: [
+      "Utiliza el menú lateral para acceder a Ventas, Compras, Almacén, Gestión, Facturación, Producción, Informes y Configuración.",
+      "Desde Inicio puedes acceder rápidamente a áreas habituales y consultar avisos relacionados con mediciones asignadas.",
+      "La barra superior mantiene el buscador general, el selector de tema, el acceso al Centro de Ayuda y el usuario autenticado.",
+      "El botón de ayuda abre esta documentación sin abandonar la sesión de ONIN.",
+    ],
+    tips: [
+      "Si no sabes dónde realizar una tarea, busca por el nombre de la operación y no solo por el nombre del módulo.",
+      "Las rutas y nombres de esta ayuda siguen la navegación actual de ONIN Web.",
+    ],
+  },
+  {
+    id: "buscar-ayuda",
+    title: "Cómo buscar en el Centro de Ayuda",
+    summary: "Encuentra una guía utilizando módulos, tareas, conceptos y términos habituales del negocio.",
+    section: "Primeros pasos",
+    icon: Search,
+    route: "/ayuda",
+    keywords: ["buscar", "ayuda", "documentación", "guía", "problema"],
+    steps: [
+      "Escribe en el buscador una palabra como cliente, presupuesto, stock, medición, artículo u OTD.",
+      "La búsqueda revisa título, resumen, módulo, pasos y palabras clave de cada guía.",
+      "Abre una guía para consultar su procedimiento, recomendaciones y advertencias cuando existan.",
+      "Si no aparece una respuesta, prueba con un término funcional más general o consulta al administrador.",
+    ],
+    tips: ["La documentación debe ampliarse a medida que se incorporen nuevas funciones o se detecten dudas recurrentes."],
+  },
+  {
+    id: "clientes-listado",
+    title: "Clientes: listado y búsqueda",
+    summary: "Localiza clientes por los principales identificadores comerciales y abre su ficha.",
+    section: "Ventas",
+    icon: Users,
+    route: "/ventas/clientes",
+    keywords: ["clientes", "cliente", "CIF", "NIF", "código", "nombre", "búsqueda"],
+    status: "Disponible",
+    steps: [
+      "Entra en Ventas > Clientes.",
+      "Busca por nombre, nombre comercial, CIF/NIF o código de cliente.",
+      "Selecciona el cliente para consultar su ficha y sus datos generales.",
+      "Utiliza el listado como punto de entrada para crear un cliente nuevo o abrir uno existente.",
+    ],
+    tips: ["Antes de crear un cliente, comprueba CIF/NIF y nombre para evitar duplicados."],
+  },
+  {
+    id: "clientes-ficha",
+    title: "Clientes: alta, edición, direcciones y contactos",
+    summary: "Gestiona la ficha del cliente y sus datos relacionados.",
+    section: "Ventas",
+    icon: Users,
+    route: "/ventas/clientes",
+    keywords: ["alta", "editar", "dirección", "contacto", "email", "teléfono", "duplicado"],
+    status: "Disponible",
+    steps: [
+      "Selecciona Nuevo desde el listado de clientes y completa los datos solicitados.",
+      "ONIN valida en frontend datos como CIF/NIF, email y teléfono antes de guardar.",
+      "La creación del cliente se realiza de forma atómica para mantener relacionados sus datos principales.",
+      "Desde la ficha puedes gestionar las direcciones y contactos mediante sus operaciones de alta, modificación y eliminación.",
+      "Para desactivar un cliente se utiliza su estado activo; la eliminación física no se expone como operación normal.",
+    ],
+    warnings: ["La implementación actual todavía tiene pendientes algunas relaciones comerciales avanzadas, como comerciales, formas de pago y descuentos."],
+  },
+  {
+    id: "articulos-catalogo",
+    title: "Artículos: catálogo y ficha",
+    summary: "Consulta el catálogo y la información principal de los artículos que intervienen en ventas y procesos posteriores.",
+    section: "Ventas",
+    icon: Package,
+    route: "/ventas/articulos",
+    keywords: ["artículo", "catalogo", "producto", "familia", "ficha", "característica"],
+    status: "Disponible",
+    steps: [
+      "Entra en Ventas > Artículos para consultar el catálogo.",
+      "Utiliza la búsqueda del listado para localizar el artículo que necesitas.",
+      "Abre la ficha para revisar su información y las configuraciones relacionadas.",
+      "Cuando un artículo tiene características o dimensiones definidas, estas condicionan cómo puede utilizarse posteriormente en presupuestos y procesos de fabricación.",
+    ],
+    tips: ["Los conceptos artículo, familia, características, escalado y despiece están relacionados y no deben tratarse como catálogos aislados."],
+  },
+  {
+    id: "articulos-caracteristicas",
+    title: "Artículos: características y dimensiones",
+    summary: "Entiende cómo las características y las dimensiones intervienen en la configuración de un artículo.",
+    section: "Ventas",
+    icon: Tag,
+    route: "/ventas/articulos",
+    keywords: ["característica", "color", "acabado", "dimensión", "ancho", "salida", "configurable"],
+    steps: [
+      "Abre un artículo desde Ventas > Artículos y accede a sus características cuando estén disponibles.",
+      "Las características representan atributos seleccionables del artículo, como color o acabado, según su definición.",
+      "Las dimensiones representan valores necesarios para calcular o describir determinadas líneas, pudiendo existir varias dimensiones según el tipo de medida.",
+      "En líneas configurables, la definición del artículo puede bloquear qué dimensiones o características son editables y limitar la entrada del usuario a los valores necesarios para el cálculo.",
+    ],
+    tips: ["Antes de modificar una definición configurable, comprueba qué valores son obligatorios y cuáles están definidos por el artículo."],
+  },
+  {
+    id: "presupuestos-alta",
+    title: "Presupuestos: crear y estructurar un presupuesto",
+    summary: "Crea un presupuesto y prepara sus líneas manteniendo cliente, direcciones, artículos y condiciones comerciales coherentes.",
+    section: "Ventas",
+    icon: FileText,
+    route: "/ventas/presupuestos",
+    keywords: ["presupuesto", "crear", "cliente", "línea", "dirección", "observaciones"],
+    status: "Disponible",
+    steps: [
+      "Entra en Ventas > Presupuestos y selecciona Nuevo.",
+      "Selecciona el cliente. Sus direcciones y condiciones relacionadas pueden alimentar la información del presupuesto.",
+      "Añade las líneas de artículos y completa descripción, cantidad, medidas y demás valores que correspondan.",
+      "Revisa las observaciones y los datos comerciales antes de guardar.",
+      "Guarda el presupuesto mediante la barra de guardado existente y comprueba el resultado en el detalle.",
+    ],
+    warnings: ["Cambiar de cliente puede provocar el recálculo de direcciones y descuentos asociados; revisa las líneas después de un cambio de cliente."],
+  },
+  {
+    id: "presupuestos-lineas",
+    title: "Presupuestos: líneas, medidas, características y descuentos",
+    summary: "Las líneas de presupuesto son el punto donde confluyen artículo, cantidad, dimensiones, características, precio y descuento.",
+    section: "Ventas",
+    icon: ClipboardList,
+    route: "/ventas/presupuestos",
+    keywords: ["línea", "cantidad", "precio", "descuento", "medida", "característica", "importe", "OTD"],
+    steps: [
+      "Selecciona el artículo mediante la búsqueda de artículos disponible en la línea.",
+      "Introduce la cantidad y las dimensiones que requiera el artículo. El modelo histórico contempla hasta cinco dimensiones y una medida de resto.",
+      "Si el artículo dispone de características, selecciona los valores permitidos y completa las obligatorias.",
+      "El descuento puede proceder del artículo y existir un fallback por familia cuando la regla comercial correspondiente esté definida.",
+      "Revisa precio, descuento e importe de cada línea y el resumen del presupuesto antes de guardar.",
+    ],
+    tips: [
+      "En artículos configurables, las dimensiones y características pueden intervenir en el cálculo del precio unitario.",
+      "La funcionalidad OTD debe conservar sus reglas específicas y no debe interpretarse como una línea estándar de artículo.",
+    ],
+  },
+  {
+    id: "presupuestos-calculo",
+    title: "Presupuestos: cómo interpretar los importes",
+    summary: "Consulta de forma segura cómo se compone el importe de las líneas y del presupuesto.",
+    section: "Ventas",
+    icon: ReceiptText,
+    route: "/ventas/presupuestos",
+    keywords: ["subtotal", "base", "IVA", "impuesto", "total", "importe", "precio"],
+    steps: [
+      "Comprueba el precio aplicado a cada línea antes del descuento.",
+      "Comprueba el descuento de la línea y el importe resultante.",
+      "Revisa el resumen del documento para validar base imponible, impuestos y total.",
+      "Si el importe no coincide con lo esperado, revisa primero artículo, dimensiones, características, descuento y cantidad antes de modificar manualmente el precio.",
+    ],
+    warnings: ["La formulación exacta de precios OTD y otras reglas de cálculo específicas debe mantenerse alineada con la lógica de negocio existente; esta ayuda no sustituye esa lógica."],
+  },
+  {
+    id: "pedidos",
+    title: "Pedidos de venta",
+    summary: "Consulta y crea pedidos a partir del flujo comercial de ONIN.",
+    section: "Ventas",
+    icon: FileText,
+    route: "/ventas/pedidos",
+    keywords: ["pedido", "ventas", "presupuesto", "convertir", "cliente"],
+    status: "Disponible",
+    steps: [
+      "Entra en Ventas > Pedidos para consultar los pedidos existentes.",
+      "Cuando corresponda al flujo de trabajo, utiliza la conversión desde un presupuesto para iniciar un pedido.",
+      "Revisa cliente, líneas e información del documento antes de confirmar el resultado.",
+      "Consulta el detalle del pedido para seguir su evolución dentro de los módulos relacionados.",
+    ],
+  },
+  {
+    id: "compras",
+    title: "Compras y proveedores",
+    summary: "Estructura y navegación del área de Compras.",
+    section: "Compras",
+    icon: ShoppingCart,
+    keywords: ["compras", "proveedor", "pedido compra", "albarán compra"],
+    status: "En desarrollo",
+    steps: [
+      "El área Compras contiene Proveedores, Pedidos de compra y Albaranes de compra.",
+      "Accede a Proveedores para consultar la información disponible de proveedores.",
+      "Utiliza Pedidos de compra y Albaranes de compra para los documentos correspondientes cuando la funcionalidad esté habilitada en tu versión.",
+      "Si una opción aparece como no implementada, no intentes sustituirla por un proceso de otro módulo sin confirmar primero el procedimiento de negocio.",
+    ],
+    warnings: ["Parte de la navegación de Compras existe actualmente como área preparada pero no toda ella está implementada en ONIN Web."],
+  },
+  {
+    id: "almacen-almacenes",
+    title: "Almacén: almacenes y existencias",
+    summary: "Consulta dónde se gestiona cada almacén y cómo interpretar las existencias.",
+    section: "Almacén",
+    icon: Warehouse,
+    route: "/almacen/almacenes",
+    keywords: ["almacén", "almacenes", "stock", "existencia", "material"],
+    status: "Disponible",
+    steps: [
+      "Entra en Almacén > Almacenes para consultar y gestionar los almacenes disponibles.",
+      "En Almacén > Existencias consulta el stock asociado al artículo, característica y almacén.",
+      "Para artículos dimensionales, las cantidades y dimensiones pueden formar parte de la identificación de una existencia.",
+      "Comprueba siempre el almacén y la característica antes de interpretar una cantidad de stock.",
+    ],
+    tips: ["Una existencia no es necesariamente solo una cantidad: el modelo heredado contempla dimensiones, unidades, restos y estado de uso."],
+  },
+  {
+    id: "almacen-movimientos",
+    title: "Almacén: movimientos",
+    summary: "Consulta las entradas y salidas y entiende su relación con documentos y fabricación.",
+    section: "Almacén",
+    icon: Truck,
+    route: "/almacen/movimientos",
+    keywords: ["movimiento", "entrada", "salida", "precio", "valoración", "presupuesto", "corte"],
+    status: "Disponible",
+    steps: [
+      "Entra en Almacén > Movimientos para consultar los movimientos registrados.",
+      "Revisa tipo de movimiento, fecha, almacén, artículo, característica, cantidades y concepto.",
+      "Cuando el movimiento procede de un proceso comercial o productivo, puede quedar relacionado con un presupuesto, una línea de presupuesto o una línea de corte.",
+      "Comprueba las unidades y dimensiones cuando trabajes con artículos dimensionales.",
+    ],
+    tips: ["El modelo histórico distingue movimientos modificables y conserva información de valoración de precio; no edites un movimiento sin conocer su origen."],
+  },
+  {
+    id: "almacen-transferencias",
+    title: "Almacén: transferencias y reservas",
+    summary: "Gestiona desplazamientos y reservas de material sin perder la trazabilidad del stock.",
+    section: "Almacén",
+    icon: ArrowRight,
+    route: "/almacen/transferencias",
+    keywords: ["transferencia", "reserva", "reservar", "stock", "resto"],
+    status: "Disponible",
+    steps: [
+      "Utiliza Almacén > Transferencias para mover material entre almacenes según el flujo disponible.",
+      "Utiliza Almacén > Reservas para consultar material reservado.",
+      "En material dimensional, verifica las dimensiones y características asociadas antes de confirmar una operación.",
+      "Después de una operación de stock, comprueba las existencias resultantes y los movimientos generados cuando corresponda.",
+    ],
+    warnings: ["Las reservas y su consumo dimensional forman parte de un modelo específico; no deben interpretarse como una simple resta de stock sin revisar el contexto del material."],
+  },
+  {
+    id: "mediciones",
+    title: "Mediciones: alta y seguimiento",
+    summary: "Registra mediciones, consulta su detalle y trabaja con asignaciones para revisión.",
+    section: "Gestión",
+    icon: Ruler,
+    route: "/gestion/mediciones",
+    keywords: ["medición", "medidas", "cliente", "dirección", "asignar", "revisión"],
+    status: "Disponible",
+    steps: [
+      "Entra en Gestión > Mediciones para consultar las mediciones existentes.",
+      "Crea una nueva medición desde la opción correspondiente y completa los datos solicitados.",
+      "Desde el detalle puedes consultar la información de la medición y los datos relacionados con cliente y ubicación.",
+      "Las mediciones pueden asignarse a usuarios para su revisión y aparecen como pendientes en los accesos de Inicio cuando corresponde.",
+    ],
+    tips: ["Antes de continuar un trabajo basado en medidas, comprueba que las dimensiones y el cliente/ubicación sean los correctos."],
+  },
+  {
+    id: "mediciones-asignacion",
+    title: "Mediciones: asignaciones y avisos de Inicio",
+    summary: "Entiende cómo ONIN destaca las mediciones recién asignadas al usuario.",
+    section: "Gestión",
+    icon: CheckCircle2,
+    route: "/gestion/mediciones",
+    keywords: ["asignada", "pendiente", "revisión", "notificación", "inicio"],
+    status: "Disponible",
+    steps: [
+      "Cuando existen mediciones asignadas al usuario, Inicio muestra un aviso de mediciones nuevas pendientes de revisión.",
+      "El aviso identifica la medición y, cuando está disponible, el cliente y la ciudad de la ubicación.",
+      "Puedes abrir directamente una medición desde el aviso o ir al listado completo.",
+      "Utiliza el detalle para revisar la información antes de continuar con el trabajo.",
+    ],
+  },
+  {
+    id: "montajes",
+    title: "Montajes",
+    summary: "Accede al área de Gestión destinada al seguimiento de montajes.",
+    section: "Gestión",
+    icon: Factory,
+    route: "/gestion/montajes",
+    keywords: ["montaje", "instalación", "trabajo", "gestión"],
+    status: "Disponible",
+    steps: [
+      "Entra en Gestión > Montajes para consultar los montajes disponibles.",
+      "Abre el registro correspondiente para consultar la información que la aplicación tenga disponible.",
+      "Relaciona el seguimiento del montaje con el contexto comercial y productivo correspondiente cuando proceda.",
+    ],
+  },
+  {
+    id: "mapa",
+    title: "Mapa",
+    summary: "Consulta la información geográfica disponible desde Gestión > Mapa.",
+    section: "Gestión",
+    icon: Map,
+    route: "/gestion/mapa",
+    keywords: ["mapa", "ubicación", "dirección", "geografía", "cliente"],
+    status: "Disponible",
+    steps: [
+      "Entra en Gestión > Mapa.",
+      "Utiliza la vista geográfica para localizar los registros que dispongan de información de ubicación.",
+      "Si una dirección no aparece correctamente, comprueba primero los datos de dirección del registro origen.",
+    ],
+  },
+  {
+    id: "produccion-hojas",
+    title: "Producción: hojas de trabajo",
+    summary: "Consulta y abre las hojas de trabajo utilizadas en producción.",
+    section: "Producción",
+    icon: Factory,
+    route: "/produccion/hojas",
+    keywords: ["producción", "hoja", "hoja de trabajo", "fabricación"],
+    status: "Disponible",
+    steps: [
+      "Entra en Producción > Hojas de trabajo.",
+      "Consulta el listado y abre una hoja para revisar su detalle.",
+      "Utiliza la información de la hoja como referencia del trabajo productivo asociado.",
+      "Cuando el trabajo dependa de corte, confección, despiece o stock dimensional, comprueba también el contexto del artículo y del presupuesto.",
+    ],
+  },
+  {
+    id: "otd",
+    title: "OTD: configuración y prueba",
+    summary: "Trabaja con las reglas OTD y utiliza la prueba antes de dar por válida una modificación.",
+    section: "Producción",
+    icon: Settings,
+    route: "/produccion/otd",
+    keywords: ["OTD", "regla", "configuración", "prueba", "producción", "artículo"],
+    status: "Disponible",
+    steps: [
+      "Entra en Producción > OTD para consultar las reglas disponibles.",
+      "Abre una regla para revisar su configuración antes de modificarla.",
+      "Cuando esté disponible, utiliza la opción de probar para validar el comportamiento con datos controlados.",
+      "Comprueba el resultado antes de utilizar la regla en un proceso real de presupuesto o producción.",
+    ],
+    warnings: ["OTD tiene dependencias con artículos, familias, características, medidas y lógica de presupuesto. Una modificación de una regla puede afectar a procesos posteriores."],
+  },
+  {
+    id: "fabricacion-relaciones",
+    title: "Fabricación: artículo, despiece, corte y almacén",
+    summary: "Visión general del flujo que conecta las estructuras de fabricación con presupuestos y stock.",
+    section: "Producción",
+    icon: Box,
+    keywords: ["fabricación", "despiece", "corte", "perfil", "lona", "stock", "presupuesto"],
+    steps: [
+      "Una línea de presupuesto puede estar relacionada con el artículo, una característica, sus medidas y procesos derivados.",
+      "El modelo de fabricación contempla líneas de corte de perfil y líneas de corte de lona vinculadas a presupuesto y línea de presupuesto.",
+      "El despiece puede actuar como estructura intermedia de fabricación y relacionarse con las líneas de corte.",
+      "Los movimientos de almacén pueden quedar relacionados con líneas de corte y líneas de presupuesto, manteniendo trazabilidad del material.",
+      "Para investigar una discrepancia de fabricación, sigue el origen desde presupuesto → línea → despiece/corte → movimiento/stock.",
+    ],
+    warnings: ["La ayuda describe las relaciones funcionales identificadas en el modelo heredado; no sustituye una instrucción específica de fabricación cuando la regla de negocio sea particular de un producto."],
+  },
+  {
+    id: "facturacion-albaranes",
+    title: "Facturación: albaranes",
+    summary: "Consulta los documentos de entrega desde el área de Facturación.",
+    section: "Facturación",
+    icon: ReceiptText,
+    route: "/facturacion/albaranes",
+    keywords: ["albarán", "entrega", "facturación", "documento"],
+    status: "Disponible",
+    steps: [
+      "Entra en Facturación > Albaranes.",
+      "Localiza el documento que necesitas mediante los filtros o búsqueda disponibles.",
+      "Abre el detalle para revisar la información del albarán y su contexto comercial.",
+    ],
+  },
+  {
+    id: "facturacion-facturas",
+    title: "Facturación: facturas y cobros",
+    summary: "Consulta facturas y revisa la información de cobros registrada.",
+    section: "Facturación",
+    icon: CreditCard,
+    route: "/facturacion/facturas",
+    keywords: ["factura", "cobro", "facturación", "importe", "cliente"],
+    status: "Disponible",
+    steps: [
+      "Entra en Facturación > Facturas para consultar las facturas disponibles.",
+      "Abre una factura para revisar su detalle.",
+      "En Facturación > Cobros consulta la información de cobros registrada.",
+      "Si un importe no coincide con el documento origen, revisa la trazabilidad comercial antes de corregir datos manualmente.",
+    ],
+  },
+  {
+    id: "config-usuarios",
+    title: "Configuración: usuarios",
+    summary: "Gestiona los usuarios de ONIN y revisa quién puede acceder a la aplicación.",
+    section: "Configuración",
+    icon: Users,
+    route: "/configuracion/usuarios",
+    keywords: ["usuario", "usuarios", "acceso", "seguridad", "administrador"],
+    status: "Disponible",
+    steps: [
+      "Entra en Configuración > Usuarios.",
+      "Consulta el listado y abre el usuario que necesites revisar.",
+      "Gestiona los datos permitidos por la pantalla y evita compartir credenciales entre personas.",
+      "Cuando exista separación por empresa, comprueba siempre la empresa activa antes de operar con datos sensibles.",
+    ],
+    warnings: ["La seguridad de datos por empresa debe respetarse en todos los módulos. No utilices la ayuda como autorización para acceder a datos de otra empresa."],
+  },
+  {
+    id: "config-medidas",
+    title: "Configuración: tipos de medida",
+    summary: "Mantén las configuraciones de tipos de medida utilizadas por la aplicación.",
+    section: "Configuración",
+    icon: Ruler,
+    route: "/configuracion/tipos-medida",
+    keywords: ["tipo de medida", "unidad", "dimensiones", "medida", "configuración"],
+    status: "Disponible",
+    steps: [
+      "Entra en Configuración > Tipos de medida.",
+      "Consulta o modifica los tipos disponibles según las operaciones permitidas por la pantalla.",
+      "Antes de cambiar un tipo de medida, comprueba qué artículos y familias pueden depender de él.",
+      "Una configuración de medidas puede repercutir en presupuestos, existencias, reservas y procesos de fabricación.",
+    ],
+  },
+  {
+    id: "config-pagos",
+    title: "Configuración: formas y condiciones de pago",
+    summary: "Centraliza la configuración comercial utilizada para las condiciones de pago.",
+    section: "Configuración",
+    icon: CreditCard,
+    route: "/configuracion/formas-pago",
+    keywords: ["forma de pago", "condición de pago", "pago", "configuración"],
+    status: "Disponible",
+    steps: [
+      "Entra en Configuración > Formas de pago para consultar o mantener las formas disponibles.",
+      "Utiliza Configuración > Condiciones de pago para mantener las condiciones correspondientes.",
+      "Antes de cambiar una condición utilizada por documentos existentes, revisa el impacto comercial de la modificación.",
+    ],
+  },
+  {
+    id: "seguridad-multempresa",
+    title: "Seguridad y separación por empresa",
+    summary: "Buenas prácticas para trabajar con datos cuando ONIN tiene más de una empresa.",
+    section: "Configuración",
+    icon: Info,
+    keywords: ["empresa", "multempresa", "seguridad", "RLS", "datos", "acceso"],
+    steps: [
+      "Comprueba la empresa activa antes de consultar o modificar información cuando el módulo esté sujeto a separación por empresa.",
+      "No asumas que todos los módulos tienen el mismo nivel de separación: la arquitectura debe definir explícitamente el alcance de cada dato.",
+      "Las políticas de seguridad de base de datos deben impedir que un usuario consulte o modifique datos de otra empresa aunque intente acceder directamente a una ruta.",
+      "Si detectas datos cruzados entre empresas, detén la operación y repórtalo como incidencia de seguridad.",
+    ],
+    warnings: ["La documentación funcional no sustituye las políticas RLS ni los controles de autorización del backend. Nunca debe utilizarse para saltarse permisos."],
+  },
+  {
+    id: "errores-generales",
+    title: "Qué hacer cuando algo no funciona",
+    summary: "Procedimiento recomendado para diagnosticar incidencias sin provocar cambios innecesarios.",
+    section: "Primeros pasos",
+    icon: CircleHelp,
+    keywords: ["error", "problema", "incidencia", "fallo", "no funciona", "diagnóstico"],
+    steps: [
+      "Anota el módulo, pantalla y operación exacta que estabas realizando.",
+      "Comprueba si el problema se reproduce con los mismos datos y si afecta a otros usuarios.",
+      "No repitas una operación de guardado muchas veces si no sabes si la primera se completó; primero comprueba el listado o detalle.",
+      "Si el problema afecta a stock, presupuesto o fabricación, conserva el identificador del documento y de la línea para poder seguir la trazabilidad.",
+      "Para incidencias de seguridad o datos cruzados entre empresas, no continúes probando sobre datos reales y avisa al administrador.",
+    ],
+    tips: ["Una buena incidencia debe incluir: empresa, usuario, módulo, documento, pasos para reproducir, resultado esperado y resultado obtenido."],
+  },
 ];
 
 const sectionOrder = ["Primeros pasos", "Ventas", "Compras", "Almacén", "Gestión", "Facturación", "Producción", "Configuración"];
@@ -30,32 +510,41 @@ export function HelpCenter() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const normalized = query.trim().toLocaleLowerCase();
-  const filtered = useMemo(() => normalized ? articles.filter(a => `${a.title} ${a.summary} ${a.section} ${a.steps.join(" ")}`.toLocaleLowerCase().includes(normalized)) : articles, [normalized]);
-  const groups = sectionOrder.map(section => ({ section, items: filtered.filter(a => a.section === section) })).filter(g => g.items.length);
-  const article = selected ? articles.find(a => a.id === selected) ?? null : null;
+  const filtered = useMemo(() => {
+    if (!normalized) return articles;
+    return articles.filter((article) => {
+      const haystack = [article.title, article.summary, article.section, article.route ?? "", ...article.keywords, ...article.steps, ...(article.tips ?? []), ...(article.warnings ?? [])].join(" ").toLocaleLowerCase();
+      return haystack.includes(normalized);
+    });
+  }, [normalized]);
+  const groups = sectionOrder.map((section) => ({ section, items: filtered.filter((article) => article.section === section) })).filter((group) => group.items.length);
+  const article = selected ? articles.find((item) => item.id === selected) ?? null : null;
 
   return <div className="help-page">
     <div className="help-hero">
       <div className="help-hero-copy">
-        <span className="help-eyebrow"><CircleHelp size={15}/> CENTRO DE AYUDA</span>
-        <h1>¿En qué podemos ayudarte?</h1>
-        <p>Guías rápidas para aprender a utilizar ONIN y resolver las tareas más habituales.</p>
-        <label className="help-search"><Search size={19}/><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar una guía, módulo o tarea..." aria-label="Buscar en la ayuda" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Limpiar búsqueda"><X size={17}/></button>}</label>
+        <span className="help-eyebrow"><CircleHelp size={15}/> CENTRO DE AYUDA ONIN</span>
+        <h1>Aprende a trabajar con ONIN</h1>
+        <p>Guías funcionales basadas en la navegación y el modelo actual de ONIN Web, con recomendaciones para trabajar de forma segura.</p>
+        <label className="help-search"><Search size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca una tarea, módulo, artículo, presupuesto, stock, OTD..." aria-label="Buscar en la ayuda" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Limpiar búsqueda"><X size={17}/></button>}</label>
       </div>
     </div>
 
     {article ? <article className="help-article">
-      <button className="help-back" type="button" onClick={() => setSelected(null)}>← Volver a todas las guías</button>
+      <button className="help-back" type="button" onClick={() => setSelected(null)}>← Volver al Centro de Ayuda</button>
       <div className="help-article-icon"><article.icon size={24}/></div>
-      <span className="help-article-section">{article.section}</span>
+      <div className="help-article-meta"><span className="help-article-section">{article.section}</span>{article.status && <span className={`help-status ${article.status === "Disponible" ? "is-ready" : "is-development"}`}>{article.status}</span>}</div>
       <h2>{article.title}</h2>
       <p className="help-article-summary">{article.summary}</p>
-      <div className="help-steps">{article.steps.map((step, i) => <div className="help-step" key={step}><span>{i + 1}</span><p>{step}</p></div>)}</div>
+      {article.route && <div className="help-route"><ArrowRight size={15}/><span>Ruta en ONIN: <strong>{article.route}</strong></span></div>}
+      <div className="help-article-block"><h3>Cómo hacerlo</h3><div className="help-steps">{article.steps.map((step, index) => <div className="help-step" key={step}><span>{index + 1}</span><p>{step}</p></div>)}</div></div>
+      {article.tips?.length ? <div className="help-note help-note-tip"><Info size={17}/><div><strong>Recomendaciones</strong>{article.tips.map((tip) => <p key={tip}>{tip}</p>)}</div></div> : null}
+      {article.warnings?.length ? <div className="help-note help-note-warning"><Info size={17}/><div><strong>Importante</strong>{article.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div> : null}
     </article> : <>
-      <div className="help-welcome"><div><strong>Encuentra tu guía</strong><span>{filtered.length} {filtered.length === 1 ? "guía disponible" : "guías disponibles"}</span></div><BookOpen size={23}/></div>
-      {groups.length ? <div className="help-groups">{groups.map(group => <section className="help-group" key={group.section}><div className="help-group-head"><h2>{group.section}</h2><span>{group.items.length}</span></div><div className="help-cards">{group.items.map(a => { const Icon = a.icon; return <button className="help-card" key={a.id} type="button" onClick={() => setSelected(a.id)}><span className="help-card-icon"><Icon size={19}/></span><span className="help-card-copy"><strong>{a.title}</strong><small>{a.summary}</small></span><ChevronRight size={18} className="help-card-arrow"/></button>; })}</div></section>)}</div> : <div className="help-empty"><CircleHelp size={32}/><h2>No encontramos esa guía</h2><p>Prueba con otro término, por ejemplo «presupuesto», «stock», «OTD» o «cliente».</p></div>}
+      <div className="help-welcome"><div><strong>Documentación de ONIN</strong><span>{filtered.length} {filtered.length === 1 ? "guía disponible" : "guías disponibles"} · busca por módulo o tarea</span></div><BookOpen size={23}/></div>
+      {groups.length ? <div className="help-groups">{groups.map((group) => <section className="help-group" key={group.section}><div className="help-group-head"><h2>{group.section}</h2><span>{group.items.length}</span></div><div className="help-cards">{group.items.map((item) => { const Icon = item.icon; return <button className="help-card" key={item.id} type="button" onClick={() => setSelected(item.id)}><span className="help-card-icon"><Icon size={19}/></span><span className="help-card-copy"><strong>{item.title}</strong><small>{item.summary}</small>{item.status && <em className={item.status === "Disponible" ? "is-ready" : "is-development"}>{item.status}</em>}</span><ChevronRight size={18} className="help-card-arrow"/></button>; })}</div></section>)}</div> : <div className="help-empty"><CircleHelp size={32}/><h2>No encontramos esa guía</h2><p>Prueba con «cliente», «presupuesto», «stock», «medición», «OTD» o «seguridad».</p></div>}
     </>}
 
-    <div className="help-footer"><CircleHelp size={18}/><span>¿No encuentras lo que buscas? Contacta con el administrador de ONIN para solicitar una nueva guía.</span></div>
+    <div className="help-footer"><CircleHelp size={18}/><span>¿No encuentras lo que buscas? Registra la incidencia con módulo, documento, pasos para reproducir y resultado esperado. La documentación debe crecer junto con ONIN.</span></div>
   </div>;
 }
