@@ -56,7 +56,7 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
           <h1>Movimientos de stock</h1>
           <p>Entradas, salidas, ajustes y movimientos generados por traspasos.</p>
         </div>
-        <a className="stock-button primary" href="/almacen/movimientos/nuevo">Nuevo movimiento</a>
+        <a className="primary-button" href="/almacen/movimientos/nuevo">Nuevo movimiento</a>
       </div>
       {successMessage && <div className="inline-success">{successMessage}</div>}
       <div className="stock-toolbar">
@@ -66,7 +66,7 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
         </select>
         <label className="compact-field"><span>Desde</span><input type="date" value={from} onChange={(event) => setFrom(event.target.value)} /></label>
         <label className="compact-field"><span>Hasta</span><input type="date" value={to} onChange={(event) => setTo(event.target.value)} /></label>
-        <button className="stock-button primary" onClick={() => void load()}>Filtrar</button>
+        <button className="primary-button" onClick={() => void load()}>Filtrar</button>
       </div>
       {error && <div className="inline-error">{error}</div>}
       <div className="stock-panel">

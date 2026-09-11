@@ -682,7 +682,7 @@ export function QuotationEmailModal({
                   required
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  placeholder="Asunto del correo comercial..."
+                  placeholder="Asunto del correo comercial…"
                   disabled={sending}
                   style={{
                     width: "100%",
@@ -714,7 +714,7 @@ export function QuotationEmailModal({
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   disabled={sending}
-                  placeholder="Redacta el mensaje..."
+                  placeholder="Redacta el mensaje…"
                   style={{
                     width: "100%",
                     padding: "10px 12px",

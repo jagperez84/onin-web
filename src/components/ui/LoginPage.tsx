@@ -113,7 +113,7 @@ export function LoginPage() {
               </select>
             </label>
             <button className="auth-submit" type="button" onClick={() => void enterCompany()} disabled={switching || selectedCompanyId === null}>
-              {switching ? "Cambiando..." : "Entrar en la empresa"}
+              {switching ? "Cambiando…" : "Entrar en la empresa"}
             </button>
           </div>
         ) : (
@@ -132,7 +132,7 @@ export function LoginPage() {
               </div>
             </label>
             <button className="auth-submit" disabled={busy || !configured}>
-              {busy ? "Entrando..." : "Entrar"}
+              {busy ? "Entrando…" : "Entrar"}
             </button>
           </form>
         )}

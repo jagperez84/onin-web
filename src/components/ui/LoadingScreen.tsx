@@ -4,7 +4,7 @@ export function LoadingScreen() {
       <div className="loading-card">
         <div className="brand-mark">ONIN</div>
         <div className="loading-spinner" aria-hidden="true" />
-        <p>Comprobando sesión...</p>
+        <p>Comprobando sesión…</p>
       </div>
     </div>
   );

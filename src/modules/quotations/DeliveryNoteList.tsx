@@ -100,7 +100,7 @@ export function DeliveryNoteList() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por albarán, presupuesto, cliente..."
+            placeholder="Buscar por albarán, presupuesto, cliente…"
             aria-label="Buscar albaranes"
           />
         </div>

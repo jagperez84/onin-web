@@ -82,7 +82,7 @@ export function StockReservations() {
           </p>
         </div>
         <button
-          className="stock-button primary"
+          className="primary-button"
           onClick={() => setShowForm((v) => !v)}
         >
           <Plus size={15} />
@@ -305,7 +305,7 @@ function ReservationForm({
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </label>
         <div className="stock-form-actions field-wide">
-          <button className="stock-button primary" disabled={saving}>
+          <button className="primary-button" disabled={saving}>
             <Save size={15} />
             {saving ? "Reservando…" : "Crear reserva"}
           </button>

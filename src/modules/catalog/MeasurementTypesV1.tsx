@@ -485,7 +485,7 @@ export function MeasurementTypesV1() {
                   id="search-measurement-types"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por código, nombre o tipo de cálculo..."
+                  placeholder="Buscar por código, nombre o tipo de cálculo…"
                   aria-label="Buscar tipos de medida"
                 />
                 {search && (
@@ -762,7 +762,7 @@ export function MeasurementTypesV1() {
                     </div>
                   </div>
                   <p className="form-help">
-                    Las variables <code>DIM1</code>, <code>DIM2</code>... se
+                    Las variables <code>DIM1</code>, <code>DIM2</code>… se
                     introducen en las líneas de presupuesto y alimentan la
                     fórmula de cálculo.
                   </p>
@@ -807,7 +807,7 @@ export function MeasurementTypesV1() {
                           options={unitOptions}
                           value={d.unit_id ?? null}
                           onChange={(id) => updateDimension(i, { unit_id: id })}
-                          placeholder="Unidad..."
+                          placeholder="Unidad…"
                         />
                         <label>
                           Decimales
@@ -851,7 +851,7 @@ export function MeasurementTypesV1() {
                     options={unitOptions}
                     value={form.result_unit_id ?? null}
                     onChange={(id) => setForm({ ...form, result_unit_id: id })}
-                    placeholder="Buscar unidad resultante (ej. m², m³, kg)..."
+                    placeholder="Buscar unidad resultante (ej. m², m³, kg)…"
                   />
                   <label>
                     Tipo de cálculo

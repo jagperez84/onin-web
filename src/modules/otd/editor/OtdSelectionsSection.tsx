@@ -205,7 +205,7 @@ export function OtdSelectionsSection({
                 {s.options.map((o, oi) => (
                   <div className="otd-option-row" key={o.id ?? oi}>
                     <input
-                      placeholder="Nombre visible (ej. No, Sí, Motor 50Nm, Blanco...)"
+                      placeholder="Nombre visible (ej. No, Sí, Motor 50Nm, Blanco…)"
                       value={o.label}
                       onChange={(e) => {
                         const newLabel = e.target.value;
@@ -224,7 +224,7 @@ export function OtdSelectionsSection({
                       }}
                     />
                     <input
-                      placeholder="Valor numérico (ej. 0, 1, 50, RAL9010...)"
+                      placeholder="Valor numérico (ej. 0, 1, 50, RAL9010…)"
                       value={o.value ?? o.code ?? ""}
                       onChange={(e) => {
                         const newVal = e.target.value;

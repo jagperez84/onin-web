@@ -211,7 +211,7 @@ export function QuotationPdfPreviewModal({
             >
               <Loader2 size={32} className="spinner-icon" />
               <span style={{ fontSize: "14px", fontWeight: 500 }}>
-                Generando documento PDF...
+                Generando documento PDF…
               </span>
             </div>
           )}

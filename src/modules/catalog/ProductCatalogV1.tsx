@@ -622,7 +622,7 @@ export function ProductCatalogV1() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && load()}
-            placeholder={`Buscar ${current.label.toLowerCase()}...`}
+            placeholder={`Buscar ${current.label.toLowerCase()}…`}
           />
         </div>
         <select

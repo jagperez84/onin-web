@@ -556,7 +556,7 @@ export function QuotationLineConfigurator({
                   />
                   <input
                     type="text"
-                    placeholder="Escribe para filtrar (ej. TOLDO, PERFIL, TEJIDO)..."
+                    placeholder="Escribe para filtrar (ej. TOLDO, PERFIL, TEJIDO)…"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     style={{

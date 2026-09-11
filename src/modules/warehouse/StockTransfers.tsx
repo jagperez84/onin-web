@@ -209,7 +209,7 @@ export function StockTransfers() {
             />
           </label>
           <div className="stock-form-actions field-wide">
-            <button className="stock-button primary" disabled={saving}>
+            <button className="primary-button" disabled={saving}>
               <Save size={15} />
               {saving ? "Traspasando…" : "Realizar traspaso"}
             </button>

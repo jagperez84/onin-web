@@ -456,7 +456,7 @@ export function QuotationContactSelectModal({
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Buscar por nombre, cargo, email..."
+                    placeholder="Buscar por nombre, cargo, email…"
                     style={{
                       width: "100%",
                       padding: "8px 12px 8px 36px",

@@ -92,7 +92,7 @@ export function StockProductLookup({
                 void executeSearch(term);
               }
             }}
-            placeholder="Buscar por código o descripción en catálogo..."
+            placeholder="Buscar por código o descripción en catálogo…"
           />
           {loading && <Loader2 size={15} className="spin-inline" />}
           {value ? (

@@ -39,7 +39,7 @@ export function WorkSheetList() {
     </div>
 
     <div className="toolbar">
-      <div className="search-box"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void load(); }} placeholder="Buscar hoja, pedido, perfil..." aria-label="Buscar hojas de trabajo"/></div>
+      <div className="search-box"><Search size={17}/><input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') void load(); }} placeholder="Buscar hoja, pedido, perfil…" aria-label="Buscar hojas de trabajo"/></div>
       <select value={status} onChange={e => setStatus(e.target.value as WorkSheetStatus | 'ALL')} aria-label="Filtrar por estado">
         <option value="ALL">Todos los estados</option><option value="ISSUED">Emitidas</option><option value="IN_PROGRESS">En curso</option><option value="COMPLETED">Completadas</option><option value="CANCELLED">Canceladas</option>
       </select>

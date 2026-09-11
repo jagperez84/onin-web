@@ -118,15 +118,15 @@ export function StockList() {
           <p>Stock físico, reservado y disponible por almacén y característica.</p>
         </div>
         <div className="stock-page-actions">
-          <button className="stock-button" onClick={() => void load()}>
+          <button className="secondary-button" onClick={() => void load()}>
             <RefreshCw size={15} />
             Actualizar
           </button>
-          <a className="stock-button primary" href="/almacen/movimientos/nuevo">
+          <a className="primary-button" href="/almacen/movimientos/nuevo">
             <PackagePlus size={15} />
             Nuevo movimiento
           </a>
-          <a className="stock-button" href="/almacen/transferencias">
+          <a className="secondary-button" href="/almacen/transferencias">
             <ArrowRightLeft size={15} />
             Transferencias
           </a>
@@ -140,7 +140,7 @@ export function StockList() {
           onKeyDown={e => {
             if (e.key === "Enter") void load();
           }}
-          placeholder="Buscar artículo o característica..."
+          placeholder="Buscar artículo o característica…"
         />
         <select
           value={warehouseId ?? ""}
@@ -153,7 +153,7 @@ export function StockList() {
             </option>
           ))}
         </select>
-        <button className="stock-button primary" onClick={() => void load()}>
+        <button className="primary-button" onClick={() => void load()}>
           Buscar
         </button>
       </div>
@@ -271,7 +271,7 @@ export function StockList() {
                                   </div>
                                   {consumed > 0 && (
                                     <button
-                                      className="stock-button"
+                                      className="secondary-button"
                                       onClick={() =>
                                         setShowConsumed(s => ({ ...s, [r.id]: !(s[r.id] ?? false) }))
                                       }

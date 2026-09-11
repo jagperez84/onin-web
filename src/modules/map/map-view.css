@@ -441,7 +441,7 @@
   font-size: 13px;
 }
 .map-popup-status {
-  color: #6b6b6b;
+  color: var(--muted);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.03em;

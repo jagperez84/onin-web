@@ -99,7 +99,7 @@ export function StockMovementCreateModal({ onClose }: Props) {
           <label><span>Fecha y hora</span><input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>
           <label><span>Referencia</span><input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={255} /></label>
           <label className="field-wide"><span>Observaciones</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-          <div className="stock-form-actions field-wide"><button type="button" className="stock-button" onClick={onClose}>Cancelar</button><button type="submit" className="stock-button primary" disabled={saving}>{saving ? "Guardando…" : <><Save size={15} /> Registrar movimiento</>}</button></div>
+          <div className="stock-form-actions field-wide"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "Guardando…" : <><Save size={15} /> Registrar movimiento</>}</button></div>
         </form>
       </div>
     </div>

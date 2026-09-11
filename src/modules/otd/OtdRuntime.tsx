@@ -1171,7 +1171,7 @@ export function OtdRuntime() {
                   <div style={{ position: "relative" }}>
                     <input
                       type="text"
-                      placeholder="Escribe código o descripción (ej. MOT, LONA, PERFIL...)"
+                      placeholder="Escribe código o descripción (ej. MOT, LONA, PERFIL…)"
                       value={productSearch}
                       onChange={(e) => searchCatalog(e.target.value)}
                       className="runtime-input"

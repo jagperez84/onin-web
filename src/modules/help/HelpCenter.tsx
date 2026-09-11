@@ -526,7 +526,7 @@ export function HelpCenter() {
         <span className="help-eyebrow"><CircleHelp size={15}/> CENTRO DE AYUDA ONIN</span>
         <h1>Aprende a trabajar con ONIN</h1>
         <p>Guías funcionales basadas en la navegación y el modelo actual de ONIN Web, con recomendaciones para trabajar de forma segura.</p>
-        <label className="help-search"><Search size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca una tarea, módulo, artículo, presupuesto, stock, OTD..." aria-label="Buscar en la ayuda" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Limpiar búsqueda"><X size={17}/></button>}</label>
+        <label className="help-search"><Search size={19}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca una tarea, módulo, artículo, presupuesto, stock, OTD…" aria-label="Buscar en la ayuda" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Limpiar búsqueda"><X size={17}/></button>}</label>
       </div>
     </div>
 

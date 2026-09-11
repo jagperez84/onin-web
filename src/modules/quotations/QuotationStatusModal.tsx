@@ -202,7 +202,7 @@ export function QuotationStatusModal({
                   rows={3}
                   value={comments}
                   onChange={(e) => setComments(e.target.value)}
-                  placeholder="Detalles sobre las razones del cliente..."
+                  placeholder="Detalles sobre las razones del cliente…"
                 />
               </div>
             </>

@@ -183,7 +183,7 @@ export function QuotationDeliveryNoteModal({
                     type="text"
                     value={carrier}
                     onChange={(e) => setCarrier(e.target.value)}
-                    placeholder="Ej. Transporte propio, SEUR, DHL..."
+                    placeholder="Ej. Transporte propio, SEUR, DHL…"
                   />
                 </div>
 
@@ -224,7 +224,7 @@ export function QuotationDeliveryNoteModal({
                   rows={3}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Instrucciones para transportista o cliente..."
+                  placeholder="Instrucciones para transportista o cliente…"
                 />
               </div>
 
