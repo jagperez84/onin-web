@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { getCurrentCompanyId } from "../../services/core/coreRepository";
 import type { Otd } from "./editor/types";
 import "./otd.css";
 
@@ -10,15 +11,35 @@ export function OtdList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) return;
-    void supabase
-      .from("otd")
-      .select("*")
-      .order("name")
-      .then(({ data }) => {
+    let cancelled = false;
+
+    async function load() {
+      if (!supabase) return;
+      try {
+        const companyId = await getCurrentCompanyId();
+        const { data, error } = await supabase
+          .from("otd")
+          .select("*")
+          .eq("company_id", companyId)
+          .order("name");
+
+        if (cancelled) return;
+        if (error) throw error;
         setRows(data ?? []);
-        setLoading(false);
-      });
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error cargando OTD:", error);
+          setRows([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
