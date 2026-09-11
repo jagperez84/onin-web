@@ -550,7 +550,7 @@ export function QuotationLineConfigurator({
                     style={{
                       position: "absolute",
                       left: "12px",
-                      color: "#94a3b8",
+                      color: "var(--muted)",
                       pointerEvents: "none",
                     }}
                   />
@@ -573,7 +573,7 @@ export function QuotationLineConfigurator({
                         right: "10px",
                         background: "transparent",
                         border: "none",
-                        color: "#94a3b8",
+                        color: "var(--muted)",
                         cursor: "pointer",
                         display: "flex",
                       }}
@@ -585,7 +585,7 @@ export function QuotationLineConfigurator({
                 <div
                   style={{
                     fontSize: "12px",
-                    color: "#64748b",
+                    color: "var(--muted)",
                     marginTop: "4px",
                   }}
                 >
@@ -599,7 +599,7 @@ export function QuotationLineConfigurator({
                   style={{
                     textAlign: "center",
                     padding: "30px",
-                    color: "#64748b",
+                    color: "var(--muted)",
                   }}
                 >
                   <RefreshCw
@@ -614,10 +614,10 @@ export function QuotationLineConfigurator({
                   style={{
                     textAlign: "center",
                     padding: "30px",
-                    color: "#64748b",
-                    background: "#f8fafc",
+                    color: "var(--muted)",
+                    background: "var(--canvas-stripe)",
                     borderRadius: "8px",
-                    border: "1px dashed #cbd5e1",
+                    border: "1px dashed var(--border)",
                   }}
                 >
                   {searchQuery
@@ -629,7 +629,7 @@ export function QuotationLineConfigurator({
                   style={{
                     maxHeight: "280px",
                     overflowY: "auto",
-                    border: "1px solid #e4e2dc",
+                    border: "1px solid var(--border)",
                     borderRadius: "8px",
                   }}
                 >
@@ -653,7 +653,7 @@ export function QuotationLineConfigurator({
                           <tr
                             key={p.id}
                             style={{
-                              background: isSelected ? "#e7ede9" : undefined,
+                              background: isSelected ? "var(--primary-soft)" : undefined,
                               cursor: "pointer",
                             }}
                             onClick={() => setSelectedProductId(p.id)}
@@ -661,7 +661,7 @@ export function QuotationLineConfigurator({
                             <td>
                               <strong
                                 style={{
-                                  color: isSelected ? "#0284c7" : "#0f172a",
+                                  color: isSelected ? "var(--primary)" : "var(--text)",
                                 }}
                               >
                                 {p.code}
@@ -707,9 +707,9 @@ export function QuotationLineConfigurator({
                   style={{
                     marginTop: "16px",
                     padding: "14px",
-                    background: "#f8fafc",
+                    background: "var(--canvas-stripe)",
                     borderRadius: "8px",
-                    border: "1px solid #e4e2dc",
+                    border: "1px solid var(--border)",
                   }}
                 >
                   <div
@@ -753,7 +753,7 @@ export function QuotationLineConfigurator({
                         alignItems: "center",
                         gap: "8px",
                         marginTop: "10px",
-                        color: "#0284c7",
+                        color: "var(--primary)",
                         fontSize: "13px",
                       }}
                     >
@@ -765,8 +765,8 @@ export function QuotationLineConfigurator({
                   {loadError && (
                     <div
                       style={{
-                        color: "#b91c1c",
-                        background: "#fee2e2",
+                        color: "var(--status-danger-fg)",
+                        background: "var(--danger-soft)",
                         padding: "8px 12px",
                         borderRadius: "6px",
                         marginTop: "10px",
@@ -824,7 +824,7 @@ export function QuotationLineConfigurator({
                   style={{
                     textAlign: "center",
                     padding: "50px 20px",
-                    color: "#64748b",
+                    color: "var(--muted)",
                   }}
                 >
                   <RefreshCw
@@ -844,11 +844,11 @@ export function QuotationLineConfigurator({
               {loadError && (
                 <div
                   style={{
-                    color: "#b91c1c",
-                    background: "#fee2e2",
+                    color: "var(--status-danger-fg)",
+                    background: "var(--danger-soft)",
                     padding: "16px",
                     borderRadius: "8px",
-                    border: "1px solid #fecaca",
+                    border: "1px solid var(--status-danger-border)",
                     margin: "20px 0",
                   }}
                 >
@@ -948,7 +948,7 @@ export function QuotationLineConfigurator({
                                   {attr.required && (
                                     <span
                                       style={{
-                                        color: "#c4897a",
+                                        color: "var(--status-warning-fg)",
                                         fontSize: "11px",
                                       }}
                                     >
@@ -1093,7 +1093,7 @@ export function QuotationLineConfigurator({
                                   {unitObj && (
                                     <span
                                       style={{
-                                        color: "#64748b",
+                                        color: "var(--muted)",
                                         fontSize: "11px",
                                       }}
                                     >
@@ -1193,7 +1193,7 @@ export function QuotationLineConfigurator({
                                     <div
                                       style={{
                                         fontSize: "11px",
-                                        color: "#64748b",
+                                        color: "var(--muted)",
                                         marginTop: "2px",
                                       }}
                                     >
@@ -1272,7 +1272,8 @@ export function QuotationLineConfigurator({
                       {subTab === "bom" && (
                         <div>
                           {previewSnapshot.breakdown.components.length > 0 ? (
-                            <table className="config-data-table">
+                            <div className="table-panel">
+                            <table>
                               <thead>
                                 <tr>
                                   <th>Componente</th>
@@ -1293,7 +1294,7 @@ export function QuotationLineConfigurator({
                                         <div
                                           style={{
                                             fontSize: "11px",
-                                            color: "#64748b",
+                                            color: "var(--muted)",
                                           }}
                                         >
                                           {comp.description}
@@ -1303,7 +1304,7 @@ export function QuotationLineConfigurator({
                                         <code
                                           style={{
                                             fontSize: "11px",
-                                            background: "#efeee9",
+                                            background: "var(--canvas-stripe)",
                                             padding: "2px 4px",
                                             borderRadius: "4px",
                                           }}
@@ -1327,6 +1328,7 @@ export function QuotationLineConfigurator({
                                 )}
                               </tbody>
                             </table>
+                            </div>
                           ) : (
                             <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                               Este artículo no tiene despiece asignado en el
@@ -1352,12 +1354,13 @@ export function QuotationLineConfigurator({
                                 style={{
                                   margin: "0 0 8px 0",
                                   fontSize: "13px",
-                                  color: "#0f172a",
+                                  color: "var(--text)",
                                 }}
                               >
                                 Patrón de Corte de Tejido / Lona
                               </h4>
-                              <table className="config-data-table">
+                              <div className="table-panel">
+                              <table>
                                 <thead>
                                   <tr>
                                     <th>Pieza</th>
@@ -1390,7 +1393,7 @@ export function QuotationLineConfigurator({
                                       <td
                                         style={{
                                           fontSize: "11px",
-                                          color: "#64748b",
+                                          color: "var(--muted)",
                                         }}
                                       >
                                         {c.confection_notes}
@@ -1399,6 +1402,7 @@ export function QuotationLineConfigurator({
                                   ))}
                                 </tbody>
                               </table>
+                              </div>
                             </div>
                           )}
 
@@ -1409,12 +1413,13 @@ export function QuotationLineConfigurator({
                                 style={{
                                   margin: "0 0 8px 0",
                                   fontSize: "13px",
-                                  color: "#0f172a",
+                                  color: "var(--text)",
                                 }}
                               >
                                 Cortes de Perfiles y Barras
                               </h4>
-                              <table className="config-data-table">
+                              <div className="table-panel">
+                              <table>
                                 <thead>
                                   <tr>
                                     <th>Perfil</th>
@@ -1463,6 +1468,7 @@ export function QuotationLineConfigurator({
                                   )}
                                 </tbody>
                               </table>
+                              </div>
                             </div>
                           )}
 
@@ -1519,7 +1525,8 @@ export function QuotationLineConfigurator({
                                 </span>
                               </div>
 
-                              <table className="config-data-table">
+                              <div className="table-panel">
+                              <table>
                                 <thead>
                                   <tr>
                                     <th>Artículo / Componente</th>
@@ -1542,7 +1549,7 @@ export function QuotationLineConfigurator({
                                       <div
                                         style={{
                                           fontSize: "11px",
-                                          color: "#64748b",
+                                          color: "var(--muted)",
                                         }}
                                       >
                                         {
@@ -1602,7 +1609,7 @@ export function QuotationLineConfigurator({
                                           <div
                                             style={{
                                               fontSize: "11px",
-                                              color: "#64748b",
+                                              color: "var(--muted)",
                                             }}
                                           >
                                             {comp.productName}
@@ -1632,6 +1639,7 @@ export function QuotationLineConfigurator({
                                   )}
                                 </tbody>
                               </table>
+                              </div>
                             </div>
                           ) : (
                             <p style={{ color: "var(--muted)", fontSize: "13px" }}>
@@ -1708,10 +1716,10 @@ export function QuotationLineConfigurator({
 
                       <div
                         style={{
-                          background: "#f8fafc",
+                          background: "var(--canvas-stripe)",
                           padding: "14px",
                           borderRadius: "8px",
-                          border: "1px solid #e4e2dc",
+                          border: "1px solid var(--border)",
                           marginTop: "10px",
                         }}
                       >
@@ -1760,7 +1768,7 @@ export function QuotationLineConfigurator({
                           style={{
                             display: "flex",
                             justifyContent: "space-between",
-                            borderTop: "1px solid #cbd5e1",
+                            borderTop: "1px solid var(--border)",
                             paddingTop: "8px",
                             fontSize: "15px",
                           }}

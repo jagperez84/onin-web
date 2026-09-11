@@ -75,7 +75,7 @@ export function QuotationLineSnapshotModal({
                 <span
                   style={{
                     fontSize: "15px",
-                    color: "#64748b",
+                    color: "var(--muted)",
                     fontWeight: 400,
                   }}
                 >
@@ -96,14 +96,14 @@ export function QuotationLineSnapshotModal({
           {/* Metadata bar */}
           <div
             style={{
-              background: "#f8fafc",
+              background: "var(--canvas-stripe)",
               padding: "12px 24px",
-              borderBottom: "1px solid #e4e2dc",
+              borderBottom: "1px solid var(--border)",
               display: "flex",
               gap: "16px",
               flexWrap: "wrap",
               fontSize: "12px",
-              color: "#64748b",
+              color: "var(--muted)",
               alignItems: "center",
             }}
           >
@@ -177,7 +177,7 @@ export function QuotationLineSnapshotModal({
                 style={{
                   fontSize: "12px",
                   fontWeight: 600,
-                  color: "#475569",
+                  color: "var(--muted)",
                   marginBottom: "8px",
                   textTransform: "uppercase",
                   letterSpacing: "0.05em",
@@ -197,15 +197,15 @@ export function QuotationLineSnapshotModal({
                   <div
                     key={i}
                     style={{
-                      background: "#fff",
+                      background: "var(--surface)",
                       padding: "8px 12px",
                       borderRadius: "6px",
-                      border: "1px solid #e4e2dc",
+                      border: "1px solid var(--border)",
                     }}
                   >
                     <span
                       style={{
-                        color: "#64748b",
+                        color: "var(--muted)",
                         fontSize: "11px",
                         display: "block",
                       }}
@@ -222,8 +222,8 @@ export function QuotationLineSnapshotModal({
 
             {/* TAB: Components and Scaling */}
             {(activeTab === "pricing" || activeTab === "otd_components") && (
-              <div>
-                <table className="config-data-table">
+              <div className="table-panel">
+                <table>
                   <thead>
                     <tr>
                       <th>Artículo</th>
@@ -248,8 +248,8 @@ export function QuotationLineSnapshotModal({
                             <span
                               style={{
                                 fontSize: "10px",
-                                color: "#0369a1",
-                                background: "#e0f2fe",
+                                color: "var(--status-info-fg)",
+                                background: "var(--primary-soft)",
                                 padding: "1px 5px",
                                 borderRadius: "3px",
                               }}
@@ -316,7 +316,7 @@ export function QuotationLineSnapshotModal({
                                 style={{
                                   display: "block",
                                   fontSize: "10px",
-                                  color: "#78350f",
+                                  color: "var(--status-warning-fg)",
                                 }}
                               >
                                 (
@@ -347,8 +347,8 @@ export function QuotationLineSnapshotModal({
 
             {/* TAB: Variables */}
             {activeTab === "otd_variables" && (
-              <div>
-                <table className="config-data-table">
+              <div className="table-panel">
+                <table>
                   <thead>
                     <tr>
                       <th>Código</th>
@@ -469,14 +469,14 @@ export function QuotationLineSnapshotModal({
         {/* Snapshot Metadata Bar */}
         <div
           style={{
-            background: "#f8fafc",
+            background: "var(--canvas-stripe)",
             padding: "12px 24px",
-            borderBottom: "1px solid #e4e2dc",
+            borderBottom: "1px solid var(--border)",
             display: "flex",
             gap: "16px",
             flexWrap: "wrap",
             fontSize: "12px",
-            color: "#64748b",
+            color: "var(--muted)",
           }}
         >
           <div>
@@ -611,7 +611,7 @@ export function QuotationLineSnapshotModal({
                           <div
                             style={{
                               fontSize: "11px",
-                              color: "#64748b",
+                              color: "var(--muted)",
                               marginTop: "2px",
                             }}
                           >
@@ -638,7 +638,8 @@ export function QuotationLineSnapshotModal({
           {activeTab === "bom" && (
             <div>
               {breakdown && breakdown.components.length > 0 ? (
-                <table className="config-data-table">
+                <div className="table-panel">
+                <table>
                   <thead>
                     <tr>
                       <th>Componente</th>
@@ -663,7 +664,7 @@ export function QuotationLineSnapshotModal({
                           <code
                             style={{
                               fontSize: "11px",
-                              background: "#efeee9",
+                              background: "var(--canvas-stripe)",
                               padding: "2px 4px",
                               borderRadius: "4px",
                             }}
@@ -686,6 +687,7 @@ export function QuotationLineSnapshotModal({
                     ))}
                   </tbody>
                 </table>
+                </div>
               ) : (
                 <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                   Sin despiece en snapshot.
@@ -705,12 +707,13 @@ export function QuotationLineSnapshotModal({
                     style={{
                       margin: "0 0 8px",
                       fontSize: "13px",
-                      color: "#0f172a",
+                      color: "var(--text)",
                     }}
                   >
                     Cortes de Lona / Tejido
                   </h4>
-                  <table className="config-data-table">
+                  <div className="table-panel">
+                  <table>
                     <thead>
                       <tr>
                         <th>Pieza</th>
@@ -742,6 +745,7 @@ export function QuotationLineSnapshotModal({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
 
@@ -751,12 +755,13 @@ export function QuotationLineSnapshotModal({
                     style={{
                       margin: "0 0 8px",
                       fontSize: "13px",
-                      color: "#0f172a",
+                      color: "var(--text)",
                     }}
                   >
                     Cortes de Perfiles
                   </h4>
-                  <table className="config-data-table">
+                  <div className="table-panel">
+                  <table>
                     <thead>
                       <tr>
                         <th>Perfil</th>
@@ -796,6 +801,7 @@ export function QuotationLineSnapshotModal({
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -805,7 +811,8 @@ export function QuotationLineSnapshotModal({
           {activeTab === "stock" && (
             <div>
               {stock ? (
-                <table className="config-data-table">
+                <div className="table-panel">
+                <table>
                   <thead>
                     <tr>
                       <th>Artículo</th>
@@ -839,6 +846,7 @@ export function QuotationLineSnapshotModal({
                     </tr>
                   </tbody>
                 </table>
+                </div>
               ) : (
                 <p style={{ color: "var(--muted)", fontSize: "13px" }}>
                   Sin seguimiento de stock en este snapshot.
