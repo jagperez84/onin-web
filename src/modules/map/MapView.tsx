@@ -73,6 +73,12 @@ function fullAddress(p: MapPoint): string {
   return [p.street, p.city].filter(Boolean).join(", ");
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c
+  );
+}
+
 function formatDate(v: string): string {
   return new Date(`${v}T00:00:00`).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
@@ -147,7 +153,8 @@ function MapCanvas({
     for (const p of points) {
       if (p.latitude == null || p.longitude == null) continue;
       const zone = zones.find((z) => z.id === p.zoneId);
-      const color = zone?.color || (p.kind === "medicion" ? "#5c7a74" : "#8a6d3b");
+      const fallbackColor = p.kind === "medicion" ? "#5c7a74" : "#8a6d3b";
+      const color = zone?.color && /^#[0-9a-fA-F]{3,8}$/.test(zone.color) ? zone.color : fallbackColor;
       const icon = L.divIcon({
         className: "map-marker",
         html: `<span class="map-marker-dot ${p.kind}" style="background:${color}"></span>`,
@@ -156,10 +163,10 @@ function MapCanvas({
         popupAnchor: [0, -8],
       });
       const marker = L.marker([p.latitude, p.longitude], { icon });
-      const address = fullAddress(p) || "Sin dirección";
+      const address = escapeHtml(fullAddress(p) || "Sin dirección");
       const dateLine = p.date ? `<span>${p.kind === "medicion" ? "Medición" : "Montaje"}: ${formatDate(p.date)}</span>` : "";
       marker.bindPopup(
-        `<div class="map-popup"><strong>${p.code}</strong><span>${p.customerName || "—"}</span><span>${address}</span>${dateLine}<span class="map-popup-status">${statusLabel(p)}</span></div>`
+        `<div class="map-popup"><strong>${escapeHtml(p.code)}</strong><span>${escapeHtml(p.customerName || "—")}</span><span>${address}</span>${dateLine}<span class="map-popup-status">${escapeHtml(statusLabel(p))}</span></div>`
       );
       marker.addTo(layer);
       markersRef.current.set(pointKey(p), marker);
