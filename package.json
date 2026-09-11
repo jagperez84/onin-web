@@ -7,6 +7,8 @@
     "dev": "vite --host 0.0.0.0 --port 3000",
     "lint": "tsc -b",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "build:cloudflare": "npm run build",
     "preview:cloudflare": "vite preview"
@@ -27,6 +29,7 @@
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^5.0.0"
   }
 }
