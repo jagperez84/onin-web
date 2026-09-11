@@ -206,18 +206,10 @@ describe('resolveOtdVariables', () => {
     ).toThrow(/Dependencia circular detectada/);
   });
 
-  it('si una variable referenciada no existe en absoluto, falla (aunque con un mensaje engañoso: ver hallazgo reportado)', () => {
-    // resolveOtdVariables() solo llama a resolve(dependency) cuando
-    // definitions.has(dependency) ya es true (ver el bucle de dependencias
-    // en formulaEngine.ts), así que la rama `if (!definition) throw
-    // "No existe la variable..."` dentro de resolve() es en la práctica
-    // inalcanzable: un código realmente inexistente nunca llega a activarla.
-    // En su lugar, cae a evaluateFormula() con un contexto que no incluye
-    // esa variable y produce este otro mensaje, menos claro para depurar un
-    // typo en una fórmula de OTD.
+  it('lanza un error claro si una variable referenciada no existe en absoluto (p. ej. un typo)', () => {
     expect(() =>
       resolveOtdVariables([{ code: 'A', expression: 'B*2', data_type: 'NUMBER' }])
-    ).toThrow("La variable 'B' no tiene un valor numérico.");
+    ).toThrow("No existe la variable 'B'.");
   });
 
   it('lanza un error si una variable referenciada no tiene expresión propia', () => {

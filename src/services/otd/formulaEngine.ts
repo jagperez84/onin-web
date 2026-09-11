@@ -284,9 +284,8 @@ export function resolveOtdVariables(
     resolving.add(code);
     const localContext = { ...resolved };
     for (const dependency of extractVariableNames(definition.expression)) {
-      if (dependency !== code && definitions.has(dependency)) {
-        localContext[dependency] = resolve(dependency);
-      }
+      if (dependency === code) continue;
+      localContext[dependency] = resolve(dependency);
     }
     const result = evaluateFormula(definition.expression, localContext);
     resolved[code] = result.value;
