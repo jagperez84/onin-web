@@ -1,57 +1,69 @@
 -- Gestión de usuarios: permisos por módulo, asignación de empresas por administradores
 -- y las políticas RLS necesarias para que un ADMIN pueda leer/gestionar usuarios que no son él mismo.
+--
+-- Nota sobre recursión de RLS: is_admin() y admin_company_id() están escritas en
+-- PL/pgSQL (no en SQL puro) a propósito. Postgres puede "inlinear" una función
+-- `language sql` dentro de la política que la usa, y al hacerlo pierde el privilegio
+-- de SECURITY DEFINER que le permite saltarse RLS — la subconsulta sobre
+-- user_account volvería entonces a disparar la propia política de user_account
+-- ("infinite recursion detected in policy for relation user_account"). PL/pgSQL
+-- nunca se inlinea, así que el bypass se mantiene. Por el mismo motivo, las
+-- políticas de user_account/user_company comparan columnas directamente en vez
+-- de volver a hacer una subconsulta cruzada entre ambas tablas.
 
 -- Helper: ¿el usuario autenticado es administrador (y está activo)?
 create or replace function public.is_admin() returns boolean
-language sql stable security definer set search_path = public as $$
-  select exists(
+language plpgsql stable security definer set search_path = public as $$
+begin
+  return exists(
     select 1 from public.user_account
     where auth_user_id = auth.uid() and role_code = 'ADMIN' and active = true
   );
+end;
 $$;
 revoke all on function public.is_admin() from public;
 grant execute on function public.is_admin() to authenticated;
 
--- Un ADMIN puede leer cualquier user_account que comparta empresa con él (vía user_company).
+-- Helper: empresa activa del usuario autenticado (uso interno de las políticas de abajo).
+create or replace function public.admin_company_id() returns bigint
+language plpgsql stable security definer set search_path = public as $$
+declare v_company_id bigint;
+begin
+  select company_id into v_company_id from public.user_account where auth_user_id = auth.uid();
+  return v_company_id;
+end;
+$$;
+revoke all on function public.admin_company_id() from public;
+grant execute on function public.admin_company_id() to authenticated;
+
+-- Un ADMIN puede leer los user_account de su misma empresa activa.
 drop policy if exists user_account_admin_select on public.user_account;
 create policy user_account_admin_select on public.user_account for select using (
-  public.is_admin() and exists (
-    select 1 from public.user_company uc
-    where uc.user_account_id = user_account.id and uc.company_id = public.current_company_id()
-  )
+  public.is_admin() and user_account.company_id = public.admin_company_id()
 );
 
 -- Un ADMIN puede actualizar (rol, activo, nombre, email, medidor…) usuarios de su empresa.
 drop policy if exists user_account_admin_update on public.user_account;
 create policy user_account_admin_update on public.user_account for update using (
-  public.is_admin() and exists (
-    select 1 from public.user_company uc
-    where uc.user_account_id = user_account.id and uc.company_id = public.current_company_id()
-  )
+  public.is_admin() and user_account.company_id = public.admin_company_id()
 ) with check (
-  public.is_admin() and exists (
-    select 1 from public.user_company uc
-    where uc.user_account_id = user_account.id and uc.company_id = public.current_company_id()
-  )
+  public.is_admin() and user_account.company_id = public.admin_company_id()
 );
 
--- Un ADMIN puede leer y gestionar las membresías de empresa de los usuarios de su empresa.
+-- Un ADMIN puede leer y gestionar las membresías de empresa de su propia empresa activa.
 drop policy if exists user_company_admin_select on public.user_company;
 create policy user_company_admin_select on public.user_company for select using (
-  public.is_admin() and exists (
-    select 1 from public.user_company uc2
-    where uc2.user_account_id = user_company.user_account_id and uc2.company_id = public.current_company_id()
-  )
+  public.is_admin() and user_company.company_id = public.admin_company_id()
 );
 
 drop policy if exists user_company_admin_insert on public.user_company;
 create policy user_company_admin_insert on public.user_company for insert with check (
-  public.is_admin() and company_id = public.current_company_id()
+  public.is_admin() and company_id = public.admin_company_id()
 );
 
 drop policy if exists user_company_admin_delete on public.user_company;
 create policy user_company_admin_delete on public.user_company for delete using (
-  public.is_admin() and company_id = public.current_company_id()
+  public.is_admin() and company_id = public.admin_company_id()
 );
 
 -- Permisos de acceso por módulo/página: la presencia de una fila concede acceso a esa ruta.
@@ -75,7 +87,7 @@ drop policy if exists user_module_permission_admin_select on public.user_module_
 create policy user_module_permission_admin_select on public.user_module_permission for select using (
   public.is_admin() and exists (
     select 1 from public.user_company uc
-    where uc.user_account_id = user_module_permission.user_account_id and uc.company_id = public.current_company_id()
+    where uc.user_account_id = user_module_permission.user_account_id and uc.company_id = public.admin_company_id()
   )
 );
 
@@ -83,7 +95,7 @@ drop policy if exists user_module_permission_admin_insert on public.user_module_
 create policy user_module_permission_admin_insert on public.user_module_permission for insert with check (
   public.is_admin() and exists (
     select 1 from public.user_company uc
-    where uc.user_account_id = user_module_permission.user_account_id and uc.company_id = public.current_company_id()
+    where uc.user_account_id = user_module_permission.user_account_id and uc.company_id = public.admin_company_id()
   )
 );
 
@@ -91,7 +103,7 @@ drop policy if exists user_module_permission_admin_delete on public.user_module_
 create policy user_module_permission_admin_delete on public.user_module_permission for delete using (
   public.is_admin() and exists (
     select 1 from public.user_company uc
-    where uc.user_account_id = user_module_permission.user_account_id and uc.company_id = public.current_company_id()
+    where uc.user_account_id = user_module_permission.user_account_id and uc.company_id = public.admin_company_id()
   )
 );
 
