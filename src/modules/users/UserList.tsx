@@ -198,17 +198,20 @@ export function UserList() {
             </label>
           </div>
           <div className="form-footer">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => setNewUser(false)}
-            >
-              Cancelar
-            </button>
-            <button type="submit" className="primary-button" disabled={saving}>
-              <Save size={15} />
-              {saving ? "Creando…" : "Crear usuario"}
-            </button>
+            <div />
+            <div className="page-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setNewUser(false)}
+              >
+                Cancelar
+              </button>
+              <button type="submit" className="primary-button" disabled={saving}>
+                <Save size={15} />
+                {saving ? "Creando…" : "Crear usuario"}
+              </button>
+            </div>
           </div>
         </form>
       )}

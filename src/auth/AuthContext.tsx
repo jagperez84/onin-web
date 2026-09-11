@@ -9,12 +9,16 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { listMyCompanies, switchMyCompany, type CompanyOption } from "../services/core/companyRepository";
+import { getMyAccountSummary, type UserRole } from "../services/core/userRepository";
 
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
   loading: boolean;
   configured: boolean;
+  role: UserRole | null;
+  isAdmin: boolean;
+  permittedRoutes: Set<string> | null;
   listCompanies: () => Promise<CompanyOption[]>;
   switchCompany: (companyId: number) => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
@@ -26,7 +30,34 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [permittedRoutes, setPermittedRoutes] = useState<Set<string> | null>(null);
   const configured = Boolean(supabase);
+
+  useEffect(() => {
+    let active = true;
+    const authUserId = session?.user?.id;
+    if (!authUserId) {
+      setRole(null);
+      setPermittedRoutes(null);
+      return;
+    }
+    void getMyAccountSummary()
+      .then((summary) => {
+        if (!active) return;
+        setRole(summary?.role_code ?? null);
+        setPermittedRoutes(new Set(summary?.permittedRoutes ?? []));
+      })
+      .catch(() => {
+        if (active) {
+          setRole(null);
+          setPermittedRoutes(new Set());
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -63,6 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       loading,
       configured,
+      role,
+      isAdmin: role === "ADMIN",
+      permittedRoutes,
       listCompanies: async () => listMyCompanies(),
       switchCompany: async (companyId) => switchMyCompany(companyId),
       signIn: async (email, password) => {
@@ -85,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error: error ? new Error(error.message) : null };
       },
     }),
-    [configured, loading, session],
+    [configured, loading, session, role, permittedRoutes],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -43,3 +43,81 @@
   text-decoration: underline;
   color: var(--text);
 }
+.users-page .form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.users-page .page-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.users-page .user-section-head {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.users-page .user-company-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.users-page .user-company-option {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+}
+.users-page .user-permission-groups {
+  display: grid;
+  gap: 14px;
+}
+.users-page .user-permission-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.users-page .user-permission-group-head {
+  background: var(--canvas-stripe);
+  padding: 10px 14px;
+  font-weight: 700;
+}
+.users-page .user-permission-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 2px 16px;
+  padding: 10px 14px;
+}
+.users-page .user-permission-items .checkbox-field {
+  padding: 4px 0;
+}
+.user-new-password {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--canvas-stripe);
+}
+.user-new-password code {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+@media (max-width: 760px) {
+  .users-page .form-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .users-page .form-footer .page-actions {
+    justify-content: flex-end;
+  }
+}
