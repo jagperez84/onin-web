@@ -37,6 +37,7 @@ import {
 import { AddressLookup } from "./AddressLookup";
 import { COUNTRY_OPTIONS, getCountryName } from "./addressUtils";
 import { CustomerCommercialSection } from "./CustomerCommercialSection";
+import { CustomerDocumentsSection } from "./CustomerDocumentsSection";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { ProfileSaveBar } from "../../components/ui/ProfileSaveBar";
 import "./customer-detail.css";
@@ -237,6 +238,8 @@ export function CustomerDetail() {
         <a href="#direcciones">Direcciones</a>
         <a href="#contactos">Contactos</a>
         <a href="#descuentos">Descuentos</a>
+        <a href="#documentos">Documentos</a>
+        <a href="#cobros-pendientes">Cobros pendientes</a>
       </nav>
       <MessageLog ref={messageLogRef} error={error} success={message} />
       <form
@@ -371,6 +374,7 @@ export function CustomerDetail() {
           customerPartyId={data.party.id}
           editable={editing && !deleted}
         />
+        <CustomerDocumentsSection id="documentos" customerId={data.customer.id} />
       </form>
       {editing && !deleted && (
         <ProfileSaveBar onSave={saveProfile} saving={saving} />

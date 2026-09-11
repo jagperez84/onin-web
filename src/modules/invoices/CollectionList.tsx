@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Wallet, CheckCircle2, Undo2, X } from 'lucide-react';
-import { listCollections, type CollectionRow } from '../../services/sales/collectionService';
+import { listCollections, urgency, type CollectionRow } from '../../services/sales/collectionService';
 import { markInstallmentCollected, markInstallmentPending, type InstallmentStatus } from '../../services/sales/invoiceService';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import { confirmDialog } from '../../components/ui/ConfirmDialog';
@@ -9,16 +9,6 @@ import '../orders/sales-order.css';
 
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const date=(v:string)=>new Date(`${v}T00:00:00`).toLocaleDateString('es-ES');
-
-function urgency(row:CollectionRow):'overdue'|'soon'|null{
- if(row.status!=='PENDING')return null;
- const today=new Date();today.setHours(0,0,0,0);
- const due=new Date(`${row.dueDate}T00:00:00`);
- const diffDays=Math.floor((due.getTime()-today.getTime())/86400000);
- if(diffDays<0)return 'overdue';
- if(diffDays<=3)return 'soon';
- return null;
-}
 
 function CollectModal({row,onClose,onDone}:{row:CollectionRow;onClose:()=>void;onDone:()=>void}){
  const [amount,setAmount]=useState(String(row.amount));

@@ -16,8 +16,21 @@ export type CollectionRow = {
   invoiceCode: string;
   invoiceType: InvoiceType;
   invoiceStatus: InvoiceStatus;
+  customerId: number | null;
   customerName: string | null;
 };
+
+/** Vencimiento próximo (≤3 días) o ya vencido de un plazo pendiente, para resaltarlo en pantalla. */
+export function urgency(row: CollectionRow): 'overdue' | 'soon' | null {
+  if (row.status !== 'PENDING') return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(`${row.dueDate}T00:00:00`);
+  const diffDays = Math.floor((due.getTime() - today.getTime()) / 86400000);
+  if (diffDays < 0) return 'overdue';
+  if (diffDays <= 3) return 'soon';
+  return null;
+}
 
 function client() {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
@@ -37,9 +50,9 @@ function mapPartyCustomer(value: any): string | null {
 
 const SELECT =
   'id,sequence,percentage,due_date,amount,status,collected_amount,collected_date,collected_notes,' +
-  'invoice:invoice_id(id,code,invoice_type,status,customer:customer_id(party:party_id(legal_name,trade_name)))';
+  'invoice:invoice_id(id,code,invoice_type,status,customer_id,customer:customer_id(party:party_id(legal_name,trade_name)))';
 
-export async function listCollections(filters: { status?: InstallmentStatus | 'ALL'; search?: string } = {}): Promise<CollectionRow[]> {
+export async function listCollections(filters: { status?: InstallmentStatus | 'ALL'; search?: string; customerId?: number } = {}): Promise<CollectionRow[]> {
   const c = client();
   let q = c.from('invoice_installment').select(SELECT).order('due_date', { ascending: true });
   if (filters.status && filters.status !== 'ALL') q = q.eq('status', filters.status);
@@ -61,9 +74,11 @@ export async function listCollections(filters: { status?: InstallmentStatus | 'A
       invoiceCode: invoice?.code || '',
       invoiceType: invoice?.invoice_type,
       invoiceStatus: invoice?.status,
+      customerId: invoice?.customer_id == null ? null : Number(invoice.customer_id),
       customerName: mapPartyCustomer(invoice?.customer),
     } as CollectionRow;
   });
+  if (filters.customerId != null) rows = rows.filter((r) => r.customerId === filters.customerId);
   const term = filters.search?.trim().toLowerCase();
   if (term) {
     rows = rows.filter((r) => r.invoiceCode.toLowerCase().includes(term) || (r.customerName || '').toLowerCase().includes(term));
