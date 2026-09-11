@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { markForDeletion, restoreFromDeletion } from '../core/softDeleteRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type CatalogKind = 'families' | 'types' | 'units' | 'magnitudes' | 'colors' | 'attributes' | 'mountingTypes' | 'lineBehaviors';
 export type CatalogRow = {
@@ -38,7 +39,7 @@ export async function listCatalog(kind:CatalogKind, companyId:number, search='',
   if(state==='inactive') q=q.eq('active',false).is('deleted_at',null);
   if(state==='deleted') q=q.not('deleted_at','is',null);
   if(state==='all') q=q.order('deleted_at',{ascending:true,nullsFirst:true});
-  const term=search.trim().replace(/[%_]/g,''); if(term) q=q.or(`code.ilike.%${term}%,${kind==='types'?'description':'name'}.ilike.%${term}%`);
+  const term=sanitizeSearchTerm(search); if(term) q=q.or(`code.ilike.%${term}%,${kind==='types'?'description':'name'}.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
   return ((data??[]) as CatalogRow[]).map(row=>({...row,name:kind==='types'?String(row.description??''):row.name}));
 }

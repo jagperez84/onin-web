@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type PaymentMethodStatus = 'active' | 'inactive' | 'all';
 export type PaymentMethod = {
@@ -14,7 +15,7 @@ export async function listPaymentMethods(companyId: number, search = '', status:
   let q = c.from('payment_method').select('id,company_id,code,name,active').eq('company_id', companyId).order('name');
   if (status === 'active') q = q.eq('active', true);
   if (status === 'inactive') q = q.eq('active', false);
-  const term = search.trim().replace(/[%_]/g, '');
+  const term = sanitizeSearchTerm(search);
   if (term) q = q.or(`code.ilike.%${term}%,name.ilike.%${term}%`);
   const { data, error } = await q;
   if (error) throw new CoreRepositoryError(error.message);

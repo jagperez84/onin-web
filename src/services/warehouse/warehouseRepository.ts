@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type WarehouseStatus = 'active' | 'inactive' | 'deleted' | 'all';
 export type Warehouse = {
@@ -14,7 +15,7 @@ export async function listWarehouses(companyId:number, search='', status:Warehou
   if(status==='active') q=q.eq('active',true).is('deleted_at',null);
   if(status==='inactive') q=q.eq('active',false).is('deleted_at',null);
   if(status==='deleted') q=q.not('deleted_at','is',null);
-  const term=search.trim().replace(/[%_]/g,'');
+  const term=sanitizeSearchTerm(search);
   if(term) q=q.or(`code.ilike.%${term}%,name.ilike.%${term}%,description.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message); return (data??[]) as Warehouse[];
 }

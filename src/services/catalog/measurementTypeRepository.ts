@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type MeasurementDimension = {
   id?: number;
@@ -34,7 +35,7 @@ function client() {
 export async function listMeasurementTypes(companyId: number, search = ''): Promise<MeasurementType[]> {
   const c = client();
   let q = c.from('measurement_type').select('*').eq('company_id', companyId).eq('active', true).is('deleted_at', null).order('code');
-  const term = search.trim().replace(/[%_]/g, '');
+  const term = sanitizeSearchTerm(search);
   if (term) q = q.or(`code.ilike.%${term}%,name.ilike.%${term}%`);
   const { data, error } = await q;
   if (error) throw new CoreRepositoryError(error.message);

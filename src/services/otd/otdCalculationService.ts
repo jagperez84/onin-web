@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 import {
   evaluateFormula,
   evaluateOtdComponent,
@@ -1298,9 +1299,9 @@ export async function searchOninProducts(query: string = '', limit: number = 25)
     .is('deleted_at', null)
     .limit(limit);
 
-  const trimmed = query.trim();
-  if (trimmed.length > 0) {
-    const clean = `%${trimmed}%`;
+  const term = sanitizeSearchTerm(query);
+  if (term.length > 0) {
+    const clean = `%${term}%`;
     queryBuilder = queryBuilder.or(
       `code.ilike.${clean},commercial_description.ilike.${clean},technical_description.ilike.${clean}`
     );

@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type SalesOrderStatus = 'PENDING_MANUFACTURING' | 'PREPARED' | 'FABRICATING' | 'CONFECTIONED' | 'MANUFACTURED' | 'INSTALLATION_SCHEDULED' | 'INSTALLED' | 'CANCELLED';
 
@@ -169,7 +170,7 @@ export async function listSalesOrders(search = '', sortBy: SalesOrderSortField =
   const c = client();
   const cid = await companyId();
   let q = c.from('sales_order').select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,total_amount,created_at,installation_latitude,installation_longitude,zone_id,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name))').eq('company_id', cid).order(sortBy, { ascending, nullsFirst: false }).order('id', { ascending: false });
-  const term = search.trim().replace(/[%_]/g, '');
+  const term = sanitizeSearchTerm(search);
   if (term) q = q.or(`code.ilike.%${term}%,reference.ilike.%${term}%`);
   const { data, error } = await q;
   if (error) throw new CoreRepositoryError(error.message);

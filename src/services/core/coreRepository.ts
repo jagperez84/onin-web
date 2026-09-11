@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import type { Address, Company, Contact, Customer, CustomerSummary, Party } from '../../domain/core/types';
+import { sanitizeSearchTerm } from './searchSanitize';
 
 export class CoreRepositoryError extends Error {
   constructor(message: string) { super(message); this.name = 'CoreRepositoryError'; }
@@ -60,7 +61,7 @@ export async function getCustomerSummaries(search=''):Promise<CustomerSummary[]>
   const client=requireClient();
   let query=client.from('customer').select('id,party_id,party!inner(id,code,legal_name,trade_name,tax_id,email,phone,active)').order('id');
   if(search.trim()){
-    const q=search.trim().replace(/[%_]/g,'');
+    const q=sanitizeSearchTerm(search);
     query=query.or(`legal_name.ilike.%${q}%,trade_name.ilike.%${q}%,tax_id.ilike.%${q}%,code.ilike.%${q}%`,{referencedTable:'party'});
   }
   const {data,error}=await query;

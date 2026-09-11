@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type InvoiceStatus = 'ISSUED' | 'RECTIFIED';
 export type InvoiceType = 'ORIGINAL' | 'RECTIFICATIVA';
@@ -113,7 +114,7 @@ export async function listInvoices(search = ''): Promise<Invoice[]> {
   const c = client();
   const cid = await companyId();
   let q = c.from('invoice').select(LIST_SELECT).eq('company_id', cid).order('issue_date', { ascending: false }).order('id', { ascending: false });
-  const term = search.trim().replace(/[%_]/g, '');
+  const term = sanitizeSearchTerm(search);
   if (term) q = q.or(`code.ilike.%${term}%,reference.ilike.%${term}%`);
   const { data, error } = await q;
   if (error) throw new CoreRepositoryError(error.message);

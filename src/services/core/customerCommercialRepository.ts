@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from './coreRepository';
+import { sanitizeSearchTerm } from './searchSanitize';
 
 export type DiscountFamilyRow = {
   id: number;
@@ -76,7 +77,7 @@ export async function listCustomerFamilyDiscounts(customerPartyId: number, inclu
 
 export async function searchProductFamilies(companyId: number, search = ''): Promise<EntityRef[]> {
   const c = client();
-  const term = search.trim().replace(/[%_]/g, '');
+  const term = sanitizeSearchTerm(search);
   let q = c.from('product_family').select('id,code,name').eq('company_id', companyId).eq('active', true).is('deleted_at', null).order('code').limit(12);
   if (term) q = q.or(`code.ilike.%${term}%,name.ilike.%${term}%`);
   const { data, error } = await q;
@@ -148,7 +149,7 @@ export async function listCustomerProductDiscounts(customerPartyId:number, inclu
 
 export async function searchProductsForDiscount(companyId:number, search=''):Promise<EntityRef[]> {
   const c = client();
-  const term = search.trim().replace(/[%_]/g, '');
+  const term = sanitizeSearchTerm(search);
   let q = c.from('product').select('id,code,commercial_description,technical_description').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code').limit(12);
   if (term) q = q.or(`code.ilike.%${term}%,commercial_description.ilike.%${term}%,technical_description.ilike.%${term}%`);
   const { data, error } = await q;

@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type QuotationSummary = {
   id: number;
@@ -56,7 +57,7 @@ export async function listQuotations(search='', includeCancelled=false): Promise
     }
   }
 
-  const term=search.trim().replace(/[%_]/g,'');
+  const term=sanitizeSearchTerm(search);
   if(term) q=q.or(`code.ilike.%${term}%,reference.ilike.%${term}%,contact_name.ilike.%${term}%`);
   const {data,error}=await q;
   if(error && (error.message.includes('deleted_at') || error.code === '42703')) {

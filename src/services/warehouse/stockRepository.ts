@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type StockBalance = {
   id: number;
@@ -106,7 +107,7 @@ function client() {
 }
 
 function cleanTerm(value: string) {
-  return value.trim().replace(/[%_]/g, '');
+  return sanitizeSearchTerm(value);
 }
 
 /**

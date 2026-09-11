@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
+import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type ProductStatus = 'active' | 'inactive' | 'deleted' | 'all';
 export type ProductCatalogRef = { id:number; code:string; name:string };
@@ -113,7 +114,7 @@ export async function listProducts(companyId:number,search='',status:ProductStat
   if(status==='inactive') q=q.eq('active',false).is('deleted_at',null);
   if(status==='deleted') q=q.not('deleted_at','is',null);
   q=q.not('usage_status','eq','DRAFT');
-  const term=search.trim().replace(/[%_]/g,'');
+  const term=sanitizeSearchTerm(search);
   if(term) q=q.or(`code.ilike.%${term}%,technical_description.ilike.%${term}%,commercial_description.ilike.%${term}%`);
   const {data,error}=await q; if(error) throw new CoreRepositoryError(error.message);
   const references=await refs(companyId);
