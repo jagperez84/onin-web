@@ -1,5 +1,6 @@
 import { round2 } from './productPricingService';
 import type { EvaluatedBomComponent } from './billOfMaterialsService';
+import type { FallbackProfileEstimate } from './productRepository';
 
 export type CanvasCutPiece = {
   id: string;
@@ -45,6 +46,51 @@ export type CutCalculationResult = {
   total_scrap_percentage: number;
 };
 
+// Valores históricos (toldo enrollable), usados cuando la línea de comportamiento
+// del artículo no define los suyos propios — así ningún artículo existente cambia
+// de comportamiento con esta generalización.
+const DEFAULT_ROLL_WIDTH_M = 1.2;
+const DEFAULT_SEAM_ALLOWANCE_WIDTH_M = 0.04;
+const DEFAULT_SEAM_ALLOWANCE_HEIGHT_M = 0.25;
+const DEFAULT_STANDARD_BAR_LENGTH_MM = 6000;
+const DEFAULT_FALLBACK_PROFILE_ESTIMATES: FallbackProfileEstimate[] = [
+  { code: 'PRF-CARGA', name: 'Perfil Frontal de Carga / Terminal (estimado)', end_deduction_mm: 60, color: 'Aluminio estándar' },
+  { code: 'TUB-ENROLLE', name: 'Tubo de Enrolle Ranurado (estimado)', end_deduction_mm: 75, color: 'Galvanizado' },
+];
+
+// Nombres de dimensión habituales en el sector: la primera dimensión suele ser el
+// ancho de la pieza y la segunda su salida/alto/largo. Se resuelven por nombre
+// cuando es posible (más fiable que el orden del objeto) y solo se recurre a la
+// posición cuando el código de la dimensión no es reconocible (p. ej. DIMENSION_1).
+const WIDTH_DIMENSION_PATTERN = /ancho|width/i;
+const HEIGHT_DIMENSION_PATTERN = /alto|salida|largo|height|drop|ca[ií]da/i;
+
+// Un componente de despiece se trata como una pieza de tejido propia (con su
+// propio corte) si su unidad es superficie, o su código/descripción lo delatan —
+// generaliza el caso, antes exclusivo, del faldón/bambalina de un toldo: ahora
+// cualquier línea de producto (pérgola con pantalla, funda con refuerzo…) puede
+// definir varias piezas de tejido en su despiece y cada una sale como su propio
+// corte.
+const FABRIC_COMPONENT_PATTERN = /fald[oó]n|bambalina|valance|^lona|^tejido|^tela/i;
+
+function resolveWidthHeight(dimEntries: [string, number][]): { width: number; height: number } {
+  const widthEntry = dimEntries.find(([key]) => WIDTH_DIMENSION_PATTERN.test(key));
+  const heightEntry = dimEntries.find(
+    ([key]) => key !== widthEntry?.[0] && HEIGHT_DIMENSION_PATTERN.test(key)
+  );
+  const remaining = dimEntries.filter(([key]) => key !== widthEntry?.[0] && key !== heightEntry?.[0]);
+  const finalWidth = widthEntry ?? remaining.shift();
+  const finalHeight = heightEntry ?? remaining.shift();
+  return { width: finalWidth?.[1] ?? 0, height: finalHeight?.[1] ?? 0 };
+}
+
+function unitToMeters(unit?: string): number {
+  const key = (unit || '').trim().toLowerCase();
+  if (key === 'mm') return 0.001;
+  if (key === 'cm') return 0.01;
+  return 1; // m o desconocida: se asume metros
+}
+
 export type CutCalculationInput = {
   productCode: string;
   productName: string;
@@ -54,6 +100,11 @@ export type CutCalculationInput = {
     cut_calculation_enabled?: boolean;
     canvas_cut_enabled?: boolean;
     length_enabled?: boolean;
+    roll_width_m?: number | null;
+    seam_allowance_width_m?: number | null;
+    seam_allowance_height_m?: number | null;
+    standard_bar_length_mm?: number | null;
+    fallback_profile_estimates?: FallbackProfileEstimate[] | null;
   } | null;
   family?: {
     confectionable?: boolean;
@@ -80,9 +131,16 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
     bomComponents = [],
   } = input;
 
-  const dimEntries = Object.entries(dimensions).filter(([_, v]) => v != null && Number.isFinite(v));
-  const rawW = dimEntries[0]?.[1] ?? 0; // typically Ancho / Width (in meters or mm)
-  const rawH = dimEntries[1]?.[1] ?? 0; // typically Salida / Height
+  const rollWidth = lineBehavior?.roll_width_m ?? DEFAULT_ROLL_WIDTH_M;
+  const seamWidth = lineBehavior?.seam_allowance_width_m ?? DEFAULT_SEAM_ALLOWANCE_WIDTH_M;
+  const seamHeight = lineBehavior?.seam_allowance_height_m ?? DEFAULT_SEAM_ALLOWANCE_HEIGHT_M;
+  const stdBarMm = lineBehavior?.standard_bar_length_mm ?? DEFAULT_STANDARD_BAR_LENGTH_MM;
+  const fallbackProfileEstimates = lineBehavior?.fallback_profile_estimates ?? DEFAULT_FALLBACK_PROFILE_ESTIMATES;
+
+  const dimEntries = Object.entries(dimensions).filter(
+    (entry): entry is [string, number] => entry[1] != null && Number.isFinite(entry[1])
+  );
+  const { width: rawW, height: rawH } = resolveWidthHeight(dimEntries);
 
   // Normalize to meters: if > 50, likely in mm or cm, convert to meters
   const widthMeters = rawW > 50 ? rawW / 1000 : rawW;
@@ -106,11 +164,8 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
 
   // 1. Canvas / Fabric Cuts
   if (shouldCalculateCanvas && widthMeters > 0) {
-    const seamWidth = 0.04; // 40mm hems
-    const seamHeight = 0.25; // 250mm roll wrap and bottom hem
     const cutW = round2(widthMeters + seamWidth);
     const cutH = round2((heightMeters || 1) + seamHeight);
-    const rollWidth = 1.20; // 120cm standard roll width
     const strips = Math.max(1, Math.ceil(cutW / rollWidth));
     const totalArea = round2(cutW * cutH * quantity);
 
@@ -131,43 +186,40 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
       confection_notes: `Vainas +${Math.round(seamHeight * 1000)} mm · Dobladillos +${Math.round(seamWidth * 1000)} mm · ${strips} paños unidos`,
     });
 
-    // Faldón / bambalina: en Toldos era un componente propio del modelo de artículo
-    // (variable condicional, no una pieza universal). Se añade solo si el despiece
-    // evaluado de este artículo concreto realmente lo lleva.
-    const valanceComponent = bomComponents.find(comp =>
-      /fald[oó]n|bambalina|valance/i.test(`${comp.code} ${comp.description}`)
+    // Piezas de tejido adicionales del despiece del artículo (faldón/bambalina de un
+    // toldo, pantalla de una pérgola, refuerzo de una funda…): cada componente de
+    // tejido que el despiece realmente lleve sale como su propio corte, usando sus
+    // propias dimensiones si las tiene, o la estimación por cantidad si no.
+    const fabricComponents = bomComponents.filter(
+      comp => comp.quantity > 0 && (comp.unit_code === 'm2' || FABRIC_COMPONENT_PATTERN.test(`${comp.code} ${comp.description}`))
     );
-    if (valanceComponent && valanceComponent.quantity > 0) {
-      const heightDimension = valanceComponent.evaluated_dimensions?.find(d =>
-        /alto|altura|height|salida/i.test(`${d.dimension_code} ${d.dimension_name}`)
-      );
-      const unitToMeters = (unit?: string) => {
-        const key = (unit || '').trim().toLowerCase();
-        if (key === 'mm') return 0.001;
-        if (key === 'cm') return 0.01;
-        return 1; // m or unrecognized: assume meters
-      };
-      const valanceH = heightDimension
-        ? heightDimension.value * unitToMeters(heightDimension.unit_code)
+
+    for (const comp of fabricComponents) {
+      const ownWidthDim = comp.evaluated_dimensions?.find(d => WIDTH_DIMENSION_PATTERN.test(`${d.dimension_code} ${d.dimension_name}`));
+      const ownHeightDim = comp.evaluated_dimensions?.find(d => HEIGHT_DIMENSION_PATTERN.test(`${d.dimension_code} ${d.dimension_name}`));
+
+      const pieceWidth = ownWidthDim ? ownWidthDim.value * unitToMeters(ownWidthDim.unit_code) : widthMeters;
+      const pieceHeight = ownHeightDim
+        ? ownHeightDim.value * unitToMeters(ownHeightDim.unit_code)
         : widthMeters > 0
-          ? round2(valanceComponent.quantity / (widthMeters * quantity))
+          ? round2(comp.quantity / (widthMeters * quantity))
           : null;
 
-      if (valanceH && valanceH > 0) {
+      if (pieceHeight && pieceHeight > 0) {
         canvasCuts.push({
-          id: `canvas-valance-${valanceComponent.id}`,
-          name: valanceComponent.description || 'Faldón / Bambalina',
-          fabric_code: valanceComponent.code,
+          id: `canvas-extra-${comp.id}`,
+          name: comp.description || 'Pieza de tejido adicional',
+          fabric_code: comp.code,
           fabric_color: characteristicColor || 'Estándar',
-          nominal_width: widthMeters,
-          nominal_height: valanceH,
+          nominal_width: pieceWidth,
+          nominal_height: pieceHeight,
           seam_allowance_width: seamWidth,
           seam_allowance_height: 0.05,
-          cut_width: cutW,
-          cut_height: round2(valanceH + 0.05),
-          cloth_strips_count: strips * quantity,
+          cut_width: round2(pieceWidth + seamWidth),
+          cut_height: round2(pieceHeight + 0.05),
+          cloth_strips_count: Math.max(1, Math.ceil((pieceWidth + seamWidth) / rollWidth)) * quantity,
           roll_width_used: rollWidth,
-          total_area_m2: round2(cutW * (valanceH + 0.05) * quantity),
+          total_area_m2: round2((pieceWidth + seamWidth) * (pieceHeight + 0.05) * quantity),
           confection_notes: 'Corte con onda estándar y ribete a juego (según despiece del artículo)',
         });
       }
@@ -178,7 +230,6 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
   if (shouldCalculateProfiles && widthMm > 0) {
     const minRemainder = productCutSettings?.minimum_remainder ?? family?.minimum_remainder ?? 500; // 500mm
     const smoothCutMargin = productCutSettings?.smooth_cut ? 4 : 2; // mm blade kerf
-    const stdBarMm = 6000; // 6 meters bar length
 
     // The despiece (BOM) evaluated for this exact article is the source of truth for which
     // profiles it actually carries. Prefer it over any generic estimate.
@@ -217,59 +268,40 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
       }
     } else {
       // No despiece configured for this article yet: show an approximate technical estimate
-      // (front load profile + roller tube) instead of leaving the quote without a cut preview.
-      // These are placeholder deductions, not article-specific data — replace with real BOM
-      // components as soon as this article's despiece is configured.
-      const loadProfileCutLength = Math.max(10, widthMm - 60); // 60mm deduction for end caps
-      const piecesPerBar1 = Math.floor(stdBarMm / (loadProfileCutLength + smoothCutMargin)) || 1;
-      const barsReq1 = Math.ceil(quantity / piecesPerBar1);
-      const scrapMm1 = (barsReq1 * stdBarMm) - (quantity * (loadProfileCutLength + smoothCutMargin));
+      // instead of leaving the quote without a cut preview. Which profiles to guess (if any)
+      // comes from la línea de comportamiento del artículo — por defecto, la estimación
+      // histórica de toldo enrollable (perfil de carga + tubo). Una línea de comportamiento
+      // que no sea un toldo enrollable puede fijar su propia lista, o [] para no estimar nada.
+      for (const estimate of fallbackProfileEstimates) {
+        const cutLength = Math.max(10, widthMm - estimate.end_deduction_mm);
+        const piecesPerBar = Math.floor(stdBarMm / (cutLength + smoothCutMargin)) || 1;
+        const barsReq = Math.ceil(quantity / piecesPerBar);
+        const scrapMm = (barsReq * stdBarMm) - (quantity * (cutLength + smoothCutMargin));
 
-      profileCuts.push({
-        id: 'prof-load-1',
-        profile_code: 'PRF-CARGA',
-        profile_name: 'Perfil Frontal de Carga / Terminal (estimado)',
-        color: characteristicColor || 'Aluminio estándar',
-        cut_length: loadProfileCutLength,
-        unit: 'mm',
-        quantity_pieces: quantity,
-        standard_bar_length: stdBarMm,
-        bars_required: barsReq1,
-        waste_scrap_total: Math.max(0, scrapMm1),
-        scrap_remainder: Math.max(0, scrapMm1 % stdBarMm),
-        is_reusable_remainder: scrapMm1 >= minRemainder,
-        smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
-        notes: `Estimación genérica (sin despiece configurado) · Deducción tapones: 60 mm · Longitud corte: ${loadProfileCutLength} mm`,
-      });
-
-      const tubeCutLength = Math.max(10, widthMm - 75); // 75mm deduction for brackets and motor
-      const piecesPerBar2 = Math.floor(stdBarMm / (tubeCutLength + smoothCutMargin)) || 1;
-      const barsReq2 = Math.ceil(quantity / piecesPerBar2);
-      const scrapMm2 = (barsReq2 * stdBarMm) - (quantity * (tubeCutLength + smoothCutMargin));
-
-      profileCuts.push({
-        id: 'prof-tube-2',
-        profile_code: 'TUB-ENROLLE',
-        profile_name: 'Tubo de Enrolle Ranurado (estimado)',
-        color: 'Galvanizado',
-        cut_length: tubeCutLength,
-        unit: 'mm',
-        quantity_pieces: quantity,
-        standard_bar_length: stdBarMm,
-        bars_required: barsReq2,
-        waste_scrap_total: Math.max(0, scrapMm2),
-        scrap_remainder: Math.max(0, scrapMm2 % stdBarMm),
-        is_reusable_remainder: scrapMm2 >= minRemainder,
-        smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
-        notes: `Estimación genérica (sin despiece configurado) · Deducción soportes y motor: 75 mm · Longitud corte: ${tubeCutLength} mm`,
-      });
+        profileCuts.push({
+          id: `prof-estimate-${estimate.code}`,
+          profile_code: estimate.code,
+          profile_name: estimate.name,
+          color: estimate.color,
+          cut_length: cutLength,
+          unit: 'mm',
+          quantity_pieces: quantity,
+          standard_bar_length: stdBarMm,
+          bars_required: barsReq,
+          waste_scrap_total: Math.max(0, scrapMm),
+          scrap_remainder: Math.max(0, scrapMm % stdBarMm),
+          is_reusable_remainder: scrapMm >= minRemainder,
+          smooth_cut_applied: Boolean(productCutSettings?.smooth_cut),
+          notes: `Estimación genérica (sin despiece configurado) · Deducción: ${estimate.end_deduction_mm} mm · Longitud corte: ${cutLength} mm`,
+        });
+      }
     }
   }
 
   const totalFabricM2 = round2(canvasCuts.reduce((acc, c) => acc + c.total_area_m2, 0));
   const totalProfileBars = profileCuts.reduce((acc, p) => acc + p.bars_required, 0);
 
-  const totalBarLengthProvided = totalProfileBars * 6000;
+  const totalBarLengthProvided = totalProfileBars * stdBarMm;
   const totalScrapMm = profileCuts.reduce((acc, p) => acc + p.waste_scrap_total, 0);
   const totalScrapPercentage =
     totalBarLengthProvided > 0 ? round2((totalScrapMm / totalBarLengthProvided) * 100) : 0;

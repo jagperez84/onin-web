@@ -4,11 +4,17 @@ import { sanitizeSearchTerm } from '../core/searchSanitize';
 
 export type ProductStatus = 'active' | 'inactive' | 'deleted' | 'all';
 export type ProductCatalogRef = { id:number; code:string; name:string };
+export type FallbackProfileEstimate = { code:string; name:string; end_deduction_mm:number; color?:string };
 export type ProductLineBehavior = {
   id:number; company_id:number; code:string; name:string; description:string|null;
   quantity_enabled:boolean; price_enabled:boolean; discount_enabled:boolean;
   dimensions_enabled:boolean; configuration_enabled:boolean; cut_calculation_enabled:boolean;
   length_enabled:boolean; characteristics_enabled:boolean; canvas_cut_enabled:boolean;
+  // Parámetros de corte de esta línea de comportamiento. Todos opcionales: si son
+  // null/undefined, cutCalculationService usa los valores históricos de toldo
+  // enrollable (ver sus constantes DEFAULT_*).
+  roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
+  standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
 };
 export type ProductFamilyRef = ProductCatalogRef & { product_type_id:number|null; measurement_type_id:number|null; minimum_remainder:number|null; confectionable:boolean; recuttable:boolean; line_behavior_id:number|null; lineBehavior:ProductLineBehavior|null };
 export type ProductTypeRef = { id:number; code:string; name:string };

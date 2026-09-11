@@ -193,6 +193,110 @@ describe('calculateCuts — corte de perfiles', () => {
   });
 });
 
+describe('calculateCuts — generalización por línea de comportamiento', () => {
+  it('resuelve ancho/salida por nombre aunque el objeto de dimensiones las traiga en otro orden', () => {
+    const reversed = calculateCuts(baseInput({ dimensions: { salida: 2000, ancho: 3000 } }));
+    const normal = calculateCuts(baseInput({ dimensions: { ancho: 3000, salida: 2000 } }));
+    expect(reversed.canvas_cuts[0].nominal_width).toBe(normal.canvas_cuts[0].nominal_width);
+    expect(reversed.canvas_cuts[0].nominal_height).toBe(normal.canvas_cuts[0].nominal_height);
+  });
+
+  it('recurre a la posición cuando los códigos de dimensión no son reconocibles', () => {
+    const result = calculateCuts(baseInput({ dimensions: { DIMENSION_1: 3000, DIMENSION_2: 2000 } }));
+    expect(result.canvas_cuts[0].nominal_width).toBe(3);
+    expect(result.canvas_cuts[0].nominal_height).toBe(2);
+  });
+
+  it('usa el ancho de rollo y los márgenes de la línea de comportamiento en vez de los valores de toldo', () => {
+    const result = calculateCuts(
+      baseInput({
+        dimensions: { ancho: 3000, salida: 2000 },
+        lineBehavior: { roll_width_m: 1.5, seam_allowance_width_m: 0.02, seam_allowance_height_m: 0.1 },
+      })
+    );
+    const cut = result.canvas_cuts[0];
+    expect(cut.cut_width).toBe(3.02);
+    expect(cut.cut_height).toBe(2.1);
+    expect(cut.roll_width_used).toBe(1.5);
+    // cut_width 3.02 / rollo 1.5 -> 3 paños (antes eran 3 paños con rollo 1.20 también, así que probamos con un rollo mayor)
+    expect(cut.cloth_strips_count).toBe(3);
+  });
+
+  it('usa la longitud de barra estándar de la línea de comportamiento para la estimación de perfiles', () => {
+    const result = calculateCuts(
+      baseInput({
+        dimensions: { ancho: 3000, salida: 2000 },
+        lineBehavior: { standard_bar_length_mm: 4000 },
+      })
+    );
+    expect(result.profile_cuts[0].standard_bar_length).toBe(4000);
+  });
+
+  it('no muestra ninguna estimación de perfiles cuando la línea de comportamiento define una lista vacía', () => {
+    const result = calculateCuts(
+      baseInput({
+        dimensions: { ancho: 3000, salida: 2000 },
+        lineBehavior: { fallback_profile_estimates: [] },
+      })
+    );
+    expect(result.profile_cuts).toHaveLength(0);
+  });
+
+  it('usa la estimación de perfiles propia de la línea de comportamiento (no la de toldo) cuando la define', () => {
+    const result = calculateCuts(
+      baseInput({
+        dimensions: { ancho: 3000, salida: 2000 },
+        lineBehavior: {
+          fallback_profile_estimates: [{ code: 'PRF-LAMA', name: 'Lama orientable (estimado)', end_deduction_mm: 20 }],
+        },
+      })
+    );
+    expect(result.profile_cuts).toHaveLength(1);
+    expect(result.profile_cuts[0].profile_code).toBe('PRF-LAMA');
+  });
+
+  it('genera un corte propio por cada componente de tejido del despiece, no solo por el faldón', () => {
+    const result = calculateCuts(
+      baseInput({
+        dimensions: { ancho: 3000, salida: 2000 },
+        bomComponents: [
+          bomComponent({ id: 10, code: 'PANTALLA-01', description: 'Pantalla lateral', unit_code: 'm2', quantity: 1.5 }),
+          bomComponent({ id: 11, code: 'FALDON-01', description: 'Faldón delantero', quantity: 0.6 }),
+        ],
+      })
+    );
+    // 1 pieza principal + 2 piezas de tejido del despiece
+    expect(result.canvas_cuts).toHaveLength(3);
+    expect(result.canvas_cuts.map(c => c.fabric_code)).toEqual(
+      expect.arrayContaining(['PANTALLA-01', 'FALDON-01'])
+    );
+  });
+
+  it('usa las dimensiones propias de un componente de tejido en vez de estimarlas por cantidad', () => {
+    const result = calculateCuts(
+      baseInput({
+        dimensions: { ancho: 3000, salida: 2000 },
+        bomComponents: [
+          bomComponent({
+            id: 12,
+            code: 'LONA-LATERAL',
+            description: 'Lona lateral independiente',
+            unit_code: 'm2',
+            quantity: 2,
+            evaluated_dimensions: [
+              { dimension_code: 'ancho', dimension_name: 'Ancho', value: 1.2 },
+              { dimension_code: 'salida', dimension_name: 'Salida', value: 1.8 },
+            ],
+          }),
+        ],
+      })
+    );
+    const extra = result.canvas_cuts.find(c => c.fabric_code === 'LONA-LATERAL');
+    expect(extra?.nominal_width).toBe(1.2);
+    expect(extra?.nominal_height).toBe(1.8);
+  });
+});
+
 describe('calculateCuts — resumen de desperdicio', () => {
   it('total_scrap_percentage es 0 cuando no hay cortes de perfil', () => {
     const result = calculateCuts(baseInput({ dimensions: {} }));
