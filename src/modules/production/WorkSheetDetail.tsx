@@ -4,13 +4,126 @@ import { getWorkSheet, type WorkSheet } from '../../services/production/workShee
 import { downloadWorkSheetPdf } from '../../services/production/workSheetPdfService';
 import './work-sheet.css';
 
-export function WorkSheetDetail({id,isModal=false,onClose}:{id:number;isModal?:boolean;onClose?:()=>void}){
- const[item,setItem]=useState<WorkSheet|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState('');
- useEffect(()=>{let active=true;setLoading(true);setError('');getWorkSheet(id).then(value=>{if(active)setItem(value)}).catch(e=>{if(active)setError(e instanceof Error?e.message:'No se pudo cargar la hoja.')}).finally(()=>{if(active)setLoading(false)});return()=>{active=false}},[id]);
- const unit=item?.unit_symbol||item?.unit_code||'';
- const dims=(values:number[])=>values.length?`${values.join(' × ')}${unit?` ${unit}`:''}`:'—';
- const content=loading?<div className="loading-block">Cargando hoja de trabajo…</div>:error?<div className="inline-error">{error}</div>:!item?<div className="empty-state">Hoja de trabajo no encontrada.</div>:<><div className="work-sheet-detail-head"><div><div className="eyebrow">HOJA DE CORTE / TALLER · DOCUMENTO TÉCNICO</div><h2>{item.code}</h2><p>Emitida el {new Date(item.issue_date).toLocaleString('es-ES')}</p></div><div className="work-sheet-detail-actions"><button className="secondary-button" type="button" onClick={()=>downloadWorkSheetPdf(item)}><Download size={15}/> Descargar PDF</button></div></div><div className="work-sheet-detail-grid"><div><span>Pedido</span><strong>{item.sales_order_code||'—'}</strong></div><div><span>Línea</span><strong>{item.sales_order_line_no??'—'}</strong></div><div><span>Perfil</span><strong>{item.product_code||'—'}</strong><small>{item.product_name||''}</small></div><div><span>Característica</span><strong>{item.characteristic_name||item.characteristic_code||'—'}</strong></div><div><span>Necesidad</span><strong>{item.quantity} × {item.required_length}{unit?` ${unit}`:''}</strong></div><div><span>Referencia</span><strong>{item.reference||'—'}</strong></div></div>{item.selection_mode==='AUTOMATIC'&&<div className="work-sheet-instructions"><FileText size={17}/><div><strong>Criterio de selección automática</strong><p>{item.selection_reason||item.notes||'Optimización automática de aprovechamiento.'}</p></div></div>}<div className="work-sheet-cut-table"><h3>Material seleccionado y cortes</h3><table><thead><tr><th>#</th><th>Almacén</th><th>Pieza seleccionada</th><th>Corte a realizar</th><th>Ud.</th><th>Remanente</th><th>Criterio</th></tr></thead><tbody>{item.lines.map(line=><tr key={line.id}><td>{line.line_no}</td><td><strong>{line.warehouse_code||'—'}</strong><small>{line.warehouse_name||''}</small></td><td>{dims(line.source_dimension_values)}</td><td><strong>{dims(line.cut_dimension_values)}</strong></td><td>{line.quantity}</td><td>{line.remainder_dimension_values.length?<strong>{dims(line.remainder_dimension_values)}</strong>:<span className="muted">Descarte</span>}</td><td>{line.selection_reason||item.selection_reason||(item.selection_mode==='AUTOMATIC'?'Optimización automática':'Selección manual')}</td></tr>)}</tbody></table></div><div className="work-sheet-instructions"><FileText size={17}/><div><strong>Instrucciones para taller</strong><p>{item.notes||'Realizar los cortes indicados respetando las piezas de stock seleccionadas.'}</p></div></div></>;
- if(isModal)return <div className="modal-backdrop"><div className="work-sheet-modal" role="dialog" aria-modal="true">{onClose&&<button className="icon-link work-sheet-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>}{content}</div></div>;
- return <div className="module-page work-sheet-detail-page">{content}</div>;
-}
+export function WorkSheetDetail({ id, isModal = false, onClose }: { id: number; isModal?: boolean; onClose?: () => void }) {
+  const [item, setItem] = useState<WorkSheet | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
+    getWorkSheet(id)
+      .then((value) => { if (active) setItem(value); })
+      .catch((e) => { if (active) setError(e instanceof Error ? e.message : 'No se pudo cargar la hoja.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [id]);
+
+  const unit = item?.unit_symbol || item?.unit_code || '';
+  const dims = (values: number[]) => (values.length ? `${values.join(' × ')}${unit ? ` ${unit}` : ''}` : '—');
+
+  const titleBlock = item ? (
+    <div>
+      <div className="eyebrow">HOJA DE CORTE / TALLER · DOCUMENTO TÉCNICO</div>
+      <h2>{item.code}</h2>
+      <p>Emitida el {new Date(item.issue_date).toLocaleString('es-ES')}</p>
+    </div>
+  ) : (
+    <div>
+      <div className="eyebrow">HOJA DE CORTE / TALLER · DOCUMENTO TÉCNICO</div>
+      <h2>Hoja de trabajo</h2>
+    </div>
+  );
+
+  const downloadButton = item && (
+    <button className="secondary-button" type="button" onClick={() => downloadWorkSheetPdf(item)}>
+      <Download size={15} /> Descargar PDF
+    </button>
+  );
+
+  const body = loading ? (
+    <div className="loading-block">Cargando hoja de trabajo…</div>
+  ) : error ? (
+    <div className="inline-error">{error}</div>
+  ) : !item ? (
+    <div className="empty-state">Hoja de trabajo no encontrada.</div>
+  ) : (
+    <>
+      <div className="work-sheet-detail-grid">
+        <div><span>Pedido</span><strong>{item.sales_order_code || '—'}</strong></div>
+        <div><span>Línea</span><strong>{item.sales_order_line_no ?? '—'}</strong></div>
+        <div><span>Perfil</span><strong>{item.product_code || '—'}</strong><small>{item.product_name || ''}</small></div>
+        <div><span>Característica</span><strong>{item.characteristic_name || item.characteristic_code || '—'}</strong></div>
+        <div><span>Necesidad</span><strong>{item.quantity} × {item.required_length}{unit ? ` ${unit}` : ''}</strong></div>
+        <div><span>Referencia</span><strong>{item.reference || '—'}</strong></div>
+      </div>
+      {item.selection_mode === 'AUTOMATIC' && (
+        <div className="work-sheet-instructions">
+          <FileText size={17} />
+          <div>
+            <strong>Criterio de selección automática</strong>
+            <p>{item.selection_reason || item.notes || 'Optimización automática de aprovechamiento.'}</p>
+          </div>
+        </div>
+      )}
+      <div className="work-sheet-cut-table">
+        <h3>Material seleccionado y cortes</h3>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Almacén</th><th>Pieza seleccionada</th><th>Corte a realizar</th><th>Ud.</th><th>Remanente</th><th>Criterio</th></tr>
+          </thead>
+          <tbody>
+            {item.lines.map((line) => (
+              <tr key={line.id}>
+                <td>{line.line_no}</td>
+                <td><strong>{line.warehouse_code || '—'}</strong><small>{line.warehouse_name || ''}</small></td>
+                <td>{dims(line.source_dimension_values)}</td>
+                <td><strong>{dims(line.cut_dimension_values)}</strong></td>
+                <td>{line.quantity}</td>
+                <td>{line.remainder_dimension_values.length ? <strong>{dims(line.remainder_dimension_values)}</strong> : <span className="muted">Descarte</span>}</td>
+                <td>{line.selection_reason || item.selection_reason || (item.selection_mode === 'AUTOMATIC' ? 'Optimización automática' : 'Selección manual')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="work-sheet-instructions">
+        <FileText size={17} />
+        <div>
+          <strong>Instrucciones para taller</strong>
+          <p>{item.notes || 'Realizar los cortes indicados respetando las piezas de stock seleccionadas.'}</p>
+        </div>
+      </div>
+    </>
+  );
+
+  if (isModal) {
+    return (
+      <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (onClose && event.target === event.currentTarget) onClose(); }}>
+        <div className="modal-card xl" role="dialog" aria-modal="true">
+          <div className="modal-header">
+            {titleBlock}
+            <div className="header-action-group">
+              {downloadButton}
+              {onClose && <button type="button" className="close-btn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>}
+            </div>
+          </div>
+          <div className="modal-body">{body}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="module-page work-sheet-detail-page">
+      {item && (
+        <div className="work-sheet-detail-head">
+          {titleBlock}
+          <div className="work-sheet-detail-actions">{downloadButton}</div>
+        </div>
+      )}
+      {body}
+    </div>
+  );
+}

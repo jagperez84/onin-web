@@ -83,23 +83,27 @@ export function StockMovementCreateModal({ onClose }: Props) {
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="stock-movement-modal" role="dialog" aria-modal="true" aria-labelledby="stock-movement-title">
-        <div className="stock-modal-head">
+      <div className="modal-card lg stock-movement-card" role="dialog" aria-modal="true" aria-labelledby="stock-movement-title">
+        <div className="modal-header">
           <div><div className="eyebrow">ALMACÉN / MOVIMIENTOS</div><h2 id="stock-movement-title">Nuevo movimiento</h2><p>Registra una entrada, salida o ajuste de stock.</p></div>
-          <button type="button" className="stock-modal-close" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
+          <button type="button" className="close-btn" onClick={onClose} aria-label="Cerrar"><X size={18} /></button>
         </div>
-        {error && <div className="inline-error">{error}</div>}
-        <form className="stock-form-grid" onSubmit={submit}>
-          <StockProductLookup companyId={companyId ?? 0} value={product} onChange={setProduct} />
-          <label><span>Almacén *</span><select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required><option value="">Seleccionar…</option>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></label>
-          <label><span>Tipo *</span><select value={type} onChange={(event) => setType(event.target.value)} required><option value="">Seleccionar…</option>{types.map((movementType) => <option key={movementType.code} value={movementType.code}>{movementType.name}</option>)}</select></label>
-          <label><span>Característica / color</span><select value={characteristicId} onChange={(event) => setCharacteristicId(event.target.value)} disabled={!product || characteristics.length === 0} required={Boolean(product?.include_stock_by_color && characteristics.length > 0)}><option value="">{!product ? "Selecciona un artículo" : characteristics.length === 0 ? "Sin características asignadas" : "Sin característica"}</option>{characteristics.map((characteristic) => <option key={characteristic.id} value={characteristic.id}>{characteristic.code}{characteristic.description ? ` · ${characteristic.description}` : ""}</option>)}</select>{product && characteristics.length === 0 && <small className="field-hint">Este artículo no tiene características asignadas; no es necesario seleccionar ninguna.</small>}</label>
-          {dimensions.length > 0 && <div className="stock-dimension-fields field-wide"><div className="stock-dimension-title"><Ruler size={15} /> Dimensiones del artículo</div><div className="stock-dimension-grid">{dimensions.map((dimension) => <label key={dimension.id}><span>{dimension.name} <small>({dimension.code}) *</small></span><div className="stock-dimension-input"><input type="number" min="0" step={dimension.decimals ? `0.${"0".repeat(Math.max(0, dimension.decimals - 1))}1` : "1"} value={dimensionValues[dimension.code] ?? ""} onChange={(event) => setDimensionValues((values) => ({ ...values, [dimension.code]: event.target.value }))} required /><em>u.{dimension.unit_id}</em></div></label>)}</div></div>}
-          <label><span>Cantidad *</span><input inputMode="decimal" type="number" min="0.0001" step="any" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
-          <label><span>Fecha y hora</span><input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-          <label><span>Referencia</span><input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={255} /></label>
-          <label className="field-wide"><span>Observaciones</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-          <div className="stock-form-actions field-wide"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "Guardando…" : <><Save size={15} /> Registrar movimiento</>}</button></div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            {error && <div className="inline-error">{error}</div>}
+            <div className="stock-form-grid">
+              <StockProductLookup companyId={companyId ?? 0} value={product} onChange={setProduct} />
+              <label><span>Almacén *</span><select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required><option value="">Seleccionar…</option>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></label>
+              <label><span>Tipo *</span><select value={type} onChange={(event) => setType(event.target.value)} required><option value="">Seleccionar…</option>{types.map((movementType) => <option key={movementType.code} value={movementType.code}>{movementType.name}</option>)}</select></label>
+              <label><span>Característica / color</span><select value={characteristicId} onChange={(event) => setCharacteristicId(event.target.value)} disabled={!product || characteristics.length === 0} required={Boolean(product?.include_stock_by_color && characteristics.length > 0)}><option value="">{!product ? "Selecciona un artículo" : characteristics.length === 0 ? "Sin características asignadas" : "Sin característica"}</option>{characteristics.map((characteristic) => <option key={characteristic.id} value={characteristic.id}>{characteristic.code}{characteristic.description ? ` · ${characteristic.description}` : ""}</option>)}</select>{product && characteristics.length === 0 && <small className="field-hint">Este artículo no tiene características asignadas; no es necesario seleccionar ninguna.</small>}</label>
+              {dimensions.length > 0 && <div className="stock-dimension-fields field-wide"><div className="stock-dimension-title"><Ruler size={15} /> Dimensiones del artículo</div><div className="stock-dimension-grid">{dimensions.map((dimension) => <label key={dimension.id}><span>{dimension.name} <small>({dimension.code}) *</small></span><div className="stock-dimension-input"><input type="number" min="0" step={dimension.decimals ? `0.${"0".repeat(Math.max(0, dimension.decimals - 1))}1` : "1"} value={dimensionValues[dimension.code] ?? ""} onChange={(event) => setDimensionValues((values) => ({ ...values, [dimension.code]: event.target.value }))} required /><em>u.{dimension.unit_id}</em></div></label>)}</div></div>}
+              <label><span>Cantidad *</span><input inputMode="decimal" type="number" min="0.0001" step="any" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
+              <label><span>Fecha y hora</span><input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+              <label><span>Referencia</span><input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={255} /></label>
+              <label className="field-wide"><span>Observaciones</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+            </div>
+          </div>
+          <div className="modal-actions-footer"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button type="submit" className="primary-button" disabled={saving}>{saving ? "Guardando…" : <><Save size={15} /> Registrar movimiento</>}</button></div>
         </form>
       </div>
     </div>
