@@ -297,36 +297,6 @@ a {
 .topbar-spacer {
   flex: 1;
 }
-.global-search {
-  width: 300px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 8px 7px 12px;
-  color: var(--muted);
-  background: var(--surface);
-}
-.global-search input {
-  border: 0;
-  outline: 0;
-  width: 100%;
-  background: transparent;
-  color: var(--text);
-}
-.global-search .kbd {
-  margin-left: auto;
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--muted-2);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 2px 6px;
-}
 .theme-toggle {
   width: 34px;
   height: 34px;
@@ -1359,9 +1329,6 @@ a {
   .content {
     padding: 24px;
   }
-  .global-search {
-    width: 280px;
-  }
   .quotation-lines-table td .lookup-field {
     min-width: 210px;
   }
@@ -1407,9 +1374,6 @@ a {
     border-radius: 7px;
     width: 38px;
     height: 38px;
-  }
-  .global-search {
-    display: none;
   }
   .content {
     padding: 18px 14px;
