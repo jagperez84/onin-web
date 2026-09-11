@@ -51,10 +51,180 @@ export type BillOfMaterialsCalculation = {
   formula_variables_used: Record<string, number>;
 };
 
+const BOM_FUNCTIONS = new Set(['MIN', 'MAX', 'CEIL', 'FLOOR', 'ROUND', 'ABS', 'SQRT']);
+
+// Parser recursivo descendente propio: nunca construye ni ejecuta texto como
+// código (nada de `new Function`/`eval`). Aritmética (+ - * /), comparaciones
+// (< <= > >= == != === !==), condicional ternario (?:) y las funciones
+// MIN/MAX/CEIL/FLOOR/ROUND/ABS/SQRT (alias insensibles a mayúsculas, como ya
+// hacía la implementación anterior). Cualquier sintaxis fuera de esta
+// gramática lanza un error de parseo capturado por evaluateFormula(), que
+// conserva el mismo contrato externo que tenía antes (silenciosamente
+// devuelve 1 ante cualquier fórmula vacía, inválida o no numérica).
+function parseBomExpression(source: string, context: Record<string, number>): number | boolean {
+  let position = 0;
+
+  const skipSpaces = () => {
+    while (position < source.length && /\s/.test(source[position])) position += 1;
+  };
+  const peek = () => {
+    skipSpaces();
+    return source[position];
+  };
+  const peekOp = (op: string) => source.startsWith(op, position);
+
+  const readNumber = (): number => {
+    skipSpaces();
+    const match = source.slice(position).match(/^(?:\d+(?:\.\d*)?|\.\d+)/);
+    if (!match) throw new Error(`Número no válido en posición ${position + 1}.`);
+    position += match[0].length;
+    return Number(match[0]);
+  };
+  const readIdentifier = (): string => {
+    skipSpaces();
+    const match = source.slice(position).match(/^[A-Za-z_][A-Za-z0-9_]*/);
+    if (!match) throw new Error(`Identificador no válido en posición ${position + 1}.`);
+    position += match[0].length;
+    return match[0];
+  };
+
+  const parseTernary = (): number | boolean => {
+    const condition = parseComparison();
+    skipSpaces();
+    if (source[position] !== '?') return condition;
+    position += 1;
+    const whenTrue = parseTernary();
+    skipSpaces();
+    if (source[position] !== ':') throw new Error(`Falta ':' en posición ${position + 1}.`);
+    position += 1;
+    const whenFalse = parseTernary();
+    return condition ? whenTrue : whenFalse;
+  };
+
+  const parseComparison = (): number | boolean => {
+    let value: number | boolean = parseAdditive();
+    skipSpaces();
+    const ops = ['===', '!==', '==', '!=', '<=', '>=', '<', '>'] as const;
+    const op = ops.find(peekOp);
+    if (op) {
+      position += op.length;
+      const right = parseAdditive();
+      switch (op) {
+        case '===': case '==': value = value === right; break;
+        case '!==': case '!=': value = value !== right; break;
+        case '<=': value = value <= right; break;
+        case '>=': value = value >= right; break;
+        case '<': value = value < right; break;
+        case '>': value = value > right; break;
+      }
+    }
+    return value;
+  };
+
+  const parseAdditive = (): number => {
+    let value = parseMultiplicative();
+    while (true) {
+      skipSpaces();
+      const operator = source[position];
+      if (operator !== '+' && operator !== '-') break;
+      position += 1;
+      const right = parseMultiplicative();
+      value = operator === '+' ? value + right : value - right;
+    }
+    return value;
+  };
+
+  const parseMultiplicative = (): number => {
+    let value = parseUnary();
+    while (true) {
+      skipSpaces();
+      const operator = source[position];
+      if (operator !== '*' && operator !== '/') break;
+      position += 1;
+      const right = parseUnary();
+      value = operator === '*' ? value * right : value / right;
+    }
+    return value;
+  };
+
+  const parseUnary = (): number => {
+    skipSpaces();
+    const current = source[position];
+    if (current === '+' || current === '-') {
+      position += 1;
+      const value = parseUnary();
+      return current === '-' ? -value : value;
+    }
+    if (current === '!') {
+      position += 1;
+      return parseUnary() ? 0 : 1;
+    }
+    return parsePrimary();
+  };
+
+  const parsePrimary = (): number => {
+    skipSpaces();
+    const current = source[position];
+
+    if (current === '(') {
+      position += 1;
+      const value = parseTernary();
+      skipSpaces();
+      if (source[position] !== ')') throw new Error(`Falta ')' en posición ${position + 1}.`);
+      position += 1;
+      return Number(value);
+    }
+    if (/\d|\./.test(current ?? '')) return readNumber();
+
+    const identifier = readIdentifier();
+    const upperId = identifier.toUpperCase();
+
+    if (peek() === '(') {
+      position += 1;
+      const args: number[] = [];
+      skipSpaces();
+      if (source[position] !== ')') {
+        while (true) {
+          args.push(Number(parseTernary()));
+          skipSpaces();
+          if (source[position] === ',') { position += 1; continue; }
+          if (source[position] === ')') break;
+          throw new Error(`Se esperaba ',' o ')' en posición ${position + 1}.`);
+        }
+      }
+      position += 1;
+      if (!BOM_FUNCTIONS.has(upperId)) throw new Error(`Función desconocida '${identifier}'.`);
+      switch (upperId) {
+        case 'MIN': return Math.min(...args);
+        case 'MAX': return Math.max(...args);
+        case 'CEIL': return Math.ceil(args[0]);
+        case 'FLOOR': return Math.floor(args[0]);
+        case 'ROUND': return Math.round(args[0]);
+        case 'ABS': return Math.abs(args[0]);
+        case 'SQRT': return Math.sqrt(args[0]);
+      }
+    }
+
+    const value = context[identifier];
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      throw new Error(`La variable '${identifier}' no está definida.`);
+    }
+    return value;
+  };
+
+  const result = parseTernary();
+  skipSpaces();
+  if (position !== source.length) {
+    throw new Error(`Carácter no permitido en posición ${position + 1}: '${source[position]}'.`);
+  }
+  return result;
+}
+
 /**
- * Safely evaluates a formula expression using the provided variable context.
- * Supports standard arithmetic, Math functions (min, max, ceil, floor, round, abs, sqrt),
- * and ternary conditions without relying on unsafe string evals.
+ * Evalúa una expresión de fórmula con el contexto de variables dado.
+ * Soporta aritmética estándar, funciones (min, max, ceil, floor, round, abs,
+ * sqrt), comparaciones y condicionales ternarios — mediante un parser propio,
+ * sin depender de `eval`/`new Function` en ningún punto.
  */
 export function evaluateFormula(expression: string, context: Record<string, number>): number {
   if (!expression || !expression.trim()) return 1;
@@ -66,34 +236,8 @@ export function evaluateFormula(expression: string, context: Record<string, numb
     return num;
   }
 
-  // Build sanitized evaluator
-  const varNames = Object.keys(context);
-  const varValues = Object.values(context);
-
-  // Normalize case-insensitivity in expression by replacing tokens
-  let parsedExpr = trimmed;
-
-  // Replace common function aliases
-  parsedExpr = parsedExpr
-    .replace(/\bMIN\s*\(/gi, 'Math.min(')
-    .replace(/\bMAX\s*\(/gi, 'Math.max(')
-    .replace(/\bCEIL\s*\(/gi, 'Math.ceil(')
-    .replace(/\bFLOOR\s*\(/gi, 'Math.floor(')
-    .replace(/\bROUND\s*\(/gi, 'Math.round(')
-    .replace(/\bABS\s*\(/gi, 'Math.abs(')
-    .replace(/\bSQRT\s*\(/gi, 'Math.sqrt(');
-
   try {
-    // Only allow alphanumeric, math operators, parentheses, commas, dots, and ternary
-    const sanitizedCheck = parsedExpr.replace(/Math\.(min|max|ceil|floor|round|abs|sqrt)/g, '');
-    if (/[^a-zA-Z0-9_\s+\-*/(),.?:<>=!]/g.test(sanitizedCheck)) {
-      console.warn('Invalid characters in formula:', expression);
-      return 1;
-    }
-
-    // Function constructor execution with bounded scope
-    const fn = new Function(...varNames, `return (${parsedExpr});`);
-    const result = fn(...varValues);
+    const result = parseBomExpression(trimmed, context);
     if (typeof result === 'number' && Number.isFinite(result)) {
       return round2(result);
     }

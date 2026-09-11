@@ -59,35 +59,48 @@ describe('evaluateFormula (billOfMaterialsService)', () => {
     expect(evaluateFormula('5/0', {})).toBe(1);
   });
 
-  it('rechaza caracteres no permitidos y cae a 1 (comillas, corchetes, punto y coma)', () => {
+  it('una sintaxis no reconocida por la gramática (comillas, corchetes, punto y coma) cae a 1', () => {
     expect(evaluateFormula('"a"', {})).toBe(1);
     expect(evaluateFormula('[1,2]', {})).toBe(1);
     expect(evaluateFormula('1;2', {})).toBe(1);
   });
 
-  describe('HALLAZGO DE SEGURIDAD: no es una gramática cerrada, ejecuta JavaScript arbitrario', () => {
+  it('admite comparaciones (< <= > >= == != === !==) y condicional ternario', () => {
+    expect(evaluateFormula('5>3?1:0', {})).toBe(1);
+    expect(evaluateFormula('5<3?1:0', {})).toBe(0);
+    expect(evaluateFormula('ANCHO>=2000?ANCHO*2:ANCHO', { ANCHO: 2500 })).toBe(5000);
+    expect(evaluateFormula('3==3?10:20', {})).toBe(10);
+    expect(evaluateFormula('3!=3?10:20', {})).toBe(20);
+  });
+
+  describe('REGRESIÓN DE SEGURIDAD: ya no ejecuta JavaScript arbitrario (corregido)', () => {
+    // El evaluador original delegaba en `new Function(...)` tras un simple
+    // filtro de caracteres permitidos (letras, puntos, paréntesis, coma y
+    // "="). Ese filtro no bloqueaba una asignación real a una variable
+    // global -y con más esfuerzo, JavaScript arbitrario sin comillas-, lo
+    // que era una inyección de código persistente: quantity_expression de
+    // un componente de despiece lo escribe quien edita el artículo/OTD, y
+    // se evaluaba automáticamente en el navegador de cualquier comercial
+    // que abriera un presupuesto que usara ese artículo.
+    //
+    // El evaluador actual es un parser recursivo-descendente propio (mismo
+    // patrón que src/services/otd/formulaEngine.ts): nunca convierte texto
+    // en código ejecutable, así que este payload ya no tiene ningún efecto
+    // -ni siquiera llega a "verse" como una asignación, es simplemente una
+    // sintaxis que la gramática no reconoce y descarta.
     afterEach(() => {
       delete (globalThis as Record<string, unknown>).__bomEvalPoc;
     });
 
-    it('un carácter en la lista blanca (letras, puntos, paréntesis, "=") basta para ejecutar efectos secundarios reales', () => {
-      // Esta fórmula solo usa caracteres "permitidos" por el filtro de
-      // evaluateFormula (letras, puntos, paréntesis, coma y "="), así que
-      // pasa el saneado y llega a `new Function(...)`. Pero el resultado no
-      // es aritmética: es una asignación a una variable global real,
-      // ejecutada con el mismo privilegio que el resto del script de la
-      // página (localStorage, document.cookie, fetch...).
-      //
-      // En este proyecto, quantity_expression de un componente de despiece
-      // lo escribe quien edita el artículo/OTD; se evalúa automáticamente
-      // en el navegador de cualquier comercial que abra un presupuesto que
-      // use ese artículo. Es un vector de inyección de código de
-      // almacenamiento persistente (stored), no una teoría: la prueba de
-      // abajo demuestra la ejecución real de un efecto secundario ajeno a
-      // la aritmética esperada.
+    it('el mismo payload que antes ejecutaba una asignación global ahora no tiene ningún efecto', () => {
       const result = evaluateFormula('(globalThis.__bomEvalPoc=1,1)', {});
-      expect((globalThis as Record<string, unknown>).__bomEvalPoc).toBe(1);
-      expect(result).toBe(1);
+      expect((globalThis as Record<string, unknown>).__bomEvalPoc).toBeUndefined();
+      expect(result).toBe(1); // cae al valor por defecto, como cualquier fórmula inválida
+    });
+
+    it('un identificador de función no soportada (p. ej. Function/eval) se trata como variable inexistente, no se invoca', () => {
+      expect(evaluateFormula('Function(1)', {})).toBe(1);
+      expect(evaluateFormula('eval(1)', {})).toBe(1);
     });
   });
 });
