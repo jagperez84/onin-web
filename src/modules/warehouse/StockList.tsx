@@ -179,9 +179,8 @@ export function StockList() {
         </div>
       </div>
 
-      <div className="stock-panel">
-        <div className="stock-table-wrap">
-          <table className="stock-table">
+      <div className="table-panel">
+        <table>
             <thead>
               <tr>
                 <th></th>
@@ -361,8 +360,7 @@ export function StockList() {
                 })
               )}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
     </div>
   );

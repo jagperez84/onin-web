@@ -100,9 +100,8 @@ export function StockReservations() {
           }}
         />
       )}
-      <div className="stock-panel">
-        <div className="stock-table-wrap">
-          <table className="stock-table">
+      <div className="table-panel">
+        <table>
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -166,8 +165,7 @@ export function StockReservations() {
                 ))
               )}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
     </div>
   );

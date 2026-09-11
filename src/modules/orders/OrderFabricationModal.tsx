@@ -305,8 +305,8 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                 </span>
               </div>
             )}
-            <div className="component-consumption-table-wrap">
-              <table className="component-consumption-table">
+            <div className="table-panel component-consumption-table-wrap">
+              <table>
                 <thead>
                   <tr>
                     <th>Línea</th>

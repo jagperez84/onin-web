@@ -69,9 +69,8 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
         <button className="primary-button" onClick={() => void load()}>Filtrar</button>
       </div>
       {error && <div className="inline-error">{error}</div>}
-      <div className="stock-panel">
-        <div className="stock-table-wrap">
-          <table className="stock-table">
+      <div className="table-panel">
+        <table>
             <thead><tr><th>Fecha</th><th>Tipo</th><th>Almacén</th><th>Artículo</th><th>Característica</th><th>Dimensiones</th><th className="numeric">Cantidad</th><th>Referencia</th></tr></thead>
             <tbody>
               {loading ? <tr><td colSpan={8}>Cargando…</td></tr> : rows.length === 0 ? <tr><td colSpan={8} className="empty">No hay movimientos.</td></tr> : rows.map((row) => (
@@ -87,8 +86,7 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
     </section>
   );

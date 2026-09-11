@@ -439,34 +439,7 @@
 
 /* Direct OTD Scaling Table */
 .otd-scale-table-wrap {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
   margin-top: 10px;
-}
-
-.otd-scale-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.otd-scale-table th {
-  background: var(--canvas-stripe);
-  color: var(--muted);
-  font-weight: 600;
-  padding: 10px 14px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-
-.otd-scale-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--canvas-stripe);
-}
-
-.otd-scale-table tr:last-child td {
-  border-bottom: none;
 }
 
 .otd-table-input {

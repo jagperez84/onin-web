@@ -69,6 +69,7 @@ export function WorkSheetDetail({ id, isModal = false, onClose }: { id: number; 
       )}
       <div className="work-sheet-cut-table">
         <h3>Material seleccionado y cortes</h3>
+        <div className="table-panel">
         <table>
           <thead>
             <tr><th>#</th><th>Almacén</th><th>Pieza seleccionada</th><th>Corte a realizar</th><th>Ud.</th><th>Remanente</th><th>Criterio</th></tr>
@@ -87,6 +88,7 @@ export function WorkSheetDetail({ id, isModal = false, onClose }: { id: number; 
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="work-sheet-instructions">
         <FileText size={17} />

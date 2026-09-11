@@ -57,30 +57,7 @@
 }
 
 .otd-options-view-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
   margin-top: 8px;
-}
-
-.otd-options-view-table th {
-  text-align: left;
-  padding: 8px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--canvas-stripe);
-  border-bottom: 1px solid var(--border);
-}
-
-.otd-options-view-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--canvas-stripe);
-  color: var(--text);
-}
-
-.otd-options-view-table tr:last-child td {
-  border-bottom: none;
 }
 
 .otd-options-view-table code {
@@ -114,40 +91,7 @@
   line-height: 1.5;
 }
 
-.otd-variables-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.otd-variables-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.otd-variables-table th {
-  text-align: left;
-  padding: 10px 14px;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--canvas-stripe);
-  border-bottom: 1px solid var(--border);
-}
-
-.otd-variables-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--canvas-stripe);
-  color: var(--text);
-}
-
-.otd-variables-table tr:last-child td {
-  border-bottom: none;
-}
-
-.otd-variables-table code {
+.otd-variables-table-wrap code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12.5px;
   background: var(--primary-soft);

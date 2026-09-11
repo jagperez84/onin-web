@@ -64,8 +64,8 @@ export function OtdScalesSection({
           crear las tarifas.
         </div>
       ) : (
-        <div className="otd-scale-table-wrap">
-          <table className="otd-scale-table">
+        <div className="table-panel otd-scale-table-wrap">
+          <table>
             <thead>
               <tr>
                 <th>#</th>

@@ -510,9 +510,9 @@ export function MeasurementTypesV1() {
             </button>
           </div>
 
-          <div className="catalog-table-wrap">
+          <div className="table-panel">
             <table
-              className="catalog-table measurement-table"
+              className="measurement-table"
               id="measurement-types-table"
             >
               <thead>

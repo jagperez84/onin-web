@@ -28,8 +28,8 @@ export function InvoiceList(){
    <span className="sales-order-count">{rows.length} {rows.length===1?'factura':'facturas'}</span>
   </div>
   {error&&<div className="inline-error">{error}</div>}
-  <div className="sales-order-table-card">
-   <div className="sales-order-table-wrap"><table>
+  <div className="table-panel sales-order-table-card">
+   <table>
     <thead><tr><th>Factura</th><th>Pedido</th><th>Referencia</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th className="numeric">Total</th><th></th></tr></thead>
     <tbody>
      {loading?<tr><td colSpan={8} className="sales-order-empty">Cargando facturas…</td></tr>:rows.length===0?<tr><td colSpan={8} className="sales-order-empty">No hay facturas.</td></tr>:rows.map(r=><tr key={r.id}>
@@ -43,7 +43,7 @@ export function InvoiceList(){
       <td className="sales-order-list-action"><Link className="icon-link" title="Ver factura" to={`/facturacion/facturas/${r.id}`}><Eye size={16}/></Link></td>
      </tr>)}
     </tbody>
-   </table></div>
+   </table>
   </div>
  </div>;
 }

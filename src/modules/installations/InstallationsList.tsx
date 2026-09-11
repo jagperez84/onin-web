@@ -116,9 +116,8 @@ export function InstallationsList() {
 
       {error && <div className="inline-error">{error}</div>}
 
-      <div className="sales-order-table-card">
-        <div className="sales-order-table-wrap">
-          <table>
+      <div className="table-panel sales-order-table-card">
+        <table>
             <thead>
               <tr>
                 <th>Fecha</th>
@@ -168,8 +167,7 @@ export function InstallationsList() {
                 })
               )}
             </tbody>
-          </table>
-        </div>
+        </table>
       </div>
     </div>
   );

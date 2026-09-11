@@ -334,8 +334,8 @@ export function QuotationDeliveryNoteModal({
                 </div>
               </div>
 
-              <div className="dn-table-wrap">
-                <table className="dn-table">
+              <div className="table-panel dn-table-wrap">
+                <table>
                   <thead>
                     <tr>
                       <th style={{ width: "40px" }}>#</th>

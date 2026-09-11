@@ -48,8 +48,8 @@ export function SalesOrderList(){
    <span className="sales-order-count">{rows.length} {rows.length===1?'pedido':'pedidos'}</span>
   </div>
   {error&&<div className="inline-error">{error}</div>}
-  <div className="sales-order-table-card">
-   <div className="sales-order-table-wrap"><table>
+  <div className="table-panel sales-order-table-card">
+   <table>
     <thead><tr><th>Pedido</th><th>Presupuesto</th><th>Referencia</th><th>Cliente</th><th>Fecha</th><th>Entrega solicitada</th><th>Estado</th><th className="numeric">Total</th><th></th></tr></thead>
     <tbody>
      {loading?<tr><td colSpan={9} className="sales-order-empty">Cargando pedidos…</td></tr>:rows.length===0?<tr><td colSpan={9} className="sales-order-empty">No hay pedidos.</td></tr>:rows.map(r=>{
@@ -66,7 +66,7 @@ export function SalesOrderList(){
       <td className="sales-order-list-action"><Link className="icon-link" title="Ver pedido" to={`/ventas/pedidos/${r.id}`}><Eye size={16}/></Link></td>
      </tr>;})}
     </tbody>
-   </table></div>
+   </table>
   </div>
  </div>;
 }

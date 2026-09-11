@@ -1,6 +1,5 @@
 .component-consumption-table-wrap {
-  overflow-x: auto;
-  padding: 0 24px 8px;
+  margin: 0 24px 8px;
 }
 
 .spin {
@@ -12,26 +11,7 @@
   to { transform: rotate(360deg); }
 }
 
-.component-consumption-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.component-consumption-table th,
-.component-consumption-table td {
-  padding: 10px 12px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.component-consumption-table th.numeric,
-.component-consumption-table td.numeric {
-  text-align: right;
-}
-
-.component-consumption-table select {
+.component-consumption-table-wrap select {
   padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid var(--border);

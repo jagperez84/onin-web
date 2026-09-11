@@ -112,7 +112,7 @@ export function InvoiceDetail(){
 
   <section className="quotation-card">
    <h2>Líneas</h2>
-   <div className="card-table"><table>
+   <div className="table-panel card-table"><table>
     <thead><tr><th>#</th><th>Descripción</th><th>Cantidad</th><th>Precio</th><th>Dto.%</th><th>IVA%</th><th>Total</th></tr></thead>
     <tbody>
      {(data.lines||[]).map(l=><tr key={l.id}>
@@ -131,7 +131,7 @@ export function InvoiceDetail(){
   <div className="quotation-section-grid">
    <section className="quotation-card">
     <h2>Desglose de IVA</h2>
-    <div className="card-table"><table>
+    <div className="table-panel card-table"><table>
      <thead><tr><th>Tipo</th><th>Base imponible</th><th>Cuota</th></tr></thead>
      <tbody>
       {(data.tax_breakdown||[]).map(tb=><tr key={tb.tax_percent}>
@@ -144,7 +144,7 @@ export function InvoiceDetail(){
    </section>
    <section className="quotation-card">
     <h2>Plazos de cobro</h2>
-    <div className="card-table"><table>
+    <div className="table-panel card-table"><table>
      <thead><tr><th>#</th><th>% del importe</th><th>Vencimiento</th><th>Importe</th><th>Estado</th></tr></thead>
      <tbody>
       {(data.installments||[]).map(i=><tr key={i.sequence}>

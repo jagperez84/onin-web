@@ -139,8 +139,8 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                 Hoja de componentes <strong>{sheet.code}</strong> · Stock descontado.
               </span>
             </div>
-            <div className="component-consumption-table-wrap">
-              <table className="component-consumption-table">
+            <div className="table-panel component-consumption-table-wrap">
+              <table>
                 <thead>
                   <tr>
                     <th>Componente</th>
@@ -183,8 +183,8 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
           </>
         ) : (
           <>
-            <div className="component-consumption-table-wrap">
-              <table className="component-consumption-table">
+            <div className="table-panel component-consumption-table-wrap">
+              <table>
                 <thead>
                   <tr>
                     <th>Componente</th>

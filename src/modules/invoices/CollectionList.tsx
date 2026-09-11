@@ -111,8 +111,8 @@ export function CollectionList(){
    <span className="sales-order-count">{rows.length} plazo{rows.length===1?'':'s'}{status!=='COLLECTED'&&<> · {money(pendingTotal)} pendiente{overdueCount>0&&<span className="installation-overdue"> · {overdueCount} vencido{overdueCount===1?'':'s'}</span>}</>}</span>
   </div>
   {error&&<div className="inline-error">{error}</div>}
-  <div className="sales-order-table-card">
-   <div className="sales-order-table-wrap"><table>
+  <div className="table-panel sales-order-table-card">
+   <table>
     <thead><tr><th>Vencimiento</th><th>Factura</th><th>Cliente</th><th>Plazo</th><th className="numeric">Importe</th><th>Estado</th><th></th></tr></thead>
     <tbody>
      {loading?<tr><td colSpan={7} className="sales-order-empty">Cargando cobros…</td></tr>:rows.length===0?<tr><td colSpan={7} className="sales-order-empty">No hay plazos que mostrar.</td></tr>:rows.map(r=>{
@@ -135,7 +135,7 @@ export function CollectionList(){
       </tr>;
      })}
     </tbody>
-   </table></div>
+   </table>
   </div>
   {collectRow&&<CollectModal row={collectRow} onClose={()=>setCollectRow(null)} onDone={()=>{setCollectRow(null);void load();}}/>}
  </div>;

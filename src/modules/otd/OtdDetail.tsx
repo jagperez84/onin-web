@@ -611,7 +611,8 @@ export function OtdDetail() {
                           Sin opciones configuradas.
                         </div>
                       ) : (
-                        <table className="otd-options-view-table">
+                        <div className="table-panel otd-options-view-table">
+                        <table>
                           <thead>
                             <tr>
                               <th>Nombre visible</th>
@@ -631,6 +632,7 @@ export function OtdDetail() {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       )}
                     </div>
                   )}
@@ -656,8 +658,8 @@ export function OtdDetail() {
                 No hay tarifas de escalado base definidas para este OTD.
               </div>
             ) : (
-              <div className="otd-scale-table-wrap">
-                <table className="otd-scale-table">
+              <div className="table-panel otd-scale-table-wrap">
+                <table>
                   <thead>
                     <tr>
                       <th>#</th>
@@ -728,8 +730,8 @@ export function OtdDetail() {
                 No hay variables calculadas definidas en este OTD.
               </div>
             ) : (
-              <div className="otd-variables-table-wrap">
-                <table className="otd-variables-table">
+              <div className="table-panel otd-variables-table-wrap">
+                <table>
                   <thead>
                     <tr>
                       <th>Código</th>

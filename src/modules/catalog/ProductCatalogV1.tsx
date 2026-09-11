@@ -653,8 +653,8 @@ export function ProductCatalogV1() {
           {loading ? (
             <div className="loading-block">Cargando…</div>
           ) : (
-            <div className="catalog-table-wrap">
-              <table className="catalog-table">
+            <div className="table-panel">
+              <table>
                 <thead>
                   <tr>
                     <th>Código</th>
@@ -775,10 +775,8 @@ export function ProductCatalogV1() {
                   })}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={family ? 9 : behavior ? 5 : 6}>
-                        <div className="empty-state">
-                          No hay registros para este estado.
-                        </div>
+                      <td colSpan={family ? 9 : behavior ? 5 : 6} className="empty">
+                        No hay registros para este estado.
                       </td>
                     </tr>
                   )}
@@ -1306,8 +1304,8 @@ export function ProductCatalogV1() {
                 <Save size={15} /> Guardar valor
               </button>
             </div>
-            <div className="catalog-table-wrap">
-              <table className="catalog-table">
+            <div className="table-panel">
+              <table>
                 <thead>
                   <tr>
                     <th>Código</th>
