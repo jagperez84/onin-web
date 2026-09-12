@@ -235,6 +235,10 @@ grant execute on function public.create_delivery_note_for_lines(bigint, bigint, 
 --    instalación cubre (installation_line), no con todo el pedido. El pedido pasa a
 --    INSTALLED únicamente cuando ya no queda ninguna línea pendiente de entrega
 --    (ni de montaje ni de entrega manual de artículo simple).
+--    Postgres no permite cambiar el tipo de retorno con create or replace (antes
+--    devolvía void); hay que borrar la función anterior primero.
+drop function if exists public.complete_installation(bigint, varchar, varchar);
+
 create or replace function public.complete_installation(
   p_installation_id bigint,
   p_end_time varchar,
