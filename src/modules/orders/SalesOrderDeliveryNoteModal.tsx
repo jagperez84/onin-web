@@ -111,7 +111,7 @@ export function SalesOrderDeliveryNoteModal({
                 </div>
                 <div className="party-name">{current.customer_name}</div>
                 {current.customer_legal_name && <div className="party-sub">{current.customer_legal_name}</div>}
-                <div className="party-detail">Comercial: {current.commercial_name || "Sin asignar"}</div>
+                <div className="party-detail">Pedido: {current.sales_order_code}</div>
               </div>
 
               <div className="dn-party-card">

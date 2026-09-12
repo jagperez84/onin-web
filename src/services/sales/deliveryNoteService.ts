@@ -31,7 +31,6 @@ export type DeliveryNote = {
   delivery_city?: string;
   delivery_postal_code?: string;
   delivery_region?: string;
-  commercial_name?: string;
   issue_date: string;
   delivery_date: string | null;
   carrier: string | null;
@@ -59,14 +58,12 @@ const SELECT =
   'id,code,sales_order_id,installation_id,customer_id,issue_date,delivery_date,carrier,tracking_number,' +
   'delivery_address_street,delivery_address_city,delivery_address_postal_code,delivery_address_region,' +
   'status,notes,net_amount,tax_amount,total_amount,created_at,' +
-  'sales_order:sales_order_id(code,commercial:commercial_id(party:party_id(legal_name,trade_name))),' +
+  'sales_order:sales_order_id(code),' +
   'customer:customer_id(party:party_id(legal_name,trade_name)),' +
   'lines:delivery_note_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,net_amount,total_amount,specific_data,product:product_id(code))';
 
 function mapRow(row: any): DeliveryNote {
   const salesOrder = one(row.sales_order);
-  const commercial = one(salesOrder?.commercial);
-  const commercialParty = one(commercial?.party);
   const customer = one(row.customer);
   const customerParty = one(customer?.party);
   const lines: DeliveryNoteLine[] = (row.lines || [])
@@ -103,7 +100,6 @@ function mapRow(row: any): DeliveryNote {
     delivery_city: row.delivery_address_city || '',
     delivery_postal_code: row.delivery_address_postal_code || '',
     delivery_region: row.delivery_address_region || '',
-    commercial_name: commercialParty?.trade_name || commercialParty?.legal_name || '',
     issue_date: row.issue_date,
     delivery_date: row.delivery_date,
     carrier: row.carrier,
