@@ -1,5 +1,7 @@
 # ONIN — Clientes vertical slice
 
+> Este documento cubre el vertical slice original de Clientes. Desde entonces la ficha de cliente ha crecido con secciones propias (ver más abajo); para el resto de la aplicación consulta `README.md` y el Centro de Ayuda (`/ayuda`).
+
 ## Implementado
 - Listado de clientes conectado a Supabase.
 - Búsqueda por nombre, nombre comercial, CIF/NIF y código.
@@ -12,6 +14,9 @@
 - Gestión CRUD de contactos.
 - Terminología `Listado de Clientes` y `Volver al listado`.
 - Responsive básico para listado y formularios.
+- Descuentos comerciales por familia, por artículo y por OTD (genérico + específico, con prioridad entre niveles).
+- Documentos del cliente: presupuestos, pedidos, albaranes y facturas en una vista filtrable, con estadísticas de impacto (aceptación de presupuestos, importe de pedidos, ticket medio, total facturado).
+- Cobros pendientes del cliente, con los vencidos resaltados.
 
 ## Decisiones
 - El alta Party + Customer + Party Role se hace mediante una función PostgreSQL para mantener atomicidad.
@@ -22,5 +27,5 @@
 - API propia separada de Supabase para reglas de negocio finales.
 - RLS específico de producción.
 - Dirección geográfica asistida.
-- Relación con comerciales, formas de pago y descuentos.
+- Relación con comerciales.
 - Auditoría detallada.

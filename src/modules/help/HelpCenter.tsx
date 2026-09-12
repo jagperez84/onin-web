@@ -411,6 +411,21 @@ const articles: HelpArticle[] = [
     ],
   },
   {
+    id: "gestion-crm",
+    title: "CRM",
+    summary: "Área reservada para la gestión comercial de oportunidades y seguimiento de clientes; aún no está implementada.",
+    section: "Gestión",
+    icon: Users,
+    route: "/gestion/crm",
+    keywords: ["CRM", "oportunidad", "seguimiento", "comercial", "en desarrollo"],
+    status: "En desarrollo",
+    steps: [
+      "La entrada Gestión > CRM existe en la navegación pero todavía no tiene funcionalidad propia en ONIN Web.",
+      "Para el seguimiento comercial actual, utiliza Presupuestos y la ficha de cliente (Documentos y Descuentos).",
+    ],
+    warnings: ["No existe todavía ningún dato ni proceso de negocio detrás de esta pantalla."],
+  },
+  {
     id: "produccion-hojas",
     title: "Producción: hojas de trabajo",
     summary: "Consulta y abre las hojas de trabajo utilizadas en producción.",
@@ -460,6 +475,21 @@ const articles: HelpArticle[] = [
     warnings: ["La ayuda describe las relaciones funcionales identificadas en el modelo heredado; no sustituye una instrucción específica de fabricación cuando la regla de negocio sea particular de un producto."],
   },
   {
+    id: "informes",
+    title: "Informes",
+    summary: "Área reservada para cuadros de mando e informes de negocio; aún no está implementada.",
+    section: "Informes",
+    icon: ClipboardList,
+    route: "/informes",
+    keywords: ["informe", "cuadro de mando", "dashboard", "estadística", "en desarrollo"],
+    status: "En desarrollo",
+    steps: [
+      "La sección Informes existe en la navegación pero todavía no tiene contenido propio en ONIN Web.",
+      "El resumen de negocio (presupuestado, pedidos en curso, entregas próximas, montajes programados, stock bajo mínimo) ya está disponible en Inicio.",
+      "Para el impacto de un cliente concreto, consulta su apartado Documentos en la ficha de cliente.",
+    ],
+  },
+  {
     id: "facturacion-albaranes",
     title: "Facturación: albaranes",
     summary: "Consulta los documentos de entrega, generados desde el pedido fabricado y, si aplica, desde su montaje.",
@@ -501,13 +531,14 @@ const articles: HelpArticle[] = [
     section: "Configuración",
     icon: Users,
     route: "/configuracion/usuarios",
-    keywords: ["usuario", "usuarios", "acceso", "seguridad", "administrador"],
+    keywords: ["usuario", "usuarios", "acceso", "seguridad", "administrador", "rol", "permiso", "empresa", "oficina", "taller", "confección", "montador"],
     status: "Disponible",
     steps: [
-      "Entra en Configuración > Usuarios.",
-      "Consulta el listado y abre el usuario que necesites revisar.",
-      "Gestiona los datos permitidos por la pantalla y evita compartir credenciales entre personas.",
-      "Cuando exista separación por empresa, comprueba siempre la empresa activa antes de operar con datos sensibles.",
+      "Entra en Configuración > Usuarios (solo visible para administradores).",
+      "Cada usuario tiene un rol: Administrador, Oficina, Taller, Confección o Montador.",
+      "En Empresas asignadas defines a qué empresas puede acceder ese usuario y entre cuáles puede cambiar.",
+      "Un Administrador ve siempre todos los módulos; para el resto de roles, en Permisos por módulo marcas exactamente qué secciones del menú puede ver ese usuario.",
+      "Evita compartir credenciales entre personas: cada acción queda asociada al usuario autenticado.",
     ],
     warnings: ["La seguridad de datos por empresa debe respetarse en todos los módulos. No utilices la ayuda como autorización para acceder a datos de otra empresa."],
   },
@@ -575,7 +606,7 @@ const articles: HelpArticle[] = [
   },
 ];
 
-const sectionOrder = ["Primeros pasos", "Ventas", "Compras", "Almacén", "Gestión", "Facturación", "Producción", "Configuración"];
+const sectionOrder = ["Primeros pasos", "Ventas", "Compras", "Almacén", "Gestión", "Facturación", "Producción", "Informes", "Configuración"];
 
 export function HelpCenter() {
   const [query, setQuery] = useState("");
