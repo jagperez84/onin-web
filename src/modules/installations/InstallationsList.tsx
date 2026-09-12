@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, Search } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import {
+  INSTALLATION_STATUS_LABEL as statusLabel,
+  INSTALLATION_STATUS_TONE as statusTone,
   listInstallations,
   listInstallers,
   resolveCurrentCompanyId,
@@ -12,9 +14,6 @@ import {
 } from '../../services/production/installationService';
 import '../orders/sales-order.css';
 import '../orders/installation.css';
-
-const statusLabel: Record<InstallationStatus, string> = { SCHEDULED: 'Programada', IN_PROGRESS: 'En curso', BLOCKED: 'Bloqueada', COMPLETED: 'Completada', CANCELLED: 'Cancelada' };
-const statusTone: Record<InstallationStatus, string> = { SCHEDULED: '', IN_PROGRESS: 'warning', BLOCKED: 'danger', COMPLETED: 'success', CANCELLED: 'danger' };
 const fmtDate = (v: string | null) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('es-ES') : '—');
 const todayStr = () => new Date().toISOString().slice(0, 10);
 

@@ -7,6 +7,8 @@ import {
   cancelInstallation,
   completeInstallation,
   getInstallation,
+  INSTALLATION_STATUS_LABEL as STATUS_LABEL,
+  INSTALLATION_STATUS_TONE as STATUS_TONE,
   listInstallationTypes,
   listInstallers,
   reportInstallationIncident,
@@ -24,13 +26,6 @@ import './installation.css';
 
 export type InstallableLine = { id: number; lineNo: number; label: string };
 
-const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: 'Programado',
-  IN_PROGRESS: 'En curso',
-  BLOCKED: 'Bloqueado por incidencia',
-  COMPLETED: 'Completado',
-  CANCELLED: 'Cancelado',
-};
 const SEVERITY_LABEL: Record<IncidentSeverity, string> = { LOW: 'Leve', MEDIUM: 'Moderada', HIGH: 'Grave' };
 const SEVERITY_PILL: Record<IncidentSeverity, string> = { LOW: '', MEDIUM: 'warning', HIGH: 'danger' };
 
@@ -171,6 +166,7 @@ export function InstallationModal({ order, companyId, installation: initialInsta
     setSaving(true);
     setSaveError('');
     try {
+      const wasNew = !installation;
       const result = await upsertInstallation({
         id: installation?.id ?? null,
         companyId,
@@ -184,7 +180,13 @@ export function InstallationModal({ order, companyId, installation: initialInsta
         salesOrderLineIds: installation ? undefined : Array.from(selectedLineIds),
       });
       onDone(result);
-      onClose();
+      if (wasNew) {
+        // Se queda abierto en modo gestión: así se puede añadir ya la primera
+        // jornada de trabajo sin tener que cerrar y volver a abrir "Gestionar".
+        setInstallation(result);
+      } else {
+        onClose();
+      }
     } catch (value) {
       setSaveError(value instanceof CoreRepositoryError || value instanceof Error ? value.message : 'No se pudo guardar el montaje.');
     } finally {
@@ -232,7 +234,7 @@ export function InstallationModal({ order, companyId, installation: initialInsta
             <h2>
               {installation ? `Montaje de ${order.code}` : `Programar visita de montaje · ${order.code}`}
               {installation && (
-                <span className={`status-pill ${installation.status === 'COMPLETED' ? 'success' : installation.status === 'BLOCKED' ? 'danger' : installation.status === 'IN_PROGRESS' ? 'warning' : ''}`} style={{ marginLeft: 10 }}>
+                <span className={`status-pill ${STATUS_TONE[installation.status]}`} style={{ marginLeft: 10 }}>
                   {STATUS_LABEL[installation.status]}
                 </span>
               )}

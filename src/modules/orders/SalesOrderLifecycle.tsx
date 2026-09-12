@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  AlertTriangle,
   CalendarClock,
   CheckCircle2,
   Clock,
@@ -15,15 +16,17 @@ import type { SalesOrder } from '../../services/sales/salesOrderService';
 import type { WorkSheet } from '../../services/production/workSheetService';
 import type { LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
 import type { ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
-import type { Installation } from '../../services/production/installationService';
+import type { Installation, InstallationIncident } from '../../services/production/installationService';
 
 type StageState = 'done' | 'active' | 'pending' | 'unavailable';
+type StageTone = 'warning' | 'danger';
 
 type Stage = {
   key: string;
   label: string;
   detail: string;
   state: StageState;
+  tone?: StageTone;
   icon: ReactNode;
   to?: string;
   onClick?: () => void;
@@ -87,9 +90,20 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
         ? 'active'
         : 'pending';
 
-  const hasActiveInstallation = installations.some((i) => i.status === 'SCHEDULED');
+  const workingStatuses = ['SCHEDULED', 'IN_PROGRESS', 'BLOCKED'];
+  const hasActiveInstallation = installations.some((i) => workingStatuses.includes(i.status));
   const allInstallationsCompleted = installations.length > 0 && installations.every((i) => i.status === 'COMPLETED');
-  const latestInstallation = installations.find((i) => i.status === 'SCHEDULED') ?? installations[0] ?? null;
+  const blockedInstallation = installations.find((i) => i.status === 'BLOCKED') ?? null;
+  const openIncident: { installation: Installation; incident: InstallationIncident } | null =
+    installations
+      .flatMap((i) => i.incidents.filter((inc) => inc.status === 'OPEN').map((incident) => ({ installation: i, incident })))
+      .sort((a, b) => b.incident.reportedAt.localeCompare(a.incident.reportedAt))[0] ?? null;
+  const latestInstallation =
+    blockedInstallation ??
+    installations.find((i) => i.status === 'IN_PROGRESS') ??
+    installations.find((i) => i.status === 'SCHEDULED') ??
+    installations[0] ??
+    null;
 
   const installationState: StageState = isCancelled
     ? 'unavailable'
@@ -100,6 +114,7 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
         : isManufactured
           ? 'pending'
           : 'unavailable';
+  const installationTone: StageTone | undefined = blockedInstallation ? 'danger' : openIncident ? 'warning' : undefined;
 
   const deliveryState: StageState = isCancelled
     ? 'unavailable'
@@ -117,6 +132,9 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
     hasStartedFabrication,
     fabricationState,
     installationState,
+    installationTone,
+    blockedInstallation,
+    openIncident,
     deliveryState,
     latestFabricationDate,
     latestInstallation,
@@ -180,8 +198,18 @@ export function SalesOrderLifecycleStepper({
   onInstall: () => void;
   onViewProductionSheets: () => void;
 }) {
-  const { isCancelled, hasStartedFabrication, fabricationState, installationState, deliveryState, latestFabricationDate, latestInstallation } =
-    useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, pendingDeliveryLines, totalDeliveryLines });
+  const {
+    isCancelled,
+    hasStartedFabrication,
+    fabricationState,
+    installationState,
+    installationTone,
+    blockedInstallation,
+    openIncident,
+    deliveryState,
+    latestFabricationDate,
+    latestInstallation,
+  } = useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, pendingDeliveryLines, totalDeliveryLines });
 
   const stages: Stage[] = [
     ...(order.measurement_id
@@ -227,16 +255,20 @@ export function SalesOrderLifecycleStepper({
     {
       key: 'installation',
       label: 'Montaje',
-      detail:
-        installationState === 'done'
-          ? `Completado${installations.length > 1 ? ` · ${installations.length} visitas` : ''}`
-          : installationState === 'active'
-            ? `Programado · ${shortDate(latestInstallation?.scheduledDate) || '—'}${installations.length > 1 ? ` (${installations.length} visitas)` : ''}`
-            : installationState === 'pending'
-              ? 'Pendiente'
-              : 'No disponible aún',
+      detail: blockedInstallation
+        ? 'Bloqueado por incidencia'
+        : openIncident
+          ? 'Incidencia abierta'
+          : installationState === 'done'
+            ? `Completado${installations.length > 1 ? ` · ${installations.length} visitas` : ''}`
+            : installationState === 'active'
+              ? `Programado · ${shortDate(latestInstallation?.scheduledDate) || '—'}${installations.length > 1 ? ` (${installations.length} visitas)` : ''}`
+              : installationState === 'pending'
+                ? 'Pendiente'
+                : 'No disponible aún',
       state: installationState,
-      icon: <CalendarClock size={17} />,
+      tone: installationTone,
+      icon: blockedInstallation || openIncident ? <AlertTriangle size={17} /> : <CalendarClock size={17} />,
       onClick: installationState === 'active' || installationState === 'done' || installationState === 'pending' ? onInstall : undefined,
     },
     {
@@ -264,15 +296,31 @@ export function SalesOrderLifecycleStepper({
 
   const nextStep = isCancelled
     ? null
-    : fabricationState !== 'done'
+    : blockedInstallation
       ? {
-          tone: 'info' as const,
-          title: 'Próximo paso: fabricar el pedido',
-          detail: 'Corte de perfil, confección de lona y componentes desde un mismo asistente.',
-          actionLabel: 'Fabricar pedido',
-          onAction: onFabricate,
+          tone: 'danger' as const,
+          title: 'Montaje bloqueado por una incidencia',
+          detail: openIncident ? openIncident.incident.description : 'Resuelve la incidencia para poder continuar con el montaje.',
+          actionLabel: 'Ver montaje',
+          onAction: onInstall,
         }
-      : installationState === 'pending'
+      : openIncident
+        ? {
+            tone: 'warning' as const,
+            title: 'Incidencia abierta en el montaje',
+            detail: openIncident.incident.description,
+            actionLabel: 'Ver montaje',
+            onAction: onInstall,
+          }
+        : fabricationState !== 'done'
+          ? {
+              tone: 'info' as const,
+              title: 'Próximo paso: fabricar el pedido',
+              detail: 'Corte de perfil, confección de lona y componentes desde un mismo asistente.',
+              actionLabel: 'Fabricar pedido',
+              onAction: onFabricate,
+            }
+          : installationState === 'pending'
         ? {
             tone: 'info' as const,
             title: 'Próximo paso: programar el montaje',
@@ -327,11 +375,11 @@ export function SalesOrderLifecycleStepper({
           {stages.map((stage, i) => {
             const content = (
               <>
-                <div className={`lifecycle-stage-dot ${stage.state}`}>
+                <div className={`lifecycle-stage-dot ${stage.state} ${stage.tone ?? ''}`}>
                   {stage.state === 'done' ? <CheckCircle2 size={18} /> : stage.icon}
                 </div>
                 <div className="lifecycle-stage-label">{stage.label}</div>
-                <div className={`lifecycle-stage-detail ${stage.state}`}>{stage.detail}</div>
+                <div className={`lifecycle-stage-detail ${stage.state} ${stage.tone ?? ''}`}>{stage.detail}</div>
               </>
             );
             return (
@@ -359,7 +407,13 @@ export function SalesOrderLifecycleStepper({
       {nextStep && (
         <div className={`lifecycle-callout ${nextStep.tone}`}>
           <div className="lifecycle-callout-icon">
-            {nextStep.tone === 'success' ? <CheckCircle2 size={19} /> : <Clock size={19} />}
+            {nextStep.tone === 'success' ? (
+              <CheckCircle2 size={19} />
+            ) : nextStep.tone === 'danger' || nextStep.tone === 'warning' ? (
+              <AlertTriangle size={19} />
+            ) : (
+              <Clock size={19} />
+            )}
           </div>
           <div className="lifecycle-callout-body">
             <div className="lifecycle-callout-title">{nextStep.title}</div>

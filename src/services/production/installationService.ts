@@ -21,6 +21,23 @@ export type InstallationType = { id: number; companyId: number; description: str
 
 export type InstallationStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'BLOCKED' | 'COMPLETED' | 'CANCELLED';
 
+export const INSTALLATION_STATUS_LABEL: Record<InstallationStatus, string> = {
+  SCHEDULED: 'Programado',
+  IN_PROGRESS: 'En curso',
+  BLOCKED: 'Bloqueado por incidencia',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
+};
+
+/** Tono para `.status-pill` / `.lifecycle-*` — sin modificador para SCHEDULED (info). */
+export const INSTALLATION_STATUS_TONE: Record<InstallationStatus, string> = {
+  SCHEDULED: '',
+  IN_PROGRESS: 'warning',
+  BLOCKED: 'danger',
+  COMPLETED: 'success',
+  CANCELLED: 'danger',
+};
+
 export type Installer = { id: number; name: string };
 
 export type IncidentSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
