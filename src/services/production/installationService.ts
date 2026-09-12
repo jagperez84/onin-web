@@ -41,6 +41,8 @@ export type Installation = {
   updatedAt: string;
   salesOrderCode?: string | null;
   customerName?: string | null;
+  /** Líneas del pedido (sales_order_line.id) que cubre esta visita de montaje. */
+  lineIds: number[];
 };
 
 function mapInstallation(row: any): Installation {
@@ -62,10 +64,11 @@ function mapInstallation(row: any): Installation {
     updatedAt: row.updated_at,
     salesOrderCode: row.sales_order?.code ?? null,
     customerName: row.sales_order?.customer?.party?.trade_name || row.sales_order?.customer?.party?.legal_name || null,
+    lineIds: Array.isArray(row.lines) ? row.lines.map((l: any) => Number(l.sales_order_line_id)) : [],
   };
 }
 
-const SELECT = 'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name)))';
+const SELECT = 'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),lines:installation_line(sales_order_line_id)';
 
 export async function listInstallationTypes(companyId: number): Promise<InstallationType[]> {
   const c = client();
@@ -82,11 +85,12 @@ export async function listInstallers(companyId: number): Promise<Installer[]> {
   return source.map(u => ({ id: u.id, name: u.display_name || u.username }));
 }
 
-export async function getInstallationBySalesOrder(salesOrderId: number): Promise<Installation | null> {
+/** Todas las visitas de montaje activas (no canceladas) de un pedido — puede haber varias, cada una cubriendo líneas distintas. */
+export async function listInstallationsBySalesOrder(salesOrderId: number): Promise<Installation[]> {
   const c = client();
-  const { data, error } = await c.from('installation').select(SELECT).eq('sales_order_id', salesOrderId).neq('status', 'CANCELLED').order('id', { ascending: false }).limit(1).maybeSingle();
+  const { data, error } = await c.from('installation').select(SELECT).eq('sales_order_id', salesOrderId).neq('status', 'CANCELLED').order('id', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
-  return data ? mapInstallation(data) : null;
+  return (data ?? []).map(mapInstallation);
 }
 
 export type InstallationFilters = { companyId: number; status?: InstallationStatus | 'ALL'; from?: string; to?: string; search?: string };
@@ -117,6 +121,8 @@ export async function upsertInstallation(input: {
   estimatedDuration: string | null;
   installers: Installer[];
   notes: string | null;
+  /** Líneas del pedido que cubre esta visita. Solo se aplica al crear; no se puede reasignar después. */
+  salesOrderLineIds?: number[];
 }): Promise<Installation> {
   const c = client();
   const payload = {
@@ -129,18 +135,29 @@ export async function upsertInstallation(input: {
     installers: input.installers,
     notes: input.notes,
   };
-  const query = input.id
-    ? c.from('installation').update(payload).eq('id', input.id).select(SELECT).single()
-    : c.from('installation').insert({ ...payload, status: 'SCHEDULED' }).select(SELECT).single();
-  const { data, error } = await query;
+  if (input.id) {
+    const { data, error } = await c.from('installation').update(payload).eq('id', input.id).select(SELECT).single();
+    if (error) throw new CoreRepositoryError(error.message);
+    return mapInstallation(data);
+  }
+  const { data: created, error: createError } = await c.from('installation').insert({ ...payload, status: 'SCHEDULED' }).select(SELECT).single();
+  if (createError) throw new CoreRepositoryError(createError.message);
+  const lineIds = input.salesOrderLineIds ?? [];
+  if (lineIds.length) {
+    const { error: linesError } = await c.from('installation_line').insert(lineIds.map((id) => ({ installation_id: created.id, sales_order_line_id: id })));
+    if (linesError) throw new CoreRepositoryError(linesError.message);
+  }
+  const { data, error } = await c.from('installation').select(SELECT).eq('id', created.id).single();
   if (error) throw new CoreRepositoryError(error.message);
   return mapInstallation(data);
 }
 
-export async function completeInstallation(id: number, endTime: string, actualDuration: string): Promise<void> {
+/** Completa la instalación y genera su albarán (solo con las líneas que cubre). Devuelve el id del albarán generado, o null si no tenía líneas asignadas. */
+export async function completeInstallation(id: number, endTime: string, actualDuration: string): Promise<number | null> {
   const c = client();
-  const { error } = await c.rpc('complete_installation', { p_installation_id: id, p_end_time: endTime, p_actual_duration: actualDuration });
+  const { data, error } = await c.rpc('complete_installation', { p_installation_id: id, p_end_time: endTime, p_actual_duration: actualDuration });
   if (error) throw new CoreRepositoryError(error.message);
+  return data == null ? null : Number(data);
 }
 
 export async function cancelInstallation(id: number): Promise<void> {

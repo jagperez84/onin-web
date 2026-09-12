@@ -58,10 +58,13 @@ type LifecycleProps = {
   cutSheets: WorkSheet[];
   lonaSheets: LonaConfectionWorkSheet[];
   componentSheets: ComponentConsumptionWorkSheet[];
-  installation: Installation | null;
+  installations: Installation[];
+  /** Nº de líneas del pedido con algo aún pendiente de entregar (delivery_note). */
+  pendingDeliveryLines?: number;
+  totalDeliveryLines?: number;
 };
 
-function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installation }: LifecycleProps) {
+function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, pendingDeliveryLines, totalDeliveryLines }: LifecycleProps) {
   const status = order.status;
   const isCancelled = status === 'CANCELLED';
   const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED'].includes(status);
@@ -84,20 +87,43 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
         ? 'active'
         : 'pending';
 
+  const hasActiveInstallation = installations.some((i) => i.status === 'SCHEDULED');
+  const allInstallationsCompleted = installations.length > 0 && installations.every((i) => i.status === 'COMPLETED');
+  const latestInstallation = installations.find((i) => i.status === 'SCHEDULED') ?? installations[0] ?? null;
+
   const installationState: StageState = isCancelled
     ? 'unavailable'
-    : installation?.status === 'COMPLETED'
-      ? 'done'
-      : installation?.status === 'SCHEDULED'
-        ? 'active'
+    : hasActiveInstallation
+      ? 'active'
+      : allInstallationsCompleted
+        ? 'done'
         : isManufactured
           ? 'pending'
           : 'unavailable';
 
-  return { isCancelled, isManufactured, hasStartedFabrication, fabricationState, installationState, latestFabricationDate };
+  const deliveryState: StageState = isCancelled
+    ? 'unavailable'
+    : !isManufactured
+      ? 'unavailable'
+      : totalDeliveryLines != null && pendingDeliveryLines === 0
+        ? 'done'
+        : totalDeliveryLines != null && pendingDeliveryLines != null && pendingDeliveryLines < totalDeliveryLines
+          ? 'active'
+          : 'pending';
+
+  return {
+    isCancelled,
+    isManufactured,
+    hasStartedFabrication,
+    fabricationState,
+    installationState,
+    deliveryState,
+    latestFabricationDate,
+    latestInstallation,
+  };
 }
 
-function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installation }: LifecycleProps): TimelineEvent[] {
+function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations }: LifecycleProps): TimelineEvent[] {
   return [
     { key: 'order-created', date: order.issue_date, title: 'Pedido creado a partir del presupuesto' },
     ...cutSheets.map((s) => ({
@@ -118,25 +144,23 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
       title: 'Componentes descontados',
       docCode: s.code,
     })),
-    ...(installation
-      ? [
-          {
-            key: 'install-scheduled',
-            date: installation.createdAt,
-            title: 'Montaje programado',
-            detail: `${shortDate(installation.scheduledDate)}${installation.startTime ? ` · ${installation.startTime}` : ''}`,
-          },
-          ...(installation.status === 'COMPLETED'
-            ? [
-                {
-                  key: 'install-completed',
-                  date: installation.updatedAt,
-                  title: 'Montaje completado',
-                },
-              ]
-            : []),
-        ]
-      : []),
+    ...installations.flatMap((installation) => [
+      {
+        key: `install-scheduled-${installation.id}`,
+        date: installation.createdAt,
+        title: 'Montaje programado',
+        detail: `${shortDate(installation.scheduledDate)}${installation.startTime ? ` · ${installation.startTime}` : ''}`,
+      },
+      ...(installation.status === 'COMPLETED'
+        ? [
+            {
+              key: `install-completed-${installation.id}`,
+              date: installation.updatedAt,
+              title: 'Montaje completado',
+            },
+          ]
+        : []),
+    ]),
   ].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 }
 
@@ -145,7 +169,9 @@ export function SalesOrderLifecycleStepper({
   cutSheets,
   lonaSheets,
   componentSheets,
-  installation,
+  installations,
+  pendingDeliveryLines,
+  totalDeliveryLines,
   onFabricate,
   onInstall,
   onViewProductionSheets,
@@ -154,8 +180,8 @@ export function SalesOrderLifecycleStepper({
   onInstall: () => void;
   onViewProductionSheets: () => void;
 }) {
-  const { isCancelled, hasStartedFabrication, fabricationState, installationState, latestFabricationDate } =
-    useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installation });
+  const { isCancelled, hasStartedFabrication, fabricationState, installationState, deliveryState, latestFabricationDate, latestInstallation } =
+    useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, pendingDeliveryLines, totalDeliveryLines });
 
   const stages: Stage[] = [
     ...(order.measurement_id
@@ -203,21 +229,28 @@ export function SalesOrderLifecycleStepper({
       label: 'Montaje',
       detail:
         installationState === 'done'
-          ? `Completado${installation?.updatedAt ? ` · ${shortDate(installation.updatedAt)}` : ''}`
+          ? `Completado${installations.length > 1 ? ` · ${installations.length} visitas` : ''}`
           : installationState === 'active'
-            ? `Programado · ${shortDate(installation?.scheduledDate) || '—'}`
+            ? `Programado · ${shortDate(latestInstallation?.scheduledDate) || '—'}${installations.length > 1 ? ` (${installations.length} visitas)` : ''}`
             : installationState === 'pending'
               ? 'Pendiente'
               : 'No disponible aún',
       state: installationState,
       icon: <CalendarClock size={17} />,
-      onClick: installationState === 'active' || installationState === 'done' ? onInstall : undefined,
+      onClick: installationState === 'active' || installationState === 'done' || installationState === 'pending' ? onInstall : undefined,
     },
     {
       key: 'delivery',
       label: 'Entrega',
-      detail: 'No disponible aún',
-      state: 'unavailable',
+      detail:
+        deliveryState === 'done'
+          ? 'Completa'
+          : deliveryState === 'active'
+            ? `${(totalDeliveryLines ?? 0) - (pendingDeliveryLines ?? 0)} de ${totalDeliveryLines} líneas`
+            : deliveryState === 'pending'
+              ? 'Pendiente'
+              : 'No disponible aún',
+      state: deliveryState,
       icon: <Truck size={17} />,
     },
     {
@@ -251,19 +284,27 @@ export function SalesOrderLifecycleStepper({
           ? {
               tone: 'info' as const,
               title: 'Montaje programado',
-              detail: `${shortDate(installation?.scheduledDate) || '—'}${installation?.startTime ? `, ${installation.startTime}` : ''}${installation?.installers?.length ? ` · ${installation.installers.map((i) => i.name).join(', ')}` : ''}`,
-              actionLabel: 'Ver montaje',
+              detail: `${shortDate(latestInstallation?.scheduledDate) || '—'}${latestInstallation?.startTime ? `, ${latestInstallation.startTime}` : ''}${latestInstallation?.installers?.length ? ` · ${latestInstallation.installers.map((i) => i.name).join(', ')}` : ''}`,
+              actionLabel: 'Ver montajes',
               onAction: onInstall,
             }
-          : installationState === 'done'
+          : deliveryState === 'pending' || deliveryState === 'active'
             ? {
-                tone: 'success' as const,
-                title: 'Instalación completada',
-                detail: 'Entrega y facturación aún no están disponibles en la aplicación.',
+                tone: 'info' as const,
+                title: 'Próximo paso: entregar lo pendiente',
+                detail: 'Quedan artículos simples sin entregar en este pedido.',
                 actionLabel: null,
                 onAction: undefined,
               }
-            : null;
+            : installationState === 'done' || deliveryState === 'done'
+              ? {
+                  tone: 'success' as const,
+                  title: 'Pedido entregado',
+                  detail: 'Ya puedes generar/consultar la factura.',
+                  actionLabel: null,
+                  onAction: undefined,
+                }
+              : null;
 
   if (isCancelled) {
     return (

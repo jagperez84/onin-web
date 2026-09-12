@@ -135,38 +135,88 @@ export async function getDeliveryNoteById(id: number): Promise<DeliveryNote | nu
   return data ? mapRow(data) : null;
 }
 
-export async function getDeliveryNoteBySalesOrderId(salesOrderId: number): Promise<DeliveryNote | null> {
+/** Todos los albaranes de un pedido — puede haber varios (uno por visita de montaje o por entrega manual). */
+export async function listDeliveryNotesBySalesOrderId(salesOrderId: number): Promise<DeliveryNote[]> {
   const c = client();
   const { data, error } = await c
     .from('delivery_note')
     .select(SELECT)
     .eq('sales_order_id', salesOrderId)
     .is('deleted_at', null)
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('id', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
-  return data ? mapRow(data) : null;
+  return (data ?? []).map(mapRow);
 }
 
-export async function createDeliveryNoteFromSalesOrder(
+export type SalesOrderLineDeliveryStatus = {
+  salesOrderLineId: number;
+  lineNo: number;
+  productId: number | null;
+  isOtd: boolean;
+  quantity: number;
+  deliveredQuantity: number;
+  remainingQuantity: number;
+};
+
+/** Cuánto queda pendiente de entregar de cada línea del pedido. */
+export async function getSalesOrderDeliveryStatus(salesOrderId: number): Promise<SalesOrderLineDeliveryStatus[]> {
+  const c = client();
+  const { data, error } = await c.rpc('sales_order_delivery_status', { p_sales_order_id: salesOrderId });
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data ?? []).map((r: any) => ({
+    salesOrderLineId: Number(r.sales_order_line_id),
+    lineNo: Number(r.line_no),
+    productId: r.product_id == null ? null : Number(r.product_id),
+    isOtd: Boolean(r.is_otd),
+    quantity: Number(r.quantity),
+    deliveredQuantity: Number(r.delivered_quantity),
+    remainingQuantity: Number(r.remaining_quantity),
+  }));
+}
+
+/** Genera un albarán con exactamente las líneas y cantidades indicadas. */
+export async function createDeliveryNoteForLines(
   salesOrderId: number,
-  options?: {
-    installationId?: number | null;
-    deliveryDate?: string;
-    carrier?: string;
-    trackingNumber?: string;
-    notes?: string;
-  },
+  lines: { salesOrderLineId: number; quantity: number }[],
+  options?: { installationId?: number | null; deliveryDate?: string; carrier?: string; trackingNumber?: string; notes?: string },
 ): Promise<DeliveryNote> {
   const c = client();
-  const { data, error } = await c.rpc('create_delivery_note_from_sales_order', {
+  const { data, error } = await c.rpc('create_delivery_note_for_lines', {
     p_sales_order_id: salesOrderId,
     p_installation_id: options?.installationId ?? null,
+    p_lines: lines.map((l) => ({ sales_order_line_id: l.salesOrderLineId, quantity: l.quantity })),
     p_delivery_date: options?.deliveryDate ?? null,
     p_carrier: options?.carrier ?? null,
     p_tracking_number: options?.trackingNumber ?? null,
     p_notes: options?.notes ?? null,
+  });
+  if (error) throw new CoreRepositoryError(error.message);
+  const note = await getDeliveryNoteById(Number(data));
+  if (!note) throw new CoreRepositoryError('El albarán se ha creado pero no se ha podido recuperar.');
+  return note;
+}
+
+/**
+ * Entrega de golpe todo lo pendiente de artículos simples (no OTD) del pedido. Las
+ * líneas OTD nunca se incluyen aquí: se entregan enteras desde el montaje que las
+ * cubra, nunca con este atajo.
+ */
+export async function createDeliveryNoteForAllRemainingSimpleLines(salesOrderId: number, notes?: string): Promise<DeliveryNote> {
+  const status = await getSalesOrderDeliveryStatus(salesOrderId);
+  const lines = status
+    .filter((s) => !s.isOtd && s.remainingQuantity > 0)
+    .map((s) => ({ salesOrderLineId: s.salesOrderLineId, quantity: s.remainingQuantity }));
+  if (!lines.length) throw new CoreRepositoryError('No hay artículos pendientes de entregar en este pedido.');
+  return createDeliveryNoteForLines(salesOrderId, lines, { notes });
+}
+
+/** Entrega parcial (o total) de una línea de artículo simple concreta. */
+export async function registerLineDelivery(salesOrderLineId: number, quantity: number, notes?: string): Promise<DeliveryNote> {
+  const c = client();
+  const { data, error } = await c.rpc('register_line_delivery', {
+    p_sales_order_line_id: salesOrderLineId,
+    p_quantity: quantity,
+    p_notes: notes ?? null,
   });
   if (error) throw new CoreRepositoryError(error.message);
   const note = await getDeliveryNoteById(Number(data));
