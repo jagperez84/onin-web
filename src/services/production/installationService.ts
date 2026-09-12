@@ -19,9 +19,34 @@ export async function resolveCurrentCompanyId(): Promise<number> {
 
 export type InstallationType = { id: number; companyId: number; description: string; active: boolean };
 
-export type InstallationStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+export type InstallationStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'BLOCKED' | 'COMPLETED' | 'CANCELLED';
 
 export type Installer = { id: number; name: string };
+
+export type IncidentSeverity = 'LOW' | 'MEDIUM' | 'HIGH';
+export type IncidentStatus = 'OPEN' | 'RESOLVED';
+
+export type InstallationSession = {
+  id: number;
+  installationId: number;
+  sessionDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  notes: string | null;
+  createdAt: string;
+};
+
+export type InstallationIncident = {
+  id: number;
+  installationId: number;
+  sessionId: number | null;
+  severity: IncidentSeverity;
+  description: string;
+  status: IncidentStatus;
+  reportedAt: string;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
+};
 
 export type Installation = {
   id: number;
@@ -43,7 +68,37 @@ export type Installation = {
   customerName?: string | null;
   /** Líneas del pedido (sales_order_line.id) que cubre esta visita de montaje. */
   lineIds: number[];
+  /** Jornadas de trabajo registradas — un montaje grande puede necesitar varios días. */
+  sessions: InstallationSession[];
+  /** Incidencias registradas durante el montaje, resueltas o no. */
+  incidents: InstallationIncident[];
 };
+
+function mapSession(row: any): InstallationSession {
+  return {
+    id: Number(row.id),
+    installationId: Number(row.installation_id),
+    sessionDate: row.session_date,
+    startTime: row.start_time ?? null,
+    endTime: row.end_time ?? null,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+function mapIncident(row: any): InstallationIncident {
+  return {
+    id: Number(row.id),
+    installationId: Number(row.installation_id),
+    sessionId: row.session_id == null ? null : Number(row.session_id),
+    severity: row.severity,
+    description: row.description,
+    status: row.status,
+    reportedAt: row.reported_at,
+    resolvedAt: row.resolved_at ?? null,
+    resolutionNotes: row.resolution_notes ?? null,
+  };
+}
 
 function mapInstallation(row: any): Installation {
   return {
@@ -65,10 +120,17 @@ function mapInstallation(row: any): Installation {
     salesOrderCode: row.sales_order?.code ?? null,
     customerName: row.sales_order?.customer?.party?.trade_name || row.sales_order?.customer?.party?.legal_name || null,
     lineIds: Array.isArray(row.lines) ? row.lines.map((l: any) => Number(l.sales_order_line_id)) : [],
+    sessions: (Array.isArray(row.sessions) ? row.sessions : []).map(mapSession).sort((a: InstallationSession, b: InstallationSession) => a.sessionDate.localeCompare(b.sessionDate)),
+    incidents: (Array.isArray(row.incidents) ? row.incidents : []).map(mapIncident).sort((a: InstallationIncident, b: InstallationIncident) => b.reportedAt.localeCompare(a.reportedAt)),
   };
 }
 
-const SELECT = 'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),lines:installation_line(sales_order_line_id)';
+const SELECT =
+  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,' +
+  'installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),' +
+  'lines:installation_line(sales_order_line_id),' +
+  'sessions:installation_session(id,installation_id,session_date,start_time,end_time,notes,created_at),' +
+  'incidents:installation_incident(id,installation_id,session_id,severity,description,status,reported_at,resolved_at,resolution_notes)';
 
 export async function listInstallationTypes(companyId: number): Promise<InstallationType[]> {
   const c = client();
@@ -142,12 +204,13 @@ export async function upsertInstallation(input: {
   }
   const { data: created, error: createError } = await c.from('installation').insert({ ...payload, status: 'SCHEDULED' }).select(SELECT).single();
   if (createError) throw new CoreRepositoryError(createError.message);
+  const createdId = (created as any).id;
   const lineIds = input.salesOrderLineIds ?? [];
   if (lineIds.length) {
-    const { error: linesError } = await c.from('installation_line').insert(lineIds.map((id) => ({ installation_id: created.id, sales_order_line_id: id })));
+    const { error: linesError } = await c.from('installation_line').insert(lineIds.map((id) => ({ installation_id: createdId, sales_order_line_id: id })));
     if (linesError) throw new CoreRepositoryError(linesError.message);
   }
-  const { data, error } = await c.from('installation').select(SELECT).eq('id', created.id).single();
+  const { data, error } = await c.from('installation').select(SELECT).eq('id', createdId).single();
   if (error) throw new CoreRepositoryError(error.message);
   return mapInstallation(data);
 }
@@ -164,4 +227,56 @@ export async function cancelInstallation(id: number): Promise<void> {
   const c = client();
   const { error } = await c.from('installation').update({ status: 'CANCELLED', updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw new CoreRepositoryError(error.message);
+}
+
+/** Registra una jornada de trabajo de un montaje multi-día. Pone la instalación en curso si estaba programada o bloqueada. */
+export async function addInstallationSession(input: {
+  installationId: number;
+  sessionDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  notes?: string | null;
+}): Promise<number> {
+  const c = client();
+  const { data, error } = await c.rpc('add_installation_session', {
+    p_installation_id: input.installationId,
+    p_session_date: input.sessionDate,
+    p_start_time: input.startTime ?? null,
+    p_end_time: input.endTime ?? null,
+    p_notes: input.notes ?? null,
+  });
+  if (error) throw new CoreRepositoryError(error.message);
+  return Number(data);
+}
+
+/** Reporta que algo ha salido mal durante el montaje. Una incidencia grave (HIGH) bloquea la instalación. */
+export async function reportInstallationIncident(input: {
+  installationId: number;
+  severity: IncidentSeverity;
+  description: string;
+  sessionId?: number | null;
+}): Promise<number> {
+  const c = client();
+  const { data, error } = await c.rpc('report_installation_incident', {
+    p_installation_id: input.installationId,
+    p_severity: input.severity,
+    p_description: input.description,
+    p_session_id: input.sessionId ?? null,
+  });
+  if (error) throw new CoreRepositoryError(error.message);
+  return Number(data);
+}
+
+export async function resolveInstallationIncident(incidentId: number, resolutionNotes?: string): Promise<void> {
+  const c = client();
+  const { error } = await c.rpc('resolve_installation_incident', { p_incident_id: incidentId, p_resolution_notes: resolutionNotes ?? null });
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+/** Vuelve a cargar una instalación concreta con sus jornadas e incidencias al día. */
+export async function getInstallation(id: number): Promise<Installation | null> {
+  const c = client();
+  const { data, error } = await c.from('installation').select(SELECT).eq('id', id).maybeSingle();
+  if (error) throw new CoreRepositoryError(error.message);
+  return data ? mapInstallation(data) : null;
 }

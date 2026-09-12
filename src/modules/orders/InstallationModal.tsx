@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react';
-import { CalendarClock, CheckCircle2, FileText, MapPin, Trash2, X } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CheckCircle2, FileText, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import type { SalesOrder } from '../../services/sales/salesOrderService';
 import {
+  addInstallationSession,
   cancelInstallation,
   completeInstallation,
-  listInstallationsBySalesOrder,
+  getInstallation,
   listInstallationTypes,
   listInstallers,
+  reportInstallationIncident,
+  resolveInstallationIncident,
   upsertInstallation,
+  type IncidentSeverity,
   type Installation,
   type InstallationType,
   type Installer,
@@ -19,6 +23,16 @@ import './lona-confection.css';
 import './installation.css';
 
 export type InstallableLine = { id: number; lineNo: number; label: string };
+
+const STATUS_LABEL: Record<string, string> = {
+  SCHEDULED: 'Programado',
+  IN_PROGRESS: 'En curso',
+  BLOCKED: 'Bloqueado por incidencia',
+  COMPLETED: 'Completado',
+  CANCELLED: 'Cancelado',
+};
+const SEVERITY_LABEL: Record<IncidentSeverity, string> = { LOW: 'Leve', MEDIUM: 'Moderada', HIGH: 'Grave' };
+const SEVERITY_PILL: Record<IncidentSeverity, string> = { LOW: '', MEDIUM: 'warning', HIGH: 'danger' };
 
 type Props = {
   order: SalesOrder;
@@ -34,7 +48,79 @@ type Props = {
   onCancelled?: (installation: Installation) => void;
 };
 
-export function InstallationModal({ order, companyId, installation, availableLines, types, installers, onClose, onDone, onCancelled }: Props) {
+export function InstallationModal({ order, companyId, installation: initialInstallation, availableLines, types, installers, onClose, onDone, onCancelled }: Props) {
+  const [installation, setInstallation] = useState(initialInstallation);
+  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [sessionStart, setSessionStart] = useState('');
+  const [sessionEnd, setSessionEnd] = useState('');
+  const [sessionNotes, setSessionNotes] = useState('');
+  const [savingSession, setSavingSession] = useState(false);
+  const [sessionError, setSessionError] = useState('');
+
+  const [incidentSeverity, setIncidentSeverity] = useState<IncidentSeverity>('MEDIUM');
+  const [incidentDescription, setIncidentDescription] = useState('');
+  const [savingIncident, setSavingIncident] = useState(false);
+  const [incidentError, setIncidentError] = useState('');
+  const [resolvingIncidentId, setResolvingIncidentId] = useState<number | null>(null);
+
+  async function refreshInstallation() {
+    if (!installation) return;
+    const refreshed = await getInstallation(installation.id);
+    if (refreshed) {
+      setInstallation(refreshed);
+      onDone(refreshed);
+    }
+  }
+
+  async function submitSession() {
+    if (!installation) return;
+    setSavingSession(true);
+    setSessionError('');
+    try {
+      await addInstallationSession({ installationId: installation.id, sessionDate, startTime: sessionStart || null, endTime: sessionEnd || null, notes: sessionNotes || null });
+      setSessionStart('');
+      setSessionEnd('');
+      setSessionNotes('');
+      await refreshInstallation();
+    } catch (value) {
+      setSessionError(value instanceof CoreRepositoryError || value instanceof Error ? value.message : 'No se pudo registrar la jornada.');
+    } finally {
+      setSavingSession(false);
+    }
+  }
+
+  async function submitIncident() {
+    if (!installation) return;
+    if (!incidentDescription.trim()) {
+      setIncidentError('Describe qué ha pasado.');
+      return;
+    }
+    setSavingIncident(true);
+    setIncidentError('');
+    try {
+      await reportInstallationIncident({ installationId: installation.id, severity: incidentSeverity, description: incidentDescription.trim() });
+      setIncidentDescription('');
+      setIncidentSeverity('MEDIUM');
+      await refreshInstallation();
+    } catch (value) {
+      setIncidentError(value instanceof CoreRepositoryError || value instanceof Error ? value.message : 'No se pudo registrar la incidencia.');
+    } finally {
+      setSavingIncident(false);
+    }
+  }
+
+  async function resolveIncident(incidentId: number) {
+    setResolvingIncidentId(incidentId);
+    try {
+      await resolveInstallationIncident(incidentId);
+      await refreshInstallation();
+    } catch (value) {
+      setIncidentError(value instanceof CoreRepositoryError || value instanceof Error ? value.message : 'No se pudo resolver la incidencia.');
+    } finally {
+      setResolvingIncidentId(null);
+    }
+  }
+
   const [installationTypeId, setInstallationTypeId] = useState<number | null>(
     installation?.installationTypeId ?? (types.length === 1 ? types[0].id : null),
   );
@@ -112,9 +198,7 @@ export function InstallationModal({ order, companyId, installation, availableLin
     setCompleteError('');
     try {
       await completeInstallation(installation.id, endTime, actualDuration);
-      const refreshed = await listInstallationsBySalesOrder(order.id);
-      const updated = refreshed.find((i) => i.id === installation.id);
-      if (updated) onDone(updated);
+      await refreshInstallation();
     } catch (value) {
       setCompleteError(value instanceof CoreRepositoryError || value instanceof Error ? value.message : 'No se pudo completar el montaje.');
     } finally {
@@ -137,6 +221,7 @@ export function InstallationModal({ order, companyId, installation, availableLin
   };
 
   const isCompleted = installation?.status === 'COMPLETED';
+  const canWorkOn = installation && ['SCHEDULED', 'IN_PROGRESS', 'BLOCKED'].includes(installation.status);
 
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true">
@@ -144,7 +229,14 @@ export function InstallationModal({ order, companyId, installation, availableLin
         <header className="modal-header">
           <div>
             <span className="lona-eyebrow">MONTAJE / INSTALACIÓN</span>
-            <h2>{installation ? `Montaje de ${order.code}` : `Programar visita de montaje · ${order.code}`}</h2>
+            <h2>
+              {installation ? `Montaje de ${order.code}` : `Programar visita de montaje · ${order.code}`}
+              {installation && (
+                <span className={`status-pill ${installation.status === 'COMPLETED' ? 'success' : installation.status === 'BLOCKED' ? 'danger' : installation.status === 'IN_PROGRESS' ? 'warning' : ''}`} style={{ marginLeft: 10 }}>
+                  {STATUS_LABEL[installation.status]}
+                </span>
+              )}
+            </h2>
             <p>Programa la visita de instalación en casa del cliente y, al terminar, regístrala como completada.</p>
           </div>
           <button type="button" className="lona-close" onClick={onClose} aria-label="Cerrar">
@@ -269,7 +361,110 @@ export function InstallationModal({ order, companyId, installation, availableLin
             </footer>
           )}
 
-          {installation && installation.status === 'SCHEDULED' && (
+          {installation && (
+            <div className="installation-section">
+              <h3>Jornadas de trabajo</h3>
+              {installation.sessions.length === 0 ? (
+                <p className="installation-entry-notes">Un montaje grande puede necesitar varias visitas — registra aquí cada jornada.</p>
+              ) : (
+                <div className="installation-entry-list">
+                  {installation.sessions.map((s) => (
+                    <div key={s.id} className="installation-entry">
+                      <div className="installation-entry-head">
+                        <strong>{s.sessionDate}</strong>
+                        <span>{s.startTime || '—'} - {s.endTime || '—'}</span>
+                      </div>
+                      {s.notes && <span className="installation-entry-notes">{s.notes}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {canWorkOn && (
+                <>
+                  <div className="installation-form-row">
+                    <label>
+                      <span>Fecha</span>
+                      <input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+                    </label>
+                    <label>
+                      <span>Hora inicio</span>
+                      <input type="time" value={sessionStart} onChange={(e) => setSessionStart(e.target.value)} />
+                    </label>
+                    <label>
+                      <span>Hora fin</span>
+                      <input type="time" value={sessionEnd} onChange={(e) => setSessionEnd(e.target.value)} />
+                    </label>
+                  </div>
+                  <div className="installation-form-field">
+                    <span>Notas de la jornada</span>
+                    <textarea rows={2} value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} />
+                  </div>
+                  {sessionError && <div className="lona-error lona-error-inline">{sessionError}</div>}
+                  <button type="button" className="secondary-button" disabled={savingSession} onClick={() => void submitSession()}>
+                    <Plus size={14} /> {savingSession ? 'Guardando…' : 'Añadir jornada'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {installation && (
+            <div className="installation-section">
+              <h3>Incidencias</h3>
+              {installation.incidents.length === 0 ? (
+                <p className="installation-entry-notes">Nada que reportar por ahora.</p>
+              ) : (
+                <div className="installation-entry-list">
+                  {installation.incidents.map((i) => (
+                    <div key={i.id} className="installation-entry">
+                      <div className="installation-entry-head">
+                        <strong>
+                          <span className={`status-pill ${SEVERITY_PILL[i.severity]}`} style={{ marginRight: 8 }}>
+                            {SEVERITY_LABEL[i.severity]}
+                          </span>
+                          {i.description}
+                        </strong>
+                        {i.status === 'OPEN' ? (
+                          canWorkOn && (
+                            <button type="button" className="secondary-button" disabled={resolvingIncidentId === i.id} onClick={() => void resolveIncident(i.id)}>
+                              {resolvingIncidentId === i.id ? 'Resolviendo…' : 'Resolver'}
+                            </button>
+                          )
+                        ) : (
+                          <span className="status-pill success">Resuelta</span>
+                        )}
+                      </div>
+                      {i.resolutionNotes && <span className="installation-entry-notes">{i.resolutionNotes}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {canWorkOn && (
+                <>
+                  <div className="installation-form-row">
+                    <label>
+                      <span>Gravedad</span>
+                      <select value={incidentSeverity} onChange={(e) => setIncidentSeverity(e.target.value as IncidentSeverity)}>
+                        <option value="LOW">Leve</option>
+                        <option value="MEDIUM">Moderada</option>
+                        <option value="HIGH">Grave (bloquea el montaje)</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="installation-form-field">
+                    <span>Qué ha pasado</span>
+                    <textarea rows={2} value={incidentDescription} onChange={(e) => setIncidentDescription(e.target.value)} />
+                  </div>
+                  {incidentError && <div className="lona-error lona-error-inline">{incidentError}</div>}
+                  <button type="button" className="secondary-button" disabled={savingIncident} onClick={() => void submitIncident()}>
+                    <AlertTriangle size={14} /> {savingIncident ? 'Guardando…' : 'Reportar incidencia'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {canWorkOn && (
             <div className="installation-complete-box">
               <h3>Completar instalación</h3>
               <p>Al cerrar el montaje se exige la hora de fin y la duración real — se generará el albarán con las líneas de esta visita.</p>

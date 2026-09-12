@@ -13,8 +13,8 @@ import {
 import '../orders/sales-order.css';
 import '../orders/installation.css';
 
-const statusLabel: Record<InstallationStatus, string> = { SCHEDULED: 'Programada', COMPLETED: 'Completada', CANCELLED: 'Cancelada' };
-const statusTone: Record<InstallationStatus, string> = { SCHEDULED: '', COMPLETED: 'success', CANCELLED: 'danger' };
+const statusLabel: Record<InstallationStatus, string> = { SCHEDULED: 'Programada', IN_PROGRESS: 'En curso', BLOCKED: 'Bloqueada', COMPLETED: 'Completada', CANCELLED: 'Cancelada' };
+const statusTone: Record<InstallationStatus, string> = { SCHEDULED: '', IN_PROGRESS: 'warning', BLOCKED: 'danger', COMPLETED: 'success', CANCELLED: 'danger' };
 const fmtDate = (v: string | null) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('es-ES') : '—');
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -92,6 +92,8 @@ export function InstallationsList() {
         </div>
         <select value={status} onChange={e => setStatus(e.target.value as InstallationStatus | 'ALL')}>
           <option value="SCHEDULED">Programadas</option>
+          <option value="IN_PROGRESS">En curso</option>
+          <option value="BLOCKED">Bloqueadas</option>
           <option value="COMPLETED">Completadas</option>
           <option value="ALL">Todas</option>
         </select>
