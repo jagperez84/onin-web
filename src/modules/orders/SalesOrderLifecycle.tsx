@@ -17,6 +17,7 @@ import type { WorkSheet } from '../../services/production/workSheetService';
 import type { LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
 import type { ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
 import type { Installation, InstallationIncident } from '../../services/production/installationService';
+import type { Invoice } from '../../services/sales/invoiceService';
 
 type StageState = 'done' | 'active' | 'pending' | 'unavailable';
 type StageTone = 'warning' | 'danger';
@@ -62,12 +63,13 @@ type LifecycleProps = {
   lonaSheets: LonaConfectionWorkSheet[];
   componentSheets: ComponentConsumptionWorkSheet[];
   installations: Installation[];
+  invoice: Invoice | null;
   /** Nº de líneas del pedido con algo aún pendiente de entregar (delivery_note). */
   pendingDeliveryLines?: number;
   totalDeliveryLines?: number;
 };
 
-function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, pendingDeliveryLines, totalDeliveryLines }: LifecycleProps) {
+function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, pendingDeliveryLines, totalDeliveryLines }: LifecycleProps) {
   const status = order.status;
   const isCancelled = status === 'CANCELLED';
   const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED'].includes(status);
@@ -126,6 +128,14 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
           ? 'active'
           : 'pending';
 
+  const invoicingState: StageState = isCancelled
+    ? 'unavailable'
+    : invoice
+      ? 'done'
+      : isManufactured
+        ? 'pending'
+        : 'unavailable';
+
   return {
     isCancelled,
     isManufactured,
@@ -136,12 +146,13 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
     blockedInstallation,
     openIncident,
     deliveryState,
+    invoicingState,
     latestFabricationDate,
     latestInstallation,
   };
 }
 
-function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations }: LifecycleProps): TimelineEvent[] {
+function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations, invoice }: LifecycleProps): TimelineEvent[] {
   return [
     { key: 'order-created', date: order.issue_date, title: 'Pedido creado a partir del presupuesto' },
     ...cutSheets.map((s) => ({
@@ -179,6 +190,7 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
           ]
         : []),
     ]),
+    ...(invoice ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, title: 'Factura emitida', docCode: invoice.code }] : []),
   ].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 }
 
@@ -188,14 +200,17 @@ export function SalesOrderLifecycleStepper({
   lonaSheets,
   componentSheets,
   installations,
+  invoice,
   pendingDeliveryLines,
   totalDeliveryLines,
   onFabricate,
   onInstall,
+  onInvoice,
   onViewProductionSheets,
 }: LifecycleProps & {
   onFabricate: () => void;
   onInstall: () => void;
+  onInvoice?: () => void;
   onViewProductionSheets: () => void;
 }) {
   const {
@@ -207,9 +222,10 @@ export function SalesOrderLifecycleStepper({
     blockedInstallation,
     openIncident,
     deliveryState,
+    invoicingState,
     latestFabricationDate,
     latestInstallation,
-  } = useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, pendingDeliveryLines, totalDeliveryLines });
+  } = useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, pendingDeliveryLines, totalDeliveryLines });
 
   const stages: Stage[] = [
     ...(order.measurement_id
@@ -288,9 +304,16 @@ export function SalesOrderLifecycleStepper({
     {
       key: 'invoicing',
       label: 'Facturación',
-      detail: 'No disponible aún',
-      state: 'unavailable',
+      detail:
+        invoicingState === 'done'
+          ? `Emitida · ${invoice?.code}`
+          : invoicingState === 'pending'
+            ? 'Pendiente'
+            : 'No disponible aún',
+      state: invoicingState,
       icon: <Receipt size={17} />,
+      to: invoice ? `/facturacion/facturas/${invoice.id}` : undefined,
+      onClick: !invoice && invoicingState === 'pending' ? onInvoice : undefined,
     },
   ];
 
@@ -345,13 +368,21 @@ export function SalesOrderLifecycleStepper({
                 onAction: undefined,
               }
             : installationState === 'done' || deliveryState === 'done'
-              ? {
-                  tone: 'success' as const,
-                  title: 'Pedido entregado',
-                  detail: 'Ya puedes generar/consultar la factura.',
-                  actionLabel: null,
-                  onAction: undefined,
-                }
+              ? invoice
+                ? {
+                    tone: 'success' as const,
+                    title: 'Pedido entregado y facturado',
+                    detail: `Factura ${invoice.code}`,
+                    actionLabel: null,
+                    onAction: undefined,
+                  }
+                : {
+                    tone: 'info' as const,
+                    title: 'Próximo paso: facturar el pedido',
+                    detail: 'El pedido está entregado y listo para facturar.',
+                    actionLabel: 'Generar factura',
+                    onAction: onInvoice,
+                  }
               : null;
 
   if (isCancelled) {
