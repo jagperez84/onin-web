@@ -29,47 +29,6 @@
 .compact-table table {
   min-width: 760px;
 }
-.entity-search {
-  position: relative;
-}
-.entity-search-results {
-  position: absolute;
-  z-index: 30;
-  left: 0;
-  right: 0;
-  top: calc(100% + 4px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow-hover);
-  max-height: 260px;
-  overflow: auto;
-}
-.entity-search-option {
-  width: 100%;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  text-align: left;
-  padding: 9px 11px;
-  border: 0;
-  background: var(--surface);
-  cursor: pointer;
-  color: var(--text);
-}
-.entity-search-option:hover {
-  background: var(--canvas-stripe);
-}
-.entity-search-option strong {
-  min-width: 90px;
-}
-.entity-search-option span {
-  color: var(--muted);
-}
-.entity-search-option.muted {
-  cursor: default;
-  color: var(--muted);
-}
 .icon-action.danger {
   color: var(--danger);
 }

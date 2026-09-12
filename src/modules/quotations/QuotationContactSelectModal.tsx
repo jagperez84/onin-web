@@ -436,34 +436,14 @@ export function QuotationContactSelectModal({
                   borderBottom: "1px solid var(--color-border, #e4e2dc)",
                 }}
               >
-                <div
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  <Search
-                    size={16}
-                    style={{
-                      position: "absolute",
-                      left: "12px",
-                      color: "var(--color-text-muted, #94a3b8)",
-                      pointerEvents: "none",
-                    }}
-                  />
+                <div className="search-box">
+                  <Search size={16} />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Buscar por nombre, cargo, email…"
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px 8px 36px",
-                      borderRadius: "6px",
-                      border: "1px solid var(--color-border, #cbd5e1)",
-                      fontSize: "0.875rem",
-                    }}
+                    aria-label="Buscar contacto"
                   />
                 </div>
               </div>

@@ -32,6 +32,7 @@ import {
 } from "../../services/address/openStreetMap";
 import { CoreRepositoryError } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
+import { AddressSearchBox } from "../customers/AddressLookup";
 import "./map-view.css";
 
 const ZONE_COLOR_PRESETS = [
@@ -432,34 +433,16 @@ function GeocodeRow({
 
   return (
     <div className="map-locate-form">
-      <div className="map-locate-search">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void search();
-            }
-          }}
-          placeholder="Calle, número, localidad…"
-        />
-        <button type="button" className="secondary-button" onClick={search} disabled={searching}>
-          {searching ? "Buscando…" : "Buscar"}
-        </button>
-      </div>
-      {error && <div className="inline-error">{error}</div>}
-      {results.length > 0 && (
-        <ul className="map-locate-results">
-          {results.map((r, i) => (
-            <li key={`${r.lat}-${r.lon}-${i}`}>
-              <button type="button" disabled={saving} onClick={() => apply(r)}>
-                {r.display_name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <AddressSearchBox
+        query={query}
+        onQueryChange={setQuery}
+        onSearch={() => void search()}
+        searching={searching}
+        results={results}
+        onSelect={(r) => void apply(r)}
+        error={error}
+        disabled={saving}
+      />
       <div className="map-locate-actions">
         <button type="button" className="secondary-button" onClick={() => setOpen(false)}>
           Cancelar

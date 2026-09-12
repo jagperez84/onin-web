@@ -11,7 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { LookupSelect } from "../../components/LookupSelect";
+import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { listUnits, type Unit } from "../../services/catalog/unitRepository";
@@ -800,13 +800,14 @@ export function MeasurementTypesV1() {
                             placeholder="Ej. Ancho"
                           />
                         </label>
-                        <LookupSelect
+                        <EntitySearchField
                           label="Unidad"
                           required
                           compact
+                          matchExactCode
                           options={unitOptions}
-                          value={d.unit_id ?? null}
-                          onChange={(id) => updateDimension(i, { unit_id: id })}
+                          value={unitOptions.find((u) => u.id === d.unit_id) ?? null}
+                          onChange={(opt) => updateDimension(i, { unit_id: (opt?.id as number) ?? null })}
                           placeholder="Unidad…"
                         />
                         <label>
@@ -846,11 +847,12 @@ export function MeasurementTypesV1() {
                 </div>
 
                 <div className="form-grid">
-                  <LookupSelect
+                  <EntitySearchField
                     label="Unidad resultante"
+                    matchExactCode
                     options={unitOptions}
-                    value={form.result_unit_id ?? null}
-                    onChange={(id) => setForm({ ...form, result_unit_id: id })}
+                    value={unitOptions.find((u) => u.id === form.result_unit_id) ?? null}
+                    onChange={(opt) => setForm({ ...form, result_unit_id: (opt?.id as number) ?? null })}
                     placeholder="Buscar unidad resultante (ej. m², m³, kg)…"
                   />
                   <label>

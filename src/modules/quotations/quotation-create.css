@@ -523,15 +523,15 @@
   box-sizing: border-box;
   line-height: 1.5;
 }
-.quotation-create .lookup-field {
+.quotation-create .entity-search-field {
   min-width: 0;
   width: 100%;
   position: relative;
 }
-.quotation-create .lookup-field-compact {
+.quotation-create .entity-search-field.compact {
   width: 100%;
 }
-.quotation-create .lookup-control {
+.quotation-create .entity-search-control {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -543,7 +543,7 @@
   border-radius: 7px;
   background: var(--surface-raised);
 }
-.quotation-create .lookup-control input {
+.quotation-create .entity-search-control input {
   width: 100%;
   min-width: 0;
   height: auto;
@@ -553,7 +553,7 @@
   padding: 0 !important;
   background: transparent !important;
 }
-.quotation-create .lookup-clear {
+.quotation-create .entity-search-clear {
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -563,23 +563,7 @@
   padding: var(--sp-1);
   cursor: pointer;
 }
-.quotation-create .lookup-portal {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  pointer-events: none;
-}
-.quotation-create .lookup-dismiss {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border: 0;
-  background: transparent;
-  pointer-events: auto;
-  cursor: default;
-}
-.quotation-create .lookup-results {
-  position: fixed;
+.quotation-create .entity-search-results {
   z-index: 1;
   background: var(--surface-raised);
   border: 1px solid var(--border);
@@ -591,8 +575,8 @@
   pointer-events: auto;
   box-sizing: border-box;
 }
-.quotation-create .lookup-results button {
-  display: block;
+.quotation-create .entity-search-option {
+  display: flex;
   width: 100%;
   text-align: left;
   border: 0;
@@ -602,14 +586,14 @@
   cursor: pointer;
   color: var(--text);
 }
-.quotation-create .lookup-results button:hover {
+.quotation-create .entity-search-option:hover {
   background: var(--canvas-stripe);
 }
-.quotation-create .lookup-results strong {
+.quotation-create .entity-search-option-main strong {
   font-size: 12px;
   font-weight: 650;
 }
-.quotation-create .lookup-results small {
+.quotation-create .entity-search-state {
   display: block;
   padding: 10px;
   color: var(--muted);

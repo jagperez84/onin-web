@@ -1,19 +1,17 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   Eye,
   Plus,
-  Search,
   SlidersHorizontal,
   Sparkles,
   Trash2,
   User,
-  X,
 } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { Toast } from "../../components/ui/Toast";
+import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import { CoreRepositoryError } from "../../services/core/coreRepository";
 import {
   getProductLineDefinition,
@@ -1237,14 +1235,29 @@ export function QuotationEdit() {
                           </div>
                         ) : (
                           <>
-                            <LookupSelect
+                            <EntitySearchField
                               compact
+                              matchExactCode
+                              portal
                               options={opts?.products ?? []}
-                              value={line.product_id}
-                              onChange={(pid) => {
-                                void selectProduct(i, pid);
+                              value={(opts?.products ?? []).find((p: Option) => p.id === line.product_id) ?? null}
+                              onChange={(opt) => {
+                                void selectProduct(i, opt?.id ?? null);
                               }}
                               placeholder="Buscar artículo…"
+                              renderOption={(option) => (
+                                <>
+                                  <span className="entity-search-option-main">
+                                    {option.code && <strong>{option.code} · </strong>}
+                                    <span>{option.label}</span>
+                                  </span>
+                                  {option.price != null && (
+                                    <span className="entity-search-option-secondary">
+                                      {money(Number(option.price))}
+                                    </span>
+                                  )}
+                                </>
+                              )}
                             />
                             {line.product_id && (
                               <div className="line-article-badges">
@@ -1726,163 +1739,3 @@ export function QuotationEdit() {
   );
 }
 
-function LookupSelect({
-  compact = false,
-  options = [],
-  value,
-  onChange,
-  placeholder,
-}: {
-  compact?: boolean;
-  options?: Option[];
-  value: number | null;
-  onChange: (id: number | null) => void;
-  placeholder: string;
-}) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [rect, setRect] = useState<DOMRect | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const safeOptions = options || [];
-  const selected = safeOptions.find((x) => x.id === value);
-  const filtered = useMemo(() => {
-    const q = query.trim().toLocaleLowerCase();
-    if (!q) return safeOptions.slice(0, 12);
-    return safeOptions
-      .filter((x) =>
-        `${x.code ?? ""} ${x.label}`.toLocaleLowerCase().includes(q),
-      )
-      .slice(0, 12);
-  }, [safeOptions, query]);
-
-  const reposition = () => {
-    if (inputRef.current)
-      setRect(
-        inputRef.current.closest(".lookup-control")?.getBoundingClientRect() ??
-          inputRef.current.getBoundingClientRect(),
-      );
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    reposition();
-    const onScroll = () => reposition();
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
-    };
-  }, [open]);
-
-  const selectItem = (id: number) => {
-    onChange(id);
-    setQuery("");
-    setOpen(false);
-  };
-
-  return (
-    <div className={`lookup-field ${compact ? "lookup-field-compact" : ""}`}>
-      <div className="lookup-control">
-        <Search size={15} />
-        <input
-          ref={inputRef}
-          value={open ? query : (selected?.label ?? "")}
-          placeholder={placeholder}
-          onFocus={() => {
-            setOpen(true);
-            if (selected) setQuery(selected.label);
-          }}
-          onChange={(e) => {
-            const next = e.target.value;
-            setQuery(next);
-            setOpen(true);
-            if (value !== null) onChange(null);
-            const exact = safeOptions.find(
-              (x) =>
-                x.code &&
-                x.code.trim().toLowerCase() === next.trim().toLowerCase(),
-            );
-            if (exact) selectItem(exact.id);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              if (filtered.length > 0) selectItem(filtered[0].id);
-            } else if (e.key === "Escape") setOpen(false);
-          }}
-        />
-        {selected && (
-          <button
-            type="button"
-            className="lookup-clear"
-            aria-label="Limpiar selección"
-            onClick={() => {
-              setQuery("");
-              onChange(null);
-              setOpen(false);
-            }}
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
-      {open &&
-        rect &&
-        createPortal(
-          <div className="lookup-portal">
-            <button
-              type="button"
-              className="lookup-dismiss"
-              aria-label="Cerrar resultados"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              className="lookup-results"
-              style={{
-                top: rect.bottom + 4,
-                left: rect.left,
-                width: Math.max(rect.width, 280),
-              }}
-            >
-              {filtered.length === 0 ? (
-                <small>No se han encontrado resultados.</small>
-              ) : (
-                filtered.map((x) => (
-                  <button
-                    type="button"
-                    key={x.id}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectItem(x.id)}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      width: "100%",
-                    }}
-                  >
-                    <span>
-                      <strong>{x.code ? `${x.code} · ` : ""}</strong>
-                      {x.label}
-                    </span>
-                    {x.price != null && (
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          color: "#7a8083",
-                          marginLeft: "8px",
-                        }}
-                      >
-                        {money(Number(x.price))}
-                      </span>
-                    )}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>,
-          document.body,
-        )}
-    </div>
-  );
-}

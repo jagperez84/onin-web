@@ -1,12 +1,22 @@
-import React, { useState } from "react";
-import { Plus, Trash2, Search, X, Loader2 } from "lucide-react";
+import React from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { FormulaPredictiveInput } from "../FormulaPredictiveInput";
+import { EntitySearchField, type EntitySearchOption } from "../../../components/ui/EntitySearchField";
 import {
   searchOninProducts,
   type OninProduct,
 } from "../../../services/otd/otdCalculationService";
 import type { Unit } from "../../../services/catalog/unitRepository";
 import type { Component, Otd, Selection, Variable } from "./types";
+
+type OtdProductOption = OninProduct & EntitySearchOption;
+
+function toProductOption(p: OninProduct): OtdProductOption {
+  return {
+    ...p,
+    label: `${p.code} · ${p.commercial_description || p.technical_description || "Sin descripción"}`,
+  };
+}
 
 export type OtdComponentsSectionProps = {
   components: Component[];
@@ -29,14 +39,6 @@ export function OtdComponentsSection({
   onProductsUpdate,
   onChange,
 }: OtdComponentsSectionProps) {
-  // Product Picker state
-  const [productSearch, setProductSearch] = useState("");
-  const [isSearchingProduct, setIsSearchingProduct] = useState(false);
-  const [productResults, setProductResults] = useState<OninProduct[]>([]);
-  const [activeProductComponent, setActiveProductComponent] = useState<
-    number | null
-  >(null);
-
   const emptyComponent = (): Component => ({
     product_id: null,
     characteristic_id: null,
@@ -63,19 +65,6 @@ export function OtdComponentsSection({
     const next = [...components];
     next[index] = { ...next[index], ...partial };
     onChange(next);
-  };
-
-  const searchProducts = async (term: string) => {
-    setProductSearch(term);
-    setIsSearchingProduct(true);
-    try {
-      const res = await searchOninProducts(term);
-      setProductResults(res);
-    } catch (e) {
-      console.error("Error buscando productos:", e);
-    } finally {
-      setIsSearchingProduct(false);
-    }
   };
 
   const selectProduct = (componentIdx: number, p: OninProduct) => {
@@ -105,9 +94,6 @@ export function OtdComponentsSection({
       characteristic_expression: null,
     });
 
-    setActiveProductComponent(null);
-    setProductResults([]);
-    setProductSearch("");
   };
 
   const clearProduct = (componentIdx: number) => {
@@ -187,149 +173,42 @@ export function OtdComponentsSection({
                 {/* Product Selector */}
                 <div className="otd-product-field">
                   <span className="field-label">Artículo ONIN *</span>
-                  {product ? (
-                    <div className="otd-product-selected-input">
-                      <input
-                        type="text"
-                        readOnly
-                        value={product.code}
-                        className="otd-product-code-field"
-                        onClick={() => {
-                          setActiveProductComponent(ci);
-                          setProductSearch(product.code);
-                          void searchProducts(product.code);
-                        }}
-                        title={`${product.code} - ${product.commercial_description || product.technical_description || ""}`}
-                      />
-                      <div className="prod-select-actions">
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          title="Buscar o cambiar artículo"
-                          onClick={() => {
-                            setActiveProductComponent(ci);
-                            setProductSearch(product.code);
-                            void searchProducts(product.code);
-                          }}
-                        >
-                          <Search size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn danger"
-                          title="Quitar artículo"
-                          onClick={() => clearProduct(ci)}
-                        >
-                          <X size={14} />
-                        </button>
+                  <EntitySearchField
+                    value={product ? toProductOption(product) : null}
+                    onChange={(opt) => (opt ? selectProduct(ci, opt) : clearProduct(ci))}
+                    onSearch={async (term) =>
+                      (await searchOninProducts(term)).map(toProductOption)
+                    }
+                    placeholder="Seleccionar artículo de ONIN…"
+                    loadingText="Buscando artículos en catálogo…"
+                    emptyText="No se han encontrado artículos con ese criterio."
+                    renderOption={(o) => (
+                      <div className="entity-search-option-block">
+                        <div className="entity-search-option-block-head">
+                          <strong>{o.code}</strong>
+                          {o.measurement_type && (
+                            <span className="entity-search-option-secondary">
+                              {o.measurement_type.name} (
+                              {o.measurement_type.dimensions?.length ??
+                                o.measurement_type.dimension_count}{" "}
+                              dim.)
+                            </span>
+                          )}
+                        </div>
+                        <span className="entity-search-option-block-desc">
+                          {o.commercial_description ||
+                            o.technical_description ||
+                            "Sin descripción"}
+                        </span>
+                        {o.characteristics.length > 0 && (
+                          <span className="entity-search-option-block-desc">
+                            {o.characteristics.length} característica(s)/acabado(s)
+                            disponible(s)
+                          </span>
+                        )}
                       </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="product-select-empty"
-                      onClick={() => {
-                        setActiveProductComponent(ci);
-                        setProductSearch("");
-                        void searchProducts("");
-                      }}
-                    >
-                      <Search size={15} /> Seleccionar artículo de ONIN
-                    </button>
-                  )}
-
-                  {activeProductComponent === ci && (
-                    <div className="otd-product-picker">
-                      <div className="otd-product-search">
-                        <Search size={15} />
-                        <input
-                          autoFocus
-                          value={productSearch}
-                          onChange={(e) => void searchProducts(e.target.value)}
-                          placeholder="Buscar por código o descripción…"
-                        />
-                        {isSearchingProduct ? (
-                          <Loader2
-                            size={14}
-                            className="animate-spin"
-                            style={{ color: "var(--muted)" }}
-                          />
-                        ) : null}
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => {
-                            setActiveProductComponent(null);
-                            setProductResults([]);
-                          }}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                      {isSearchingProduct && productResults.length === 0 ? (
-                        <div
-                          className="otd-product-no-results"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <Loader2 size={14} className="animate-spin" />{" "}
-                          Buscando artículos en catálogo…
-                        </div>
-                      ) : productResults.length > 0 ? (
-                        <div className="otd-product-results">
-                          {productResults.map((p) => (
-                            <button
-                              type="button"
-                              key={p.id}
-                              onClick={() => selectProduct(ci, p)}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                  alignItems: "baseline",
-                                }}
-                              >
-                                <strong>{p.code}</strong>
-                                {p.measurement_type && (
-                                  <span
-                                    style={{
-                                      fontSize: "11px",
-                                      color: "var(--primary, #0284c7)",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {p.measurement_type.name} (
-                                    {p.measurement_type.dimensions?.length ??
-                                      p.measurement_type.dimension_count}{" "}
-                                    dim.)
-                                  </span>
-                                )}
-                              </div>
-                              <span>
-                                {p.commercial_description ||
-                                  p.technical_description ||
-                                  "Sin descripción"}
-                              </span>
-                              {p.characteristics.length > 0 && (
-                                <small>
-                                  {p.characteristics.length}{" "}
-                                  característica(s)/acabado(s) disponible(s)
-                                </small>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="otd-product-no-results">
-                          No se han encontrado artículos con ese criterio.
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  />
                 </div>
 
                 {/* Component Type */}

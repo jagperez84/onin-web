@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Edit3, Plus, Save, Search, Trash2, Undo2, X } from "lucide-react";
+import { Edit3, Plus, Save, Trash2, Undo2 } from "lucide-react";
+import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import {
   listProductCharacteristics,
@@ -67,120 +68,6 @@ const emptyScale = (): ScaleForm => ({
   characteristic_id: null,
   attribute_values: {},
 });
-
-export function EntitySearchHelp({
-  title,
-  placeholder,
-  items,
-  value,
-  onChange,
-  labelOf,
-  required = false,
-}: {
-  title: string;
-  placeholder: string;
-  items: { id: number }[];
-  value: number | null;
-  onChange: (id: number | null) => void;
-  labelOf: (item: { id: number }) => string;
-  required?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const selected = items.find((s) => s.id === value) ?? null;
-  const filtered = items.filter((s) =>
-    labelOf(s).toLowerCase().includes(query.trim().toLowerCase()),
-  );
-  return (
-    <>
-      {
-        <div className="entity-lookup-field">
-          <button
-            type="button"
-            className="entity-lookup-trigger"
-            onClick={() => setOpen(true)}
-          >
-            <span className={selected ? "" : "entity-lookup-placeholder"}>
-              {selected ? labelOf(selected) : placeholder}
-            </span>
-            <Search size={16} />
-          </button>
-          {selected && !required && (
-            <button
-              type="button"
-              className="entity-lookup-clear"
-              title="Quitar selección"
-              onClick={() => onChange(null)}
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      }
-      {open && (
-        <div
-          className="entity-lookup-backdrop"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
-        >
-          <div
-            className="entity-lookup-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-          >
-            <div className="entity-lookup-head">
-              <div>
-                <h3>{title}</h3>
-                <p>Busca y selecciona una entidad existente.</p>
-              </div>
-              <button
-                type="button"
-                className="icon-action"
-                onClick={() => setOpen(false)}
-              >
-                <X size={17} />
-              </button>
-            </div>
-            <label className="entity-lookup-search">
-              <Search size={16} />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar…"
-              />
-            </label>
-            <div className="entity-lookup-results">
-              {filtered.length === 0 ? (
-                <div className="empty-state">
-                  No se han encontrado resultados.
-                </div>
-              ) : (
-                filtered.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={`entity-lookup-result${s.id === value ? " selected" : ""}`}
-                    onClick={() => {
-                      onChange(s.id);
-                      setOpen(false);
-                      setQuery("");
-                    }}
-                  >
-                    <span>{labelOf(s)}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 export function ProductCommercialPanel({
   productId,
@@ -385,11 +272,10 @@ export function ProductCommercialPanel({
       setSaving(false);
     }
   }
-  const charItems = characteristics as unknown as { id: number }[];
-  const charLabel = (item: { id: number }) => {
-    const c = characteristics.find((x) => x.id === item.id);
-    return c ? `${c.code} · ${c.description}` : `Variante ${item.id}`;
-  };
+  const charOptions = characteristics.map((c) => ({
+    id: c.id,
+    label: `${c.code} · ${c.description}`,
+  }));
   const attributeValueLabel = (
     attribute: MasterProductConfiguration["attributes"][number],
     valueId: number | string | boolean | null,
@@ -456,17 +342,23 @@ export function ProductCommercialPanel({
           <div className="form-grid">
             <label>
               Proveedor *
-              <EntitySearchHelp
+              <EntitySearchField
+                variant="modal"
                 title="Buscar proveedor"
                 placeholder="Seleccionar proveedor…"
-                items={suppliers}
-                value={supplierForm.supplier_party_id}
-                onChange={(id) =>
-                  setSupplierForm({ ...supplierForm, supplier_party_id: id })
+                options={suppliers.map((s) => ({ id: s.id, label: s.name }))}
+                value={
+                  supplierForm.supplier_party_id != null
+                    ? {
+                        id: supplierForm.supplier_party_id,
+                        label:
+                          suppliers.find((x) => x.id === supplierForm.supplier_party_id)?.name ??
+                          `Proveedor ${supplierForm.supplier_party_id}`,
+                      }
+                    : null
                 }
-                labelOf={(item) =>
-                  suppliers.find((x) => x.id === item.id)?.name ??
-                  `Proveedor ${item.id}`
+                onChange={(opt) =>
+                  setSupplierForm({ ...supplierForm, supplier_party_id: (opt?.id as number) ?? null })
                 }
                 required
               />
@@ -546,15 +438,15 @@ export function ProductCommercialPanel({
             </label>
             <label>
               Variante
-              <EntitySearchHelp
+              <EntitySearchField
+                variant="modal"
                 title="Buscar variante"
                 placeholder="General (sin variante)"
-                items={charItems}
-                value={supplierForm.characteristic_id}
-                onChange={(id) =>
-                  setSupplierForm({ ...supplierForm, characteristic_id: id })
+                options={charOptions}
+                value={charOptions.find((o) => o.id === supplierForm.characteristic_id) ?? null}
+                onChange={(opt) =>
+                  setSupplierForm({ ...supplierForm, characteristic_id: (opt?.id as number) ?? null })
                 }
-                labelOf={charLabel}
               />
             </label>
           </div>

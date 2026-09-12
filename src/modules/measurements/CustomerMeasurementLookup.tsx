@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
-import { Search, X } from "lucide-react";
+import { EntitySearchField, type EntitySearchOption } from "../../components/ui/EntitySearchField";
 import { listCustomers } from "../../services/core/customerRepository";
 
-type CustomerOption = {
+export type CustomerOption = {
   id: number;
   party: {
     legal_name: string;
@@ -14,149 +13,37 @@ type CustomerOption = {
   };
 };
 
+type CustomerSearchOption = CustomerOption & EntitySearchOption;
+
+function toOption(customer: CustomerOption): CustomerSearchOption {
+  return {
+    ...customer,
+    label: customer.party.trade_name || customer.party.legal_name,
+    secondary: customer.party.phone || undefined,
+  };
+}
+
 export function CustomerMeasurementLookup({
   value,
   onChange,
-  selectedLabel,
 }: {
-  value: number | null;
+  value: CustomerOption | null;
   onChange: (customer: CustomerOption | null) => void;
-  selectedLabel: string;
 }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [rows, setRows] = useState<CustomerOption[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (!open) {
-      setRows([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      setError("");
-      try {
-        setRows((await listCustomers(query, "active")) as CustomerOption[]);
-      } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : "No se pudieron cargar los clientes.",
-        );
-        setRows([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 180);
-    return () => clearTimeout(timer);
-  }, [open, query]);
-  function select(customer: CustomerOption) {
-    onChange(customer);
-    setOpen(false);
-    setQuery("");
-  }
   return (
-    <>
-      <div className="entity-lookup-field">
-        <button
-          type="button"
-          className="entity-lookup-trigger"
-          onClick={() => setOpen(true)}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-        >
-          <span className={value === null ? "entity-lookup-placeholder" : ""}>
-            {value === null ? "Seleccionar cliente…" : selectedLabel}
-          </span>
-          <Search size={16} />
-        </button>
-        {value !== null && (
-          <button
-            type="button"
-            className="entity-lookup-clear"
-            title="Quitar selección"
-            onClick={() => onChange(null)}
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
-      {open && (
-        <div
-          className="entity-lookup-backdrop"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
-          }}
-        >
-          <div
-            className="entity-lookup-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Buscar cliente"
-          >
-            <div className="entity-lookup-head">
-              <div>
-                <h3>Buscar cliente</h3>
-                <p>Busca y selecciona un cliente existente.</p>
-              </div>
-              <button
-                type="button"
-                className="icon-action"
-                title="Cerrar"
-                onClick={() => setOpen(false)}
-              >
-                <X size={17} />
-              </button>
-            </div>
-            <label className="entity-lookup-search">
-              <Search size={16} />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Nombre, código o teléfono…"
-              />
-            </label>
-            {error && <div className="inline-error">{error}</div>}
-            <div className="entity-lookup-results">
-              {loading ? (
-                <div className="loading-block">Buscando…</div>
-              ) : rows.length === 0 ? (
-                <div className="empty-state">
-                  No se han encontrado clientes.
-                </div>
-              ) : (
-                rows.map((customer) => (
-                  <button
-                    key={customer.id}
-                    type="button"
-                    className={`entity-lookup-result${customer.id === value ? " selected" : ""}`}
-                    onClick={() => select(customer)}
-                  >
-                    <span>
-                      {customer.party.trade_name || customer.party.legal_name}
-                    </span>
-                    <span className="secondary">
-                      {customer.party.phone || ""}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-            <div className="actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setOpen(false)}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <EntitySearchField
+      variant="modal"
+      title="Buscar cliente"
+      description="Busca y selecciona un cliente existente."
+      placeholder="Seleccionar cliente…"
+      searchPlaceholder="Nombre, código o teléfono…"
+      value={value ? toOption(value) : null}
+      onChange={onChange}
+      onSearch={async (q) => {
+        const rows = (await listCustomers(q, "active")) as CustomerOption[];
+        return rows.map(toOption);
+      }}
+      emptyText="No se han encontrado clientes."
+    />
   );
 }

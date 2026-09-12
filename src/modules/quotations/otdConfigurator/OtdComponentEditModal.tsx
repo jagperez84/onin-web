@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, Package, Search, X, Ruler, Loader2 } from "lucide-react";
+import { CheckCircle2, Package, X, Ruler } from "lucide-react";
 import {
   searchOninProducts,
   fetchProductForOtdComponent,
   type OtdSelection,
   type OtdVariable,
+  type OninProduct,
 } from "../../../services/otd/otdCalculationService";
-import type {
-  Product,
-  ProductCharacteristic,
-} from "../../../services/catalog/productRepository";
 import type { EditingCompModalState } from "./types";
 import { FormulaPredictiveInput } from "../../otd/FormulaPredictiveInput";
+import { EntitySearchField, type EntitySearchOption } from "../../../components/ui/EntitySearchField";
+
+type OtdCatalogOption = OninProduct & EntitySearchOption;
+
+function toCatalogOption(p: OninProduct): OtdCatalogOption {
+  return {
+    ...p,
+    label: `${p.code} · ${p.commercial_description || p.technical_description || "Sin descripción"}`,
+  };
+}
 
 export type OtdComponentEditModalProps = {
   editingCompModal: NonNullable<EditingCompModalState>;
@@ -32,10 +39,7 @@ export function OtdComponentEditModal({
   variables = [],
   workUnitSymbol = "mm",
 }: OtdComponentEditModalProps) {
-  const [productSearch, setProductSearch] = useState("");
-  const [searchingProducts, setSearchingProducts] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const [productResults, setProductResults] = useState<Product[]>([]);
   const [compFeedback, setCompFeedback] = useState<string>("");
 
   const comp = editingCompModal.comp;
@@ -96,24 +100,7 @@ export function OtdComponentEditModal({
     };
   }, [comp.product_id]);
 
-  const searchCatalog = async (query: string) => {
-    setProductSearch(query);
-    if (!query.trim() || query.length < 2) {
-      setProductResults([]);
-      return;
-    }
-    setSearchingProducts(true);
-    try {
-      const results = await searchOninProducts(query);
-      setProductResults(results as any);
-    } catch {
-      setProductResults([]);
-    } finally {
-      setSearchingProducts(false);
-    }
-  };
-
-  const handleSelectProductForComp = async (prod: Product) => {
+  const handleSelectProductForComp = async (prod: OtdCatalogOption) => {
     setLoadingDetails(true);
     try {
       const loaded = await fetchProductForOtdComponent(prod.id);
@@ -150,8 +137,6 @@ export function OtdComponentEditModal({
             : null,
         dimension_expressions: initialDimExprs,
       });
-      setProductResults([]);
-      setProductSearch("");
       setCompFeedback(`Artículo asignado: ${prod.code}`);
       setTimeout(() => setCompFeedback(""), 3000);
     } catch {
@@ -164,8 +149,6 @@ export function OtdComponentEditModal({
         dimensions: [],
         dimension_expressions: {},
       });
-      setProductResults([]);
-      setProductSearch("");
     } finally {
       setLoadingDetails(false);
     }
@@ -253,86 +236,29 @@ export function OtdComponentEditModal({
 
           {/* Product Catalog Search */}
           <div>
-            <label
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: "#334155",
-                display: "block",
-                marginBottom: "4px",
+            <EntitySearchField<OtdCatalogOption>
+              label="Buscar artículo en catálogo"
+              value={null}
+              onChange={(opt) => opt && handleSelectProductForComp(opt)}
+              onSearch={async (term) => {
+                if (term.trim().length < 2) return [];
+                return (await searchOninProducts(term)).map(toCatalogOption);
               }}
-            >
-              Buscar Artículo en Catálogo
-            </label>
-            <div style={{ position: "relative" }}>
-              <Search
-                size={15}
-                style={{
-                  position: "absolute",
-                  left: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "#64748b",
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Escribe código o descripción para buscar…"
-                value={productSearch}
-                onChange={(e) => searchCatalog(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 30px 8px 32px",
-                  borderRadius: "6px",
-                  border: "1px solid #cbd5e1",
-                  fontSize: "13px",
-                }}
-              />
-              {searchingProducts && (
-                <span
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    fontSize: "11px",
-                    color: "#64748b",
-                  }}
-                >
-                  Buscando…
-                </span>
-              )}
-            </div>
-
-            {productResults.length > 0 && (
-              <div className="otd-search-results-dropdown">
-                {productResults.map((p) => (
-                  <div
-                    key={p.id}
-                    className="otd-search-result-item"
-                    onClick={() => handleSelectProductForComp(p)}
-                  >
-                    <div>
-                      <strong>{p.code}</strong>
-                      <div style={{ fontSize: "11.5px", color: "var(--muted)" }}>
-                        {p.commercial_description ||
-                          p.technical_description ||
-                          "Sin descripción"}
-                      </div>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        color: "#0284c7",
-                      }}
-                    >
-                      Seleccionar
-                    </span>
+              placeholder="Escribe código o descripción para buscar…"
+              loadingText="Buscando…"
+              emptyText="No se han encontrado artículos."
+              renderOption={(o) => (
+                <div className="entity-search-option-block">
+                  <div className="entity-search-option-block-head">
+                    <strong>{o.code}</strong>
+                    <span className="entity-search-option-secondary">Seleccionar</span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <span className="entity-search-option-block-desc">
+                    {o.commercial_description || o.technical_description || "Sin descripción"}
+                  </span>
+                </div>
+              )}
+            />
           </div>
 
           {/* Selected Product Card */}

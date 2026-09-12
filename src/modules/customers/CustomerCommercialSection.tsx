@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Edit3, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { Edit3, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
+import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import {
   createCustomerFamilyDiscount,
   createCustomerOtdDiscount,
@@ -30,113 +31,10 @@ import {
 } from "../../services/core/customerCommercialRepository";
 import "./customerCommercial.css";
 
-type Ref = { id: number; code: string; name: string };
+type Ref = { id: number; code: string; name: string; label: string };
 
-function EntitySearch({
-  value,
-  onChange,
-  load,
-  placeholder,
-}: {
-  value: Ref | null;
-  onChange: (v: Ref | null) => void;
-  load: (q: string) => Promise<Ref[]>;
-  placeholder: string;
-}) {
-  const [query, setQuery] = useState(
-    value ? `${value.code} · ${value.name}` : "",
-  );
-  const [options, setOptions] = useState<Ref[]>([]);
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  useEffect(() => {
-    setQuery(value ? `${value.code} · ${value.name}` : "");
-  }, [value]);
-  useEffect(() => {
-    let alive = true;
-    const t = setTimeout(async () => {
-      const trimmed = query.trim();
-      if (!trimmed || (value && trimmed === `${value.code} · ${value.name}`)) {
-        setOptions([]);
-        return;
-      }
-      setLoading(true);
-      try {
-        const r = await load(trimmed);
-        if (alive) setOptions(r);
-      } catch {
-        if (alive) setOptions([]);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }, 180);
-    return () => {
-      alive = false;
-      clearTimeout(t);
-    };
-  }, [query, value, load]);
-  function clear() {
-    setQuery("");
-    setOptions([]);
-    setOpen(true);
-    onChange(null);
-  }
-  return (
-    <div className="entity-search">
-      <div className="entity-search-control">
-        <Search className="entity-search-icon" size={15} />
-        <input
-          className="entity-search-input"
-          value={query}
-          placeholder={placeholder}
-          autoComplete="off"
-          onFocus={() => setOpen(true)}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-            if (value) onChange(null);
-          }}
-          onBlur={() => setTimeout(() => setOpen(false), 160)}
-        />
-        {query && (
-          <button
-            className="entity-search-clear"
-            type="button"
-            aria-label="Limpiar búsqueda"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={clear}
-          >
-            <X size={14} />
-          </button>
-        )}
-      </div>
-      {open && (query.trim() || options.length > 0) && (
-        <div className="entity-search-results">
-          {loading ? (
-            <div className="entity-search-option muted">Buscando…</div>
-          ) : options.length === 0 ? (
-            <div className="entity-search-option muted">Sin resultados</div>
-          ) : (
-            options.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                className="entity-search-option"
-                onMouseDown={() => {
-                  onChange(o);
-                  setQuery(`${o.code} · ${o.name}`);
-                  setOpen(false);
-                }}
-              >
-                <strong>{o.code}</strong>
-                <span>{o.name}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
+function toRef(rows: { id: number; code: string; name: string }[]): Ref[] {
+  return rows.map((r) => ({ ...r, label: `${r.code} · ${r.name}` }));
 }
 
 export function CustomerCommercialSection({
@@ -659,10 +557,10 @@ export function CustomerCommercialSection({
               ) : (
                 <label>
                   OTD
-                  <EntitySearch
+                  <EntitySearchField
                     value={otdRef}
                     onChange={setOtdRef}
-                    load={(q) => searchOtdsForDiscount(companyId, q)}
+                    onSearch={(q) => searchOtdsForDiscount(companyId, q).then(toRef)}
                     placeholder="Buscar OTD por código o nombre…"
                   />
                 </label>
@@ -811,10 +709,10 @@ export function CustomerCommercialSection({
               ) : (
                 <label>
                   Familia
-                  <EntitySearch
+                  <EntitySearchField
                     value={familyRef}
                     onChange={setFamilyRef}
-                    load={(q) => searchProductFamilies(companyId, q)}
+                    onSearch={(q) => searchProductFamilies(companyId, q).then(toRef)}
                     placeholder="Buscar familia por código o nombre…"
                   />
                 </label>
@@ -967,10 +865,10 @@ export function CustomerCommercialSection({
               ) : (
                 <label>
                   Artículo
-                  <EntitySearch
+                  <EntitySearchField
                     value={productRef}
                     onChange={setProductRef}
-                    load={(q) => searchProductsForDiscount(companyId, q)}
+                    onSearch={(q) => searchProductsForDiscount(companyId, q).then(toRef)}
                     placeholder="Buscar artículo por código o descripción…"
                   />
                 </label>

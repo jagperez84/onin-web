@@ -13,20 +13,8 @@ import {
 import { AddressLookup } from "../customers/AddressLookup";
 import type { AddressForm } from "../customers/types";
 import { MessageLog } from "../../components/ui/MessageLog";
-import { CustomerMeasurementLookup } from "./CustomerMeasurementLookup";
+import { CustomerMeasurementLookup, type CustomerOption } from "./CustomerMeasurementLookup";
 import "./measurements.css";
-
-type CustomerOption = {
-  id: number;
-  party: {
-    legal_name: string;
-    trade_name: string | null;
-    tax_id: string | null;
-    code: string | null;
-    phone: string | null;
-    email: string | null;
-  };
-};
 const emptyAddress: AddressForm = {
   address_type: "INSTALACION",
   street: "",
@@ -220,10 +208,7 @@ export function MeasurementCreate() {
             <label className="wide">
               Cliente (opcional)
               <CustomerMeasurementLookup
-                value={customer?.id ?? null}
-                selectedLabel={
-                  customer?.party.trade_name || customer?.party.legal_name || ""
-                }
+                value={customer}
                 onChange={selectCustomer}
               />
             </label>
