@@ -1,19 +1,9 @@
 import { useEffect, useState } from "react";
-import {
-  Truck,
-  Search,
-  RotateCcw,
-  FileText,
-  CheckCircle,
-  Clock,
-  Eye,
-} from "lucide-react";
-import { Link } from "react-router-dom";
-import {
-  listDeliveryNotes,
-  type DeliveryNote,
-} from "../../services/sales/deliveryNoteService";
-import { QuotationDeliveryNoteModal } from "./QuotationDeliveryNoteModal";
+import { Truck, Search, RotateCcw, Eye } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { listDeliveryNotes, getDeliveryNoteById, type DeliveryNote } from "../../services/sales/deliveryNoteService";
+import { SalesOrderDeliveryNoteModal } from "../orders/SalesOrderDeliveryNoteModal";
+import { CoreRepositoryError } from "../../services/core/coreRepository";
 import "./quotation.css";
 
 const money = (n: number) =>
@@ -24,14 +14,45 @@ export function DeliveryNoteList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedNote, setSelectedNote] = useState<DeliveryNote | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  function load() {
-    setNotes(listDeliveryNotes());
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      setNotes(await listDeliveryNotes());
+    } catch (e) {
+      setError(e instanceof CoreRepositoryError || e instanceof Error ? e.message : "No se pudieron cargar los albaranes.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
-    load();
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId) return;
+    getDeliveryNoteById(Number(openId))
+      .then((note) => {
+        if (note) setSelectedNote(note);
+      })
+      .catch(() => {});
+  }, [searchParams]);
+
+  function closeModal() {
+    setSelectedNote(null);
+    if (searchParams.has("open")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("open");
+      setSearchParams(next, { replace: true });
+    }
+  }
 
   const filtered = notes.filter((n) => {
     if (statusFilter !== "ALL" && n.status !== statusFilter) return false;
@@ -39,7 +60,7 @@ export function DeliveryNoteList() {
     const term = search.toLowerCase();
     return (
       n.code.toLowerCase().includes(term) ||
-      n.quotation_code.toLowerCase().includes(term) ||
+      n.sales_order_code.toLowerCase().includes(term) ||
       n.customer_name.toLowerCase().includes(term) ||
       (n.carrier && n.carrier.toLowerCase().includes(term))
     );
@@ -51,20 +72,19 @@ export function DeliveryNoteList() {
         <div>
           <div className="eyebrow">FACTURACIÓN / EXPEDICIÓN</div>
           <h1>Albaranes de Entrega</h1>
-          <p>
-            Documentos de expedición y entrega generados a partir de
-            presupuestos aceptados.
-          </p>
+          <p>Documentos de expedición y entrega generados desde pedidos fabricados (e instalaciones completadas).</p>
         </div>
         <div className="quotation-head-actions">
-          <button className="secondary-button" type="button" onClick={load}>
+          <button className="secondary-button" type="button" onClick={() => void load()}>
             <RotateCcw size={15} /> Actualizar
           </button>
-          <Link className="primary-button" to="/ventas/presupuestos">
-            <FileText size={15} /> Ir a Presupuestos
+          <Link className="primary-button" to="/ventas/pedidos">
+            <Truck size={15} /> Ir a Pedidos
           </Link>
         </div>
       </div>
+
+      {error && <div className="inline-error">{error}</div>}
 
       <div className="quotation-list-summary">
         <div className="quotation-summary-card">
@@ -77,18 +97,14 @@ export function DeliveryNoteList() {
         <div className="quotation-summary-card accent">
           <div>
             <span>Importe en Expedición</span>
-            <strong>
-              {money(filtered.reduce((s, n) => s + (n.total_amount || 0), 0))}
-            </strong>
+            <strong>{money(filtered.reduce((s, n) => s + (n.total_amount || 0), 0))}</strong>
             <small>Total según filtros</small>
           </div>
         </div>
         <div className="quotation-summary-card">
           <div>
             <span>Filtrando por</span>
-            <strong>
-              {statusFilter === "ALL" ? "Todos los estados" : statusFilter}
-            </strong>
+            <strong>{statusFilter === "ALL" ? "Todos los estados" : statusFilter}</strong>
             <small>{filtered.length} visibles</small>
           </div>
         </div>
@@ -100,15 +116,11 @@ export function DeliveryNoteList() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por albarán, presupuesto, cliente…"
+            placeholder="Buscar por albarán, pedido, cliente…"
             aria-label="Buscar albaranes"
           />
         </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label="Filtrar por estado"
-        >
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filtrar por estado">
           <option value="ALL">Todos los estados</option>
           <option value="PREPARED">Preparado</option>
           <option value="SHIPPED">Enviado</option>
@@ -123,7 +135,7 @@ export function DeliveryNoteList() {
             <tr>
               <th>Albarán</th>
               <th>Fecha</th>
-              <th>Presupuesto Origen</th>
+              <th>Pedido Origen</th>
               <th>Cliente</th>
               <th>Dirección de Entrega</th>
               <th>Transporte</th>
@@ -132,22 +144,21 @@ export function DeliveryNoteList() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={8}>Cargando…</td>
+              </tr>
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={8}>
                   <div className="empty-state">
                     <Truck size={32} />
                     <strong>No hay albaranes generados</strong>
                     <span>
-                      Los albaranes se crean directamente desde los presupuestos
-                      en estado <strong>Aceptado</strong>.
+                      Los albaranes se generan desde un pedido fabricado (o desde su montaje al completarse).
                     </span>
-                    <Link
-                      to="/ventas/presupuestos"
-                      className="primary-button"
-                      style={{ marginTop: "12px" }}
-                    >
-                      Ver Presupuestos
+                    <Link to="/ventas/pedidos" className="primary-button" style={{ marginTop: "12px" }}>
+                      Ver Pedidos
                     </Link>
                   </div>
                 </td>
@@ -157,40 +168,22 @@ export function DeliveryNoteList() {
                 <tr key={n.id} className="clickable-row">
                   <td>
                     <div className="quotation-number">
-                      <strong
-                        style={{
-                          color: "var(--primary)",
-                          fontFamily: "var(--font-mono)",
-                        }}
-                      >
-                        {n.code}
-                      </strong>
+                      <strong style={{ color: "var(--primary)", fontFamily: "var(--font-mono)" }}>{n.code}</strong>
                       <small>
-                        {n.lines.length}{" "}
-                        {n.lines.length === 1 ? "artículo" : "artículos"}
+                        {n.lines.length} {n.lines.length === 1 ? "artículo" : "artículos"}
                       </small>
                     </div>
                   </td>
+                  <td>{new Date(`${n.issue_date}T00:00:00`).toLocaleDateString("es-ES")}</td>
                   <td>
-                    {new Date(`${n.issue_date}T00:00:00`).toLocaleDateString(
-                      "es-ES",
-                    )}
-                  </td>
-                  <td>
-                    <Link
-                      to={`/ventas/presupuestos/${n.quotation_id}`}
-                      className="primary-link"
-                    >
-                      {n.quotation_code}
+                    <Link to={`/ventas/pedidos/${n.sales_order_id}`} className="primary-link">
+                      {n.sales_order_code}
                     </Link>
                   </td>
                   <td>
                     <div className="quotation-customer">
                       <strong>{n.customer_name}</strong>
-                      {n.customer_legal_name &&
-                        n.customer_legal_name !== n.customer_name && (
-                          <span>{n.customer_legal_name}</span>
-                        )}
+                      {n.customer_legal_name && n.customer_legal_name !== n.customer_name && <span>{n.customer_legal_name}</span>}
                     </div>
                   </td>
                   <td>
@@ -207,7 +200,7 @@ export function DeliveryNoteList() {
                       type="button"
                       className="secondary-button compact"
                       onClick={() => setSelectedNote(n)}
-                      title="Ver Documento Albarán"
+                      title="Consultar Documento Albarán"
                     >
                       <Eye size={14} /> Ver
                     </button>
@@ -220,21 +213,12 @@ export function DeliveryNoteList() {
       </div>
 
       {selectedNote && (
-        <QuotationDeliveryNoteModal
-          isOpen={!!selectedNote}
-          onClose={() => setSelectedNote(null)}
-          quotation={{
-            id: selectedNote.quotation_id,
-            code: selectedNote.quotation_code,
-            total_amount: selectedNote.total_amount,
-            notes: selectedNote.notes,
-            customer: {
-              party: {
-                trade_name: selectedNote.customer_name,
-                legal_name: selectedNote.customer_legal_name,
-              },
-            },
-            lines: selectedNote.lines,
+        <SalesOrderDeliveryNoteModal
+          note={selectedNote}
+          onClose={closeModal}
+          onStatusChange={(updated) => {
+            setSelectedNote(updated);
+            setNotes((current) => current.map((n) => (n.id === updated.id ? updated : n)));
           }}
         />
       )}

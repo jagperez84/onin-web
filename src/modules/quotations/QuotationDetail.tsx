@@ -33,10 +33,6 @@ import {
   isQuotationExpired,
   getEffectiveStatus,
 } from "../../services/sales/quotationRepository";
-import {
-  getDeliveryNoteByQuotationId,
-  type DeliveryNote,
-} from "../../services/sales/deliveryNoteService";
 import { generateAndDownloadQuotationPdf } from "../../services/sales/quotationPdfService";
 import { getQuotationConversionStatus } from "../../services/sales/salesOrderService";
 import { listQuotationComments, type QuotationComment } from "../../services/sales/quotationCommentService";
@@ -45,7 +41,6 @@ import { QuotationLineSnapshotModal } from "./QuotationLineSnapshotModal";
 import { QuotationEmailModal } from "./QuotationEmailModal";
 import { QuotationRenewModal } from "./QuotationRenewModal";
 import { QuotationStatusModal } from "./QuotationStatusModal";
-import { QuotationDeliveryNoteModal } from "./QuotationDeliveryNoteModal";
 import { QuotationPdfPreviewModal } from "./QuotationPdfPreviewModal";
 import { Toast } from "../../components/ui/Toast";
 import "./quotation.css";
@@ -161,9 +156,6 @@ export function QuotationDetail() {
   const [targetStatus, setTargetStatus] = useState<
     "ACCEPTED" | "REJECTED" | "DRAFT"
   >("ACCEPTED");
-  const [deliveryNoteModalOpen, setDeliveryNoteModalOpen] = useState(false);
-  const [existingDeliveryNote, setExistingDeliveryNote] =
-    useState<DeliveryNote | null>(null);
   const [orderConversionState, setOrderConversionState] = useState<
     "none" | "partial" | "full"
   >("none");
@@ -263,7 +255,6 @@ export function QuotationDetail() {
 
       setData(q as unknown as Detail);
       void listQuotationComments(Number(id)).then(setComments).catch(() => {});
-      setExistingDeliveryNote(getDeliveryNoteByQuotationId(Number(id)));
       if (q.status === "ACCEPTED") {
         try {
           const conversion = await getQuotationConversionStatus(Number(id));
@@ -507,21 +498,6 @@ export function QuotationDetail() {
               )}
               <button
                 type="button"
-                className="primary-button albaran-btn"
-                onClick={() => setDeliveryNoteModalOpen(true)}
-                title={
-                  existingDeliveryNote
-                    ? "Consultar albarán generado"
-                    : "Generar albarán de entrega"
-                }
-              >
-                <Truck size={15} />
-                {existingDeliveryNote
-                  ? `Ver Albarán (${existingDeliveryNote.code})`
-                  : "Crear Albarán"}
-              </button>
-              <button
-                type="button"
                 className="secondary-button"
                 onClick={() => openStatusChange("DRAFT")}
                 title="Revertir a borrador para rectificar o corregir"
@@ -612,10 +588,7 @@ export function QuotationDetail() {
             {effectiveStatus === "ACCEPTED" && (
               <>
                 <strong>Presupuesto Aceptado:</strong> Propuesta aprobada por el
-                cliente.
-                {existingDeliveryNote
-                  ? ` Vinculado al Albarán ${existingDeliveryNote.code}.`
-                  : " Listo para expedición y entrega."}
+                cliente. Listo para crear el pedido de fabricación.
               </>
             )}
             {effectiveStatus === "REJECTED" && (
@@ -845,37 +818,6 @@ export function QuotationDetail() {
         </section>
       </div>
 
-      {/* Generated Delivery Note Link if exists */}
-      {existingDeliveryNote && (
-        <section className="quotation-albaran-card">
-          <div className="albaran-linked-box">
-            <div className="albaran-linked-icon">
-              <Truck size={24} />
-            </div>
-            <div className="albaran-linked-info">
-              <div className="albaran-linked-header">
-                <strong>Albarán de Entrega {existingDeliveryNote.code}</strong>
-                <span className="status-pill">
-                  {existingDeliveryNote.status}
-                </span>
-              </div>
-              <p>
-                Fecha de entrega:{" "}
-                <strong>{date(existingDeliveryNote.delivery_date)}</strong> ·
-                Dirección:{" "}
-                <strong>{existingDeliveryNote.delivery_address}</strong>
-              </p>
-            </div>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={() => setDeliveryNoteModalOpen(true)}
-            >
-              <Eye size={15} /> Ver Albarán
-            </button>
-          </div>
-        </section>
-      )}
 
       {/* Lines Section */}
       <section className="quotation-lines-section">
@@ -1071,17 +1013,6 @@ export function QuotationDetail() {
         />
       )}
 
-      {deliveryNoteModalOpen && (
-        <QuotationDeliveryNoteModal
-          isOpen={deliveryNoteModalOpen}
-          onClose={() => setDeliveryNoteModalOpen(false)}
-          quotation={data}
-          onCreated={(note) => {
-            setExistingDeliveryNote(note);
-            setToast(`Albarán ${note.code} generado con éxito.`);
-          }}
-        />
-      )}
 
       {pdfModalOpen && (
         <QuotationPdfPreviewModal

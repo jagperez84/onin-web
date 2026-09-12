@@ -143,10 +143,10 @@ async function fetchInvoiceDocuments(companyId: number, customerId: number): Pro
   }));
 }
 
-/** Los albaranes ("delivery notes") aún se guardan en localStorage, no en Supabase — misma fuente que DeliveryNoteList.tsx. */
-function fetchDeliveryNoteDocuments(customerId: number): CustomerDocumentRow[] {
-  return listDeliveryNotes()
-    .filter((d) => Number(d.customer_id) === customerId)
+async function fetchDeliveryNoteDocuments(customerId: number): Promise<CustomerDocumentRow[]> {
+  const notes = await listDeliveryNotes();
+  return notes
+    .filter((d) => d.customer_id === customerId)
     .map((d) => ({
       type: 'delivery_note' as const,
       id: d.id,
@@ -155,19 +155,19 @@ function fetchDeliveryNoteDocuments(customerId: number): CustomerDocumentRow[] {
       status: d.status,
       statusLabel: DELIVERY_NOTE_STATUS_LABEL[d.status] ?? d.status,
       amount: Number(d.total_amount || 0),
-      link: `/facturacion/albaranes/${d.id}`,
+      link: `/facturacion/albaranes?open=${d.id}`,
     }));
 }
 
 export async function getCustomerCommercialSummary(customerId: number): Promise<CustomerCommercialSummary> {
   const companyId = await getCurrentCompanyId();
-  const [quotations, orders, invoices, collections] = await Promise.all([
+  const [quotations, orders, invoices, collections, deliveryNotes] = await Promise.all([
     fetchQuotationDocuments(companyId, customerId),
     fetchSalesOrderDocuments(companyId, customerId),
     fetchInvoiceDocuments(companyId, customerId),
     listCollections({ status: 'ALL', customerId }),
+    fetchDeliveryNoteDocuments(customerId),
   ]);
-  const deliveryNotes = fetchDeliveryNoteDocuments(customerId);
 
   const documents = [...quotations, ...orders, ...deliveryNotes, ...invoices].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
