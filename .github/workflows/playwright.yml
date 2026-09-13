@@ -1,9 +1,12 @@
 name: Playwright E2E
 
+# Desactivado temporalmente: solo se lanza manualmente (Actions → Run workflow).
+# Para reactivarlo en push/PR, restaurar los triggers `push`/`pull_request` de abajo.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  # pull_request:
 
 jobs:
   e2e:
