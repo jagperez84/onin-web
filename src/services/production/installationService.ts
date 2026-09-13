@@ -93,6 +93,11 @@ export type Installation = {
   crewId: number | null;
   crewName?: string | null;
   crewColor?: string | null;
+  /** Orden dentro del día para esta cuadrilla — usado para numerar el mapa del día de la Agenda. */
+  routeSequence: number | null;
+  /** Coordenadas de la instalación (heredadas del pedido) — para el mapa del día. */
+  latitude: number | null;
+  longitude: number | null;
   salesOrderCode?: string | null;
   customerName?: string | null;
   /** Líneas del pedido (sales_order_line.id) que cubre esta visita de montaje. */
@@ -151,6 +156,9 @@ function mapInstallation(row: any): Installation {
     crewId: row.crew_id == null ? null : Number(row.crew_id),
     crewName: row.crew?.name ?? null,
     crewColor: row.crew?.color ?? null,
+    routeSequence: row.route_sequence == null ? null : Number(row.route_sequence),
+    latitude: row.sales_order?.installation_latitude == null ? null : Number(row.sales_order.installation_latitude),
+    longitude: row.sales_order?.installation_longitude == null ? null : Number(row.sales_order.installation_longitude),
     salesOrderCode: row.sales_order?.code ?? null,
     customerName: row.sales_order?.customer?.party?.trade_name || row.sales_order?.customer?.party?.legal_name || null,
     lineIds: Array.isArray(row.lines) ? row.lines.map((l: any) => Number(l.sales_order_line_id)) : [],
@@ -160,9 +168,9 @@ function mapInstallation(row: any): Installation {
 }
 
 const SELECT =
-  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,created_by,completed_by,crew_id,' +
+  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,created_by,completed_by,crew_id,route_sequence,' +
   'crew:crew_id(name,color),' +
-  'installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),' +
+  'installation_type:installation_type_id(description),sales_order:sales_order_id(code,installation_latitude,installation_longitude,customer:customer_id(party:party_id(legal_name,trade_name))),' +
   'lines:installation_line(sales_order_line_id),' +
   'sessions:installation_session(id,installation_id,session_date,start_time,end_time,notes,created_at),' +
   'incidents:installation_incident(id,installation_id,session_id,severity,description,status,reported_at,resolved_at,resolution_notes)';
@@ -380,4 +388,11 @@ export async function listOrdersAwaitingInstallation(companyId: number): Promise
     });
   }
   return results;
+}
+
+/** Fija el orden de visita dentro del día para una cuadrilla — numera los pines en el mapa del día de la Agenda. */
+export async function setInstallationRouteSequence(id: number, sequence: number | null): Promise<void> {
+  const c = client();
+  const { error } = await c.from('installation').update({ route_sequence: sequence, updated_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw new CoreRepositoryError(error.message);
 }
