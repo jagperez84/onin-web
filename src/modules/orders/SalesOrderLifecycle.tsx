@@ -1,9 +1,11 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   FileText,
   Package,
@@ -18,6 +20,7 @@ import type { LonaConfectionWorkSheet } from '../../services/production/lonaConf
 import type { ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
 import type { Installation, InstallationIncident } from '../../services/production/installationService';
 import type { Invoice } from '../../services/sales/invoiceService';
+import type { DeliveryNote } from '../../services/sales/deliveryNoteService';
 
 type StageState = 'done' | 'active' | 'pending' | 'unavailable';
 type StageTone = 'warning' | 'danger';
@@ -39,8 +42,8 @@ type TimelineEvent = {
   /** Orden dentro del mismo día cuando la fecha no lleva hora (p. ej. issue_date de pedido/factura, que son solo fecha) — sin esto un evento sin hora se ordenaba antes que cualquier evento con hora del mismo día, aunque en el flujo real vaya después. */
   priority: number;
   title: string;
-  detail?: string;
-  docCode?: string;
+  /** Líneas de detalle bajo el título (código de documento, fecha/hora, instaladores…), cada una en su propia línea. */
+  lines?: string[];
 };
 
 const asLocalDate = (v: string) => new Date(v.includes('T') ? v : `${v}T00:00:00`);
@@ -66,6 +69,8 @@ type LifecycleProps = {
   componentSheets: ComponentConsumptionWorkSheet[];
   installations: Installation[];
   invoice: Invoice | null;
+  /** Albaranes del pedido — solo hace falta para el historial detallado. */
+  deliveryNotes?: DeliveryNote[];
   /** Nº de líneas del pedido con algo aún pendiente de entregar (delivery_note). */
   pendingDeliveryLines?: number;
   totalDeliveryLines?: number;
@@ -154,37 +159,55 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
   };
 }
 
-function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations, invoice }: LifecycleProps): TimelineEvent[] {
+function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, deliveryNotes }: LifecycleProps): TimelineEvent[] {
+  const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED', 'INVOICED'].includes(order.status);
+  const fabricationDates = [
+    ...cutSheets.map((s) => s.issue_date),
+    ...lonaSheets.map((s) => s.issueDate),
+    ...componentSheets.map((s) => s.issueDate),
+  ].filter(Boolean) as string[];
+  const earliestFabricationDate = fabricationDates.length ? fabricationDates.reduce((a, b) => (a < b ? a : b)) : null;
+  const latestFabricationDate = fabricationDates.length ? fabricationDates.reduce((a, b) => (a > b ? a : b)) : null;
+
   return [
-    { key: 'order-created', date: order.issue_date, priority: 0, title: 'Pedido creado a partir del presupuesto' },
+    { key: 'order-created', date: order.issue_date, priority: 0, title: 'Pedido creado', lines: [order.code] },
+    ...(earliestFabricationDate
+      ? [{ key: 'fabrication-started', date: earliestFabricationDate, priority: 9, title: 'Fabricación iniciada' }]
+      : []),
     ...cutSheets.map((s) => ({
       key: `cut-${s.id}`,
       date: s.issue_date,
       priority: 10,
       title: 'Corte de perfil realizado',
-      docCode: s.code,
+      lines: [s.code],
     })),
     ...lonaSheets.map((s) => ({
       key: `lona-${s.id}`,
       date: s.issueDate,
       priority: 10,
       title: 'Confección de lona realizada',
-      docCode: s.code,
+      lines: [s.code],
     })),
     ...componentSheets.map((s) => ({
       key: `comp-${s.id}`,
       date: s.issueDate,
       priority: 10,
       title: 'Componentes descontados',
-      docCode: s.code,
+      lines: [s.code],
     })),
+    ...(isManufactured && latestFabricationDate
+      ? [{ key: 'fabrication-completed', date: latestFabricationDate, priority: 11, title: 'Fabricación completada' }]
+      : []),
     ...installations.flatMap((installation) => [
       {
         key: `install-scheduled-${installation.id}`,
         date: installation.createdAt,
         priority: 20,
         title: 'Montaje programado',
-        detail: [shortDate(installation.scheduledDate), installation.startTime].filter(Boolean).join(' · ') || undefined,
+        lines: [
+          [shortDate(installation.scheduledDate), installation.startTime].filter(Boolean).join(' · '),
+          installation.installers.length ? `Montador: ${installation.installers.map((i) => i.name).join(', ')}` : null,
+        ].filter(Boolean) as string[],
       },
       ...(installation.status === 'COMPLETED'
         ? [
@@ -197,7 +220,14 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
           ]
         : []),
     ]),
-    ...(invoice ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, priority: 30, title: 'Factura emitida', docCode: invoice.code }] : []),
+    ...(deliveryNotes ?? []).map((note) => ({
+      key: `delivery-${note.id}`,
+      date: note.issue_date,
+      priority: 29,
+      title: 'Entrega realizada',
+      lines: [note.code],
+    })),
+    ...(invoice ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, priority: 30, title: 'Factura emitida', lines: [invoice.code] }] : []),
   ].sort((a, b) => {
     const dayA = (a.date || '').slice(0, 10);
     const dayB = (b.date || '').slice(0, 10);
@@ -476,30 +506,54 @@ export function SalesOrderLifecycleStepper({
 
 export function SalesOrderLifecycleHistory(props: LifecycleProps) {
   const events = buildTimelineEvents(props);
+  const [expanded, setExpanded] = useState(false);
+  const lastEvent = events[events.length - 1];
 
   return (
     <section className="quotation-card lifecycle-history">
-      <h2>Historial de la venta</h2>
-      <div className="lifecycle-timeline">
-        {events.map((ev, i) => (
-          <div className="lifecycle-event" key={ev.key}>
-            <div className="lifecycle-event-rail">
-              <div className="lifecycle-event-dot">
-                <CheckCircle2 size={13} />
-              </div>
-              {i < events.length - 1 && <div className="lifecycle-event-line" />}
-            </div>
-            <div className="lifecycle-event-body">
-              <div className="lifecycle-event-title">{ev.title}</div>
-              <div className="lifecycle-event-meta">
-                {fullDateTime(ev.date)}
-                {ev.detail ? ` · ${ev.detail}` : ''}
-                {ev.docCode ? ` · ${ev.docCode}` : ''}
-              </div>
-            </div>
-          </div>
-        ))}
+      <div className="panel-head">
+        <div>
+          <h2>Historial de la venta</h2>
+          <p>
+            {events.length} evento{events.length === 1 ? '' : 's'}
+            {lastEvent ? ` · Última actividad: ${lastEvent.title} (${shortDate(lastEvent.date)})` : ''}
+          </p>
+        </div>
+        <button type="button" className="secondary-button compact" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? (
+            <>
+              <ChevronUp size={14} /> Ocultar
+            </>
+          ) : (
+            <>
+              <ChevronDown size={14} /> Ver historial completo
+            </>
+          )}
+        </button>
       </div>
+      {expanded && (
+        <div className="lifecycle-timeline">
+          {events.map((ev, i) => (
+            <div className="lifecycle-event" key={ev.key}>
+              <div className="lifecycle-event-rail">
+                <div className="lifecycle-event-dot">
+                  <CheckCircle2 size={13} />
+                </div>
+                {i < events.length - 1 && <div className="lifecycle-event-line" />}
+              </div>
+              <div className="lifecycle-event-body">
+                <div className="lifecycle-event-title">{ev.title}</div>
+                <div className="lifecycle-event-meta">{fullDateTime(ev.date)}</div>
+                {ev.lines?.map((line, j) => (
+                  <div className="lifecycle-event-detail-line" key={j}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
