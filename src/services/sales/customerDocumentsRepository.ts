@@ -66,6 +66,7 @@ const SALES_ORDER_STATUS_LABEL: Record<string, string> = {
   MANUFACTURED: 'Fabricado',
   INSTALLATION_SCHEDULED: 'Montaje programado',
   INSTALLED: 'Instalado',
+  INVOICED: 'Facturado',
   CANCELLED: 'Cancelado',
 };
 const DELIVERY_NOTE_STATUS_LABEL: Record<string, string> = {
