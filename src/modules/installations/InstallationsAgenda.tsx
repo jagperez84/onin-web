@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, GripVertical } from 'lucide-react';
 import {
@@ -68,7 +68,67 @@ function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: num
 }
 const DISTANCE_WARNING_KM = 30;
 
+function timeToMinutes(t: string | null | undefined): number | null {
+  if (!t) return null;
+  const m = t.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+function minutesToTime(mins: number): string {
+  const wrapped = ((mins % 1440) + 1440) % 1440;
+  const h = Math.floor(wrapped / 60);
+  const m = Math.round(wrapped % 60);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+/** Interpreta duraciones en texto libre ("2h", "1h30", "90min", "1,5h") → horas decimales. Devuelve null si no se reconoce el formato. */
+function parseDurationHours(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const s = text.trim().toLowerCase().replace(',', '.');
+  let m = s.match(/^(\d+(?:\.\d+)?)\s*h(?:oras?)?\s*(\d+)?\s*(?:min(?:utos?)?)?$/);
+  if (m) return parseFloat(m[1]) + (m[2] ? parseInt(m[2], 10) / 60 : 0);
+  m = s.match(/^(\d+)\s*min(?:utos?)?$/);
+  if (m) return parseInt(m[1], 10) / 60;
+  m = s.match(/^(\d+(?:\.\d+)?)$/);
+  if (m) return parseFloat(m[1]);
+  return null;
+}
+/** Duración a aplicar cuando no hay ninguna estimación registrada — solo afecta al tamaño del bloque en el mapa del día. */
+const DEFAULT_DURATION_HOURS = 2;
+const DAY_START_HOUR = 7;
+const DAY_END_HOUR = 20;
+const PX_PER_HOUR = 52;
+const TRACK_HEIGHT = (DAY_END_HOUR - DAY_START_HOUR) * PX_PER_HOUR;
+
 type Lane = { key: string; label: string; color: string | null; crewId: number | null };
+
+/**
+ * Una "aparición" de un montaje en un día concreto. Un montaje sin jornadas registradas
+ * (SCHEDULED, aún no empezado) aparece una vez, en su scheduledDate. Un montaje con
+ * jornadas (IN_PROGRESS/BLOCKED/COMPLETED, ya se ha trabajado) aparece una vez por cada
+ * jornada, en la fecha y horario de esa jornada — así un montaje de varios días se ve
+ * en todos los días que ocupa, no solo en el primero.
+ */
+type DayAppearance = {
+  key: string;
+  installation: Installation;
+  date: string;
+  startMinutes: number | null;
+  durationHours: number;
+  sessionLabel: string | null;
+};
+
+function timeRangeLabel(a: Pick<DayAppearance, 'startMinutes' | 'durationHours'>): string | null {
+  if (a.startMinutes == null) return null;
+  return `${minutesToTime(a.startMinutes)}–${minutesToTime(a.startMinutes + a.durationHours * 60)}`;
+}
+
+function compareAppearances(a: DayAppearance, b: DayAppearance): number {
+  const aHas = a.startMinutes != null;
+  const bHas = b.startMinutes != null;
+  if (aHas && bHas) return (a.startMinutes as number) - (b.startMinutes as number) || a.installation.id - b.installation.id;
+  if (aHas !== bHas) return aHas ? -1 : 1;
+  return (a.installation.routeSequence ?? 9999) - (b.installation.routeSequence ?? 9999) || a.installation.id - b.installation.id;
+}
 
 function DraggableCard({ id, disabled, children }: { id: string; disabled?: boolean; children: ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id, disabled });
@@ -89,17 +149,27 @@ function DroppableCell({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-function InstallationCard({ inst }: { inst: Installation }) {
+function DayLaneDrop({ id, children }: { id: string; children: ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={`agenda-day-lane-drop ${isOver ? 'is-over' : ''}`}>
+      {children}
+    </div>
+  );
+}
+
+function InstallationCard({ inst, timeLabel, sessionLabel }: { inst: Installation; timeLabel?: string | null; sessionLabel?: string | null }) {
   const hasOpenIncident = inst.incidents.some((i) => i.status === 'OPEN');
   return (
     <Link to={`/ventas/pedidos/${inst.salesOrderId}`} className="agenda-card-link">
       <span className="agenda-card-head">
         <GripVertical size={12} />
-        {inst.startTime && <strong>{inst.startTime}</strong>}
+        {timeLabel && <strong>{timeLabel}</strong>}
         <span className={`status-pill ${INSTALLATION_STATUS_TONE[inst.status]}`}>{INSTALLATION_STATUS_LABEL[inst.status]}</span>
       </span>
       <span className="agenda-card-title">{inst.salesOrderCode || `#${inst.salesOrderId}`}</span>
       <span className="agenda-card-sub">{inst.customerName || '—'}</span>
+      {sessionLabel && <span className="agenda-card-session">{sessionLabel}</span>}
       {hasOpenIncident && <span className="status-pill danger">Incidencia abierta</span>}
     </Link>
   );
@@ -116,6 +186,53 @@ function OrderCard({ order }: { order: OrderAwaitingInstallation }) {
       <span className="agenda-card-sub">{order.customerName || '—'}</span>
       <span className="agenda-card-lines">{order.linesLabel}</span>
     </Link>
+  );
+}
+
+/** Bloque posicionado en el eje horario — su alto es proporcional a la duración prevista. */
+function TimeBlock({ appearance, distanceWarningKm }: { appearance: DayAppearance; distanceWarningKm: number | null }) {
+  const inst = appearance.installation;
+  const disabled = inst.status !== 'SCHEDULED';
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: `card:installation:${inst.id}`, disabled });
+  const hasOpenIncident = inst.incidents.some((i) => i.status === 'OPEN');
+  const top = Math.max(0, ((appearance.startMinutes as number) / 60 - DAY_START_HOUR) * PX_PER_HOUR);
+  const height = Math.max(appearance.durationHours * PX_PER_HOUR, 24);
+  const style: CSSProperties = {
+    top,
+    height,
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    zIndex: isDragging ? 60 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={`agenda-time-block ${disabled ? 'not-draggable' : ''} ${isDragging ? 'is-dragging' : ''}`}>
+      <Link to={`/ventas/pedidos/${inst.salesOrderId}`} className="agenda-card-link">
+        <span className="agenda-card-head">
+          <strong>{timeRangeLabel(appearance)}</strong>
+          {distanceWarningKm != null && (
+            <span title={`${Math.round(distanceWarningKm)} km desde la parada anterior (línea recta)`}>
+              <AlertTriangle size={11} color="var(--status-warning-fg)" />
+            </span>
+          )}
+        </span>
+        <span className="agenda-card-title">{inst.salesOrderCode || `#${inst.salesOrderId}`}</span>
+        <span className="agenda-card-sub">{inst.customerName || '—'}</span>
+        {appearance.sessionLabel && <span className="agenda-card-session">{appearance.sessionLabel}</span>}
+        {hasOpenIncident && <span className="status-pill danger">Incidencia</span>}
+      </Link>
+    </div>
+  );
+}
+
+function HourRuler() {
+  const hours = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR + 1 }, (_, i) => DAY_START_HOUR + i);
+  return (
+    <div className="agenda-hour-ruler" style={{ height: TRACK_HEIGHT }}>
+      {hours.map((h) => (
+        <div key={h} className="agenda-hour-mark" style={{ top: (h - DAY_START_HOUR) * PX_PER_HOUR }}>
+          {String(h).padStart(2, '0')}:00
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -167,13 +284,45 @@ export function InstallationsAgenda() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
+  // Una entrada por cada día que ocupa un montaje: la fecha planificada si aún no
+  // empezó, o una por cada jornada de trabajo registrada si ya lleva varias visitas.
+  const appearances: DayAppearance[] = useMemo(() => {
+    const list: DayAppearance[] = [];
+    for (const inst of allInstallations) {
+      if (inst.sessions.length > 0) {
+        inst.sessions.forEach((s, idx) => {
+          const start = timeToMinutes(s.startTime);
+          const end = timeToMinutes(s.endTime);
+          const duration = start != null && end != null && end > start ? (end - start) / 60 : parseDurationHours(inst.estimatedDuration) ?? DEFAULT_DURATION_HOURS;
+          list.push({
+            key: `inst-${inst.id}-session-${s.id}`,
+            installation: inst,
+            date: s.sessionDate,
+            startMinutes: start,
+            durationHours: duration,
+            sessionLabel: inst.sessions.length > 1 ? `Jornada ${idx + 1} de ${inst.sessions.length}` : null,
+          });
+        });
+      } else if (inst.scheduledDate) {
+        list.push({
+          key: `inst-${inst.id}-planned`,
+          installation: inst,
+          date: inst.scheduledDate,
+          startMinutes: timeToMinutes(inst.startTime),
+          durationHours: parseDurationHours(inst.estimatedDuration) ?? DEFAULT_DURATION_HOURS,
+          sessionLabel: null,
+        });
+      }
+    }
+    return list;
+  }, [allInstallations]);
+
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysStr(weekStart, i)), [weekStart]);
   const weekEnd = days[6];
-  const weekInstallations = useMemo(
-    () => allInstallations.filter((i) => i.scheduledDate && i.scheduledDate >= weekStart && i.scheduledDate <= weekEnd),
-    [allInstallations, weekStart, weekEnd]
-  );
-  const undatedInstallations = useMemo(() => allInstallations.filter((i) => !i.scheduledDate), [allInstallations]);
+  const weekAppearances = useMemo(() => appearances.filter((a) => a.date >= weekStart && a.date <= weekEnd), [appearances, weekStart, weekEnd]);
+  // Un montaje que ya tiene alguna jornada registrada no está "sin fecha" aunque
+  // scheduledDate quedara vacío — sus jornadas son las fechas reales que importan.
+  const undatedInstallations = useMemo(() => allInstallations.filter((i) => !i.scheduledDate && i.sessions.length === 0), [allInstallations]);
   const staffById = useMemo(() => new Map(fieldStaff.map((s) => [s.id, s.name])), [fieldStaff]);
   const lanes: Lane[] = useMemo(
     () => [
@@ -190,27 +339,23 @@ export function InstallationsAgenda() {
     return crew.memberIds.map((id) => ({ id, name: staffById.get(id) || `Usuario #${id}` }));
   }
 
-  const dayInstallations = useMemo(
-    () => (selectedDay ? allInstallations.filter((i) => i.scheduledDate === selectedDay) : []),
-    [allInstallations, selectedDay]
-  );
+  const dayAppearances = useMemo(() => (selectedDay ? appearances.filter((a) => a.date === selectedDay) : []), [appearances, selectedDay]);
   const dayGroups = useMemo(
     () =>
-      lanes.map((lane) => ({
-        lane,
-        items: dayInstallations
-          .filter((i) => i.crewId === lane.crewId)
-          .sort((a, b) => (a.routeSequence ?? 9999) - (b.routeSequence ?? 9999) || a.id - b.id),
-      })),
-    [lanes, dayInstallations]
+      lanes.map((lane) => {
+        const items = dayAppearances.filter((a) => a.installation.crewId === lane.crewId).sort(compareAppearances);
+        return { lane, items, timed: items.filter((a) => a.startMinutes != null), untimed: items.filter((a) => a.startMinutes == null) };
+      }),
+    [lanes, dayAppearances]
   );
   const dayMapPoints: CanvasPoint[] = useMemo(() => {
     const pts: CanvasPoint[] = [];
     for (const { lane, items } of dayGroups) {
-      items.forEach((inst, idx) => {
+      items.forEach((a, idx) => {
+        const inst = a.installation;
         if (inst.latitude == null || inst.longitude == null) return;
         pts.push({
-          key: `inst-${inst.id}`,
+          key: `pt-${a.key}`,
           lat: inst.latitude,
           lon: inst.longitude,
           color: lane.color || '#8a6d3b',
@@ -227,14 +372,25 @@ export function InstallationsAgenda() {
         .filter((g) => g.items.length > 1)
         .map((g) => ({
           color: g.lane.color || '#8a6d3b',
-          keys: g.items.filter((i) => i.latitude != null && i.longitude != null).map((i) => `inst-${i.id}`),
+          keys: g.items.filter((a) => a.installation.latitude != null && a.installation.longitude != null).map((a) => `pt-${a.key}`),
         })),
     [dayGroups]
   );
 
+  function distanceFromPrevious(items: DayAppearance[], idx: number): number | null {
+    const prev = items[idx - 1];
+    const cur = items[idx];
+    if (!prev || !cur) return null;
+    const a = prev.installation;
+    const b = cur.installation;
+    if (a.latitude == null || a.longitude == null || b.latitude == null || b.longitude == null) return null;
+    return haversineKm({ lat: a.latitude, lon: a.longitude }, { lat: b.latitude, lon: b.longitude });
+  }
+
   async function reorderWithinCrew(crewId: number | null, installationId: number, direction: -1 | 1) {
-    const group = dayInstallations
-      .filter((i) => i.crewId === crewId)
+    const group = dayAppearances
+      .filter((a) => a.installation.crewId === crewId && a.startMinutes == null)
+      .map((a) => a.installation)
       .sort((a, b) => (a.routeSequence ?? 9999) - (b.routeSequence ?? 9999) || a.id - b.id);
     const idx = group.findIndex((i) => i.id === installationId);
     const swapIdx = idx + direction;
@@ -391,7 +547,7 @@ export function InstallationsAgenda() {
                 <div className="agenda-backlog-list">
                   {undatedInstallations.map((i) => (
                     <DraggableCard key={`undated-${i.id}`} id={`card:installation:${i.id}`} disabled={i.status !== 'SCHEDULED'}>
-                      <InstallationCard inst={i} />
+                      <InstallationCard inst={i} timeLabel={i.startTime} />
                     </DraggableCard>
                   ))}
                 </div>
@@ -401,56 +557,73 @@ export function InstallationsAgenda() {
 
           {selectedDay ? (
             <div className="agenda-day-split">
-              <div className="agenda-day-list">
-                {dayGroups.map(({ lane, items }) => (
-                  <div key={lane.key} className="agenda-day-crew-group">
-                    <div className="agenda-lane-label">
+              <div className="agenda-day-schedule">
+                <div className="agenda-hour-ruler-col">
+                  <div className="agenda-day-track-head">&nbsp;</div>
+                  <HourRuler />
+                </div>
+                {dayGroups.map(({ lane, timed, untimed }) => (
+                  <div key={lane.key} className="agenda-day-lane-column">
+                    <div className="agenda-day-track-head">
                       {lane.color && <span className="zone-dot" style={{ background: lane.color, display: 'inline-block' }} />}
                       {lane.label}
                     </div>
-                    <DroppableCell id={`cell:${lane.key}:${selectedDay}`}>
-                      {items.length === 0 && <span className="agenda-empty-hint">Sin visitas este día.</span>}
-                      {items.map((inst, idx) => {
-                        const prev = items[idx - 1];
-                        const dist =
-                          prev && prev.latitude != null && prev.longitude != null && inst.latitude != null && inst.longitude != null
-                            ? haversineKm({ lat: prev.latitude, lon: prev.longitude }, { lat: inst.latitude, lon: inst.longitude })
-                            : null;
-                        return (
-                          <div key={inst.id} className="agenda-day-row">
-                            <span className="agenda-day-row-seq">{idx + 1}</span>
-                            <DraggableCard id={`card:installation:${inst.id}`} disabled={inst.status !== 'SCHEDULED'}>
-                              <InstallationCard inst={inst} />
-                            </DraggableCard>
-                            <div className="agenda-day-row-controls">
-                              <button
-                                type="button"
-                                className="icon-link"
-                                disabled={idx === 0 || busy}
-                                onClick={() => void reorderWithinCrew(lane.crewId, inst.id, -1)}
-                                aria-label="Subir en el orden de ruta"
-                              >
-                                <ChevronUp size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="icon-link"
-                                disabled={idx === items.length - 1 || busy}
-                                onClick={() => void reorderWithinCrew(lane.crewId, inst.id, 1)}
-                                aria-label="Bajar en el orden de ruta"
-                              >
-                                <ChevronDown size={13} />
-                              </button>
-                            </div>
-                            {dist != null && dist > DISTANCE_WARNING_KM && (
-                              <span className="agenda-distance-warning">
-                                <AlertTriangle size={12} /> {Math.round(dist)} km desde la parada anterior (línea recta)
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </DroppableCell>
+                    <DayLaneDrop id={`cell:${lane.key}:${selectedDay}`}>
+                      <div
+                        className="agenda-day-track"
+                        style={{
+                          height: TRACK_HEIGHT,
+                          backgroundImage: `repeating-linear-gradient(to bottom, var(--border) 0, var(--border) 1px, transparent 1px, transparent ${PX_PER_HOUR}px)`,
+                        }}
+                      >
+                        {timed.map((a, idx) => {
+                          const dist = distanceFromPrevious(timed, idx);
+                          return <TimeBlock key={a.key} appearance={a} distanceWarningKm={dist != null && dist > DISTANCE_WARNING_KM ? dist : null} />;
+                        })}
+                      </div>
+                      {untimed.length > 0 && (
+                        <div className="agenda-day-untimed">
+                          <span className="agenda-untimed-label">Sin hora asignada</span>
+                          {untimed.map((a, idx) => {
+                            const dist = distanceFromPrevious(untimed, idx);
+                            return (
+                              <div key={a.key} className="agenda-day-row">
+                                <span className="agenda-day-row-seq">{timed.length + idx + 1}</span>
+                                <DraggableCard id={`card:installation:${a.installation.id}`} disabled={a.installation.status !== 'SCHEDULED'}>
+                                  <InstallationCard inst={a.installation} sessionLabel={a.sessionLabel} />
+                                </DraggableCard>
+                                <div className="agenda-day-row-controls">
+                                  <button
+                                    type="button"
+                                    className="icon-link"
+                                    disabled={idx === 0 || busy}
+                                    onClick={() => void reorderWithinCrew(lane.crewId, a.installation.id, -1)}
+                                    aria-label="Subir en el orden de ruta"
+                                  >
+                                    <ChevronUp size={13} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="icon-link"
+                                    disabled={idx === untimed.length - 1 || busy}
+                                    onClick={() => void reorderWithinCrew(lane.crewId, a.installation.id, 1)}
+                                    aria-label="Bajar en el orden de ruta"
+                                  >
+                                    <ChevronDown size={13} />
+                                  </button>
+                                </div>
+                                {dist != null && dist > DISTANCE_WARNING_KM && (
+                                  <span className="agenda-distance-warning">
+                                    <AlertTriangle size={12} /> {Math.round(dist)} km desde la parada anterior (línea recta)
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {timed.length === 0 && untimed.length === 0 && <span className="agenda-empty-hint">Sin visitas este día.</span>}
+                    </DayLaneDrop>
                   </div>
                 ))}
               </div>
@@ -480,12 +653,12 @@ export function InstallationsAgenda() {
                       {lane.label}
                     </div>
                     {days.map((d) => {
-                      const items = weekInstallations.filter((i) => i.crewId === lane.crewId && i.scheduledDate === d);
+                      const items = weekAppearances.filter((a) => a.installation.crewId === lane.crewId && a.date === d).sort(compareAppearances);
                       return (
                         <DroppableCell key={`${lane.key}-${d}`} id={`cell:${lane.key}:${d}`}>
-                          {items.map((i) => (
-                            <DraggableCard key={i.id} id={`card:installation:${i.id}`} disabled={i.status !== 'SCHEDULED'}>
-                              <InstallationCard inst={i} />
+                          {items.map((a) => (
+                            <DraggableCard key={a.key} id={`card:installation:${a.installation.id}`} disabled={a.installation.status !== 'SCHEDULED'}>
+                              <InstallationCard inst={a.installation} timeLabel={timeRangeLabel(a)} sessionLabel={a.sessionLabel} />
                             </DraggableCard>
                           ))}
                         </DroppableCell>

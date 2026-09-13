@@ -146,6 +146,11 @@
   color: var(--muted);
   font-size: 11px;
 }
+.agenda-card-session {
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--status-info-fg);
+}
 .agenda-day-split {
   flex: 1;
   min-width: 0;
@@ -153,17 +158,88 @@
   gap: 14px;
   align-items: flex-start;
 }
-.agenda-day-list {
-  flex: 0 0 340px;
+.agenda-day-schedule {
+  flex: 1.4;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
-.agenda-day-crew-group {
+.agenda-hour-ruler-col {
+  flex: 0 0 46px;
+}
+.agenda-day-track-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.agenda-hour-ruler {
+  position: relative;
+}
+.agenda-hour-mark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.agenda-day-lane-column {
+  flex: 0 0 200px;
+  min-width: 0;
+}
+.agenda-day-lane-drop {
+  border-radius: 8px;
+}
+.agenda-day-lane-drop.is-over {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.agenda-day-track {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+.agenda-time-block {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 11px;
+  cursor: grab;
+  touch-action: none;
+}
+.agenda-time-block.is-dragging {
+  opacity: 0.6;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  z-index: 60;
+}
+.agenda-time-block.not-draggable {
+  cursor: default;
+}
+.agenda-day-untimed {
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+.agenda-untimed-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
 }
 .agenda-day-row {
   position: relative;
@@ -220,8 +296,7 @@
   .agenda-day-split {
     flex-direction: column;
   }
-  .agenda-day-list {
-    flex: 1 1 auto;
+  .agenda-day-schedule {
     width: 100%;
   }
 }
