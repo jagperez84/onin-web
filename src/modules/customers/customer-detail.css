@@ -1,3 +1,41 @@
+.customer-doc-group-row td:first-child {
+  font-weight: 650;
+}
+.customer-doc-tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: none;
+  padding: 0;
+  margin-right: 2px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.customer-doc-tree-toggle:hover {
+  background: var(--canvas-stripe);
+  color: var(--text);
+}
+.customer-doc-child-row td {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.customer-doc-child-row td:first-child {
+  padding-left: 30px;
+}
+.customer-doc-tree-branch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 2px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  border-radius: 0 0 0 4px;
+}
+
 .customer-section-nav {
   position: sticky;
   top: 54px;

@@ -15,6 +15,10 @@ export type CustomerDocumentRow = {
   statusLabel: string;
   amount: number;
   link: string;
+  /** Para albaranes y facturas: el pedido del que proceden. */
+  salesOrderId?: number | null;
+  /** Para pedidos: el presupuesto del que proceden. */
+  quotationId?: number | null;
 };
 
 export type CustomerPendingCollection = {
@@ -105,7 +109,7 @@ async function fetchSalesOrderDocuments(companyId: number, customerId: number): 
   const c = client();
   const { data, error } = await c
     .from('sales_order')
-    .select('id,code,issue_date,status,total_amount')
+    .select('id,code,issue_date,status,total_amount,quotation_id')
     .eq('company_id', companyId)
     .eq('customer_id', customerId)
     .order('issue_date', { ascending: false });
@@ -119,6 +123,7 @@ async function fetchSalesOrderDocuments(companyId: number, customerId: number): 
     statusLabel: SALES_ORDER_STATUS_LABEL[o.status] ?? o.status,
     amount: Number(o.total_amount || 0),
     link: `/ventas/pedidos/${o.id}`,
+    quotationId: o.quotation_id == null ? null : Number(o.quotation_id),
   }));
 }
 
@@ -126,7 +131,7 @@ async function fetchInvoiceDocuments(companyId: number, customerId: number): Pro
   const c = client();
   const { data, error } = await c
     .from('invoice')
-    .select('id,code,issue_date,status,total_amount')
+    .select('id,code,issue_date,status,total_amount,sales_order_id')
     .eq('company_id', companyId)
     .eq('customer_id', customerId)
     .order('issue_date', { ascending: false });
@@ -140,6 +145,7 @@ async function fetchInvoiceDocuments(companyId: number, customerId: number): Pro
     statusLabel: INVOICE_STATUS_LABEL[i.status] ?? i.status,
     amount: Number(i.total_amount || 0),
     link: `/facturacion/facturas/${i.id}`,
+    salesOrderId: i.sales_order_id == null ? null : Number(i.sales_order_id),
   }));
 }
 
@@ -156,6 +162,7 @@ async function fetchDeliveryNoteDocuments(customerId: number): Promise<CustomerD
       statusLabel: DELIVERY_NOTE_STATUS_LABEL[d.status] ?? d.status,
       amount: Number(d.total_amount || 0),
       link: `/facturacion/albaranes?open=${d.id}`,
+      salesOrderId: d.sales_order_id == null ? null : Number(d.sales_order_id),
     }));
 }
 

@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronRight,
   Eye,
   FileText,
   Files,
@@ -14,10 +16,12 @@ import {
 import {
   getCustomerCommercialSummary,
   type CustomerCommercialSummary,
+  type CustomerDocumentRow,
   type CustomerDocumentType,
 } from "../../services/sales/customerDocumentsRepository";
 import "../quotations/quotation.css";
 import "../orders/sales-order.css";
+import "./customer-detail.css";
 
 const money = (n: number) =>
   n.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
@@ -36,6 +40,15 @@ const TYPE_ICON: Record<CustomerDocumentType, React.ReactNode> = {
   invoice: <ReceiptText size={14} />,
 };
 
+type DocumentGroup = {
+  key: string;
+  order: CustomerDocumentRow | null;
+  quotation: CustomerDocumentRow | null;
+  deliveryNotes: CustomerDocumentRow[];
+  invoices: CustomerDocumentRow[];
+  date: string;
+};
+
 export function CustomerDocumentsSection({
   id = "documentos",
   customerId,
@@ -45,6 +58,7 @@ export function CustomerDocumentsSection({
 }) {
   const [summary, setSummary] = useState<CustomerCommercialSummary | null>(null);
   const [typeFilter, setTypeFilter] = useState<CustomerDocumentType | "ALL">("ALL");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -75,6 +89,40 @@ export function CustomerDocumentsSection({
     if (typeFilter === "ALL") return summary.documents;
     return summary.documents.filter((d) => d.type === typeFilter);
   }, [summary, typeFilter]);
+
+  // Agrupados por pedido: cada pedido reúne el presupuesto del que viene y
+  // los albaranes/facturas que genera, para no ver todos los documentos
+  // sueltos. Los presupuestos que nunca llegaron a pedido se quedan solos.
+  const groups = useMemo<DocumentGroup[]>(() => {
+    if (!summary) return [];
+    const orders = summary.documents.filter((d) => d.type === "sales_order");
+    const quotationById = new Map(summary.documents.filter((d) => d.type === "quotation").map((q) => [q.id, q]));
+    const convertedQuotationIds = new Set(orders.map((o) => o.quotationId).filter((v): v is number => v != null));
+
+    const orderGroups: DocumentGroup[] = orders.map((order) => ({
+      key: `order-${order.id}`,
+      order,
+      quotation: order.quotationId != null ? quotationById.get(order.quotationId) ?? null : null,
+      deliveryNotes: summary.documents.filter((d) => d.type === "delivery_note" && d.salesOrderId === order.id),
+      invoices: summary.documents.filter((d) => d.type === "invoice" && d.salesOrderId === order.id),
+      date: order.date,
+    }));
+
+    const standaloneGroups: DocumentGroup[] = summary.documents
+      .filter((d) => d.type === "quotation" && !convertedQuotationIds.has(d.id as number))
+      .map((q) => ({ key: `quotation-${q.id}`, order: null, quotation: q, deliveryNotes: [], invoices: [], date: q.date }));
+
+    return [...orderGroups, ...standaloneGroups].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  }, [summary]);
+
+  function toggleGroup(key: string) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   if (loading)
     return (
@@ -194,31 +242,62 @@ export function CustomerDocumentsSection({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDocuments.length === 0 ? (
+                  {typeFilter !== "ALL" ? (
+                    filteredDocuments.length === 0 ? (
+                      <tr>
+                        <td colSpan={6}>No hay documentos para este filtro.</td>
+                      </tr>
+                    ) : (
+                      filteredDocuments.map((d) => <DocumentRow key={`${d.type}-${d.id}`} doc={d} />)
+                    )
+                  ) : groups.length === 0 ? (
                     <tr>
                       <td colSpan={6}>No hay documentos para este filtro.</td>
                     </tr>
                   ) : (
-                    filteredDocuments.map((d) => (
-                      <tr key={`${d.type}-${d.id}`}>
-                        <td>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                            {TYPE_ICON[d.type]} {TYPE_LABEL[d.type]}
-                          </span>
-                        </td>
-                        <td>
-                          <Link to={d.link}>{d.code}</Link>
-                        </td>
-                        <td>{date(d.date)}</td>
-                        <td>{d.statusLabel}</td>
-                        <td className="numeric">{money(d.amount)}</td>
-                        <td>
-                          <Link className="icon-button" title="Consultar" to={d.link}>
-                            <Eye size={15} />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+                    groups.map((g) => {
+                      const children = [
+                        ...(g.quotation ? [g.quotation] : []),
+                        ...g.deliveryNotes,
+                        ...g.invoices,
+                      ];
+                      const anchor = g.order ?? g.quotation!;
+                      const isExpanded = expanded.has(g.key);
+                      return (
+                        <Fragment key={g.key}>
+                          <tr className={children.length ? "customer-doc-group-row" : undefined}>
+                            <td>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                                {children.length > 0 && (
+                                  <button
+                                    type="button"
+                                    className="customer-doc-tree-toggle"
+                                    onClick={() => toggleGroup(g.key)}
+                                    aria-label={isExpanded ? "Contraer" : "Expandir"}
+                                  >
+                                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                  </button>
+                                )}
+                                {TYPE_ICON[anchor.type]} {TYPE_LABEL[anchor.type]}
+                              </span>
+                            </td>
+                            <td>
+                              <Link to={anchor.link}>{anchor.code}</Link>
+                            </td>
+                            <td>{date(anchor.date)}</td>
+                            <td>{anchor.statusLabel}</td>
+                            <td className="numeric">{money(anchor.amount)}</td>
+                            <td>
+                              <Link className="icon-button" title="Consultar" to={anchor.link}>
+                                <Eye size={15} />
+                              </Link>
+                            </td>
+                          </tr>
+                          {isExpanded &&
+                            children.map((child) => <DocumentRow key={`${child.type}-${child.id}`} doc={child} indented />)}
+                        </Fragment>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -277,5 +356,29 @@ export function CustomerDocumentsSection({
         )}
       </section>
     </>
+  );
+}
+
+function DocumentRow({ doc, indented = false }: { doc: CustomerDocumentRow; indented?: boolean }) {
+  return (
+    <tr className={indented ? "customer-doc-child-row" : undefined}>
+      <td>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+          {indented && <span className="customer-doc-tree-branch" aria-hidden="true" />}
+          {TYPE_ICON[doc.type]} {TYPE_LABEL[doc.type]}
+        </span>
+      </td>
+      <td>
+        <Link to={doc.link}>{doc.code}</Link>
+      </td>
+      <td>{date(doc.date)}</td>
+      <td>{doc.statusLabel}</td>
+      <td className="numeric">{money(doc.amount)}</td>
+      <td>
+        <Link className="icon-button" title="Consultar" to={doc.link}>
+          <Eye size={15} />
+        </Link>
+      </td>
+    </tr>
   );
 }
