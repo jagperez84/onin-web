@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Plus, Ruler, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, MapPin, Plus, Ruler, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   listMeasurements,
   type MeasurementListRow,
+  type MeasurementSortField,
   type MeasurementStatus,
 } from "../../services/measurements/measurementRepository";
 import { MessageLog } from "../../components/ui/MessageLog";
 import "./measurements.css";
+import "../orders/sales-order.css";
 
 const labels: Record<MeasurementStatus, string> = {
   PLANNED: "Planificada",
@@ -44,6 +46,8 @@ export function Measurements() {
     | "cancelled"
     | "all"
   >("active");
+  const [sortBy, setSortBy] = useState<MeasurementSortField>("measurement_date");
+  const [ascending, setAscending] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -56,7 +60,7 @@ export function Measurements() {
       setLoading(true);
       setError("");
       try {
-        setRows(await listMeasurements(search, status));
+        setRows(await listMeasurements(search, status, sortBy, ascending));
       } catch (e) {
         reportError(
           e instanceof Error
@@ -68,7 +72,7 @@ export function Measurements() {
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [search, status]);
+  }, [search, status, sortBy, ascending]);
   return (
     <div className="module-page measurements-page">
       <div className="page-head">
@@ -111,6 +115,26 @@ export function Measurements() {
           <option value="cancelled">Canceladas</option>
           <option value="all">Todas</option>
         </select>
+        <div className="sales-order-sort">
+          <label htmlFor="measurement-sort-field">Ordenar por</label>
+          <select
+            id="measurement-sort-field"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as MeasurementSortField)}
+          >
+            <option value="measurement_date">Fecha de medición</option>
+            <option value="contact_date">Fecha de contacto</option>
+          </select>
+          <button
+            type="button"
+            className="icon-link"
+            onClick={() => setAscending((a) => !a)}
+            title={ascending ? "Orden ascendente" : "Orden descendente"}
+            aria-label={ascending ? "Orden ascendente" : "Orden descendente"}
+          >
+            {ascending ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          </button>
+        </div>
         <span className="result-count">{rows.length} mediciones</span>
       </div>
       <div className="table-panel">

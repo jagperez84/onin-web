@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CalendarClock, Search } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Search } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import {
   INSTALLATION_STATUS_LABEL as statusLabel,
@@ -9,6 +9,7 @@ import {
   listInstallers,
   resolveCurrentCompanyId,
   type Installation,
+  type InstallationSortField,
   type InstallationStatus,
   type Installer,
 } from '../../services/production/installationService';
@@ -24,6 +25,8 @@ export function InstallationsList() {
   const [status, setStatus] = useState<InstallationStatus | 'ALL'>('SCHEDULED');
   const [installerId, setInstallerId] = useState<number | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<InstallationSortField>('scheduled_date');
+  const [ascending, setAscending] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -45,7 +48,7 @@ export function InstallationsList() {
     try {
       setLoading(true);
       setError('');
-      const [installationsResult, installersResult] = await Promise.all([listInstallations({ companyId: id, status, search }), listInstallers(id)]);
+      const [installationsResult, installersResult] = await Promise.all([listInstallations({ companyId: id, status, search, sortBy, ascending }), listInstallers(id)]);
       setRows(installationsResult);
       setInstallers(installersResult);
     } catch (e) {
@@ -60,7 +63,7 @@ export function InstallationsList() {
     const t = setTimeout(() => void load(companyId), 200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, status, search]);
+  }, [companyId, status, search, sortBy, ascending]);
 
   const today = todayStr();
   const filteredRows = useMemo(
@@ -104,6 +107,16 @@ export function InstallationsList() {
             </option>
           ))}
         </select>
+        <div className="sales-order-sort">
+          <label htmlFor="installation-sort-field">Ordenar por</label>
+          <select id="installation-sort-field" value={sortBy} onChange={e => setSortBy(e.target.value as InstallationSortField)}>
+            <option value="scheduled_date">Fecha programada</option>
+            <option value="created_at">Fecha de creación</option>
+          </select>
+          <button type="button" className="icon-link" onClick={() => setAscending(a => !a)} title={ascending ? 'Orden ascendente' : 'Orden descendente'} aria-label={ascending ? 'Orden ascendente' : 'Orden descendente'}>
+            {ascending ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          </button>
+        </div>
         <span className="sales-order-count">
           {filteredRows.length} montaje{filteredRows.length === 1 ? '' : 's'}
           {overdueCount > 0 && (

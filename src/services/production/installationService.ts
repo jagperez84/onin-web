@@ -172,11 +172,13 @@ export async function listInstallationsBySalesOrder(salesOrderId: number): Promi
   return (data ?? []).map(mapInstallation);
 }
 
-export type InstallationFilters = { companyId: number; status?: InstallationStatus | 'ALL'; from?: string; to?: string; search?: string };
+export type InstallationSortField = 'scheduled_date' | 'created_at';
+
+export type InstallationFilters = { companyId: number; status?: InstallationStatus | 'ALL'; from?: string; to?: string; search?: string; sortBy?: InstallationSortField; ascending?: boolean };
 
 export async function listInstallations(filters: InstallationFilters): Promise<Installation[]> {
   const c = client();
-  let q = c.from('installation').select(SELECT).eq('company_id', filters.companyId).order('scheduled_date', { ascending: true, nullsFirst: false });
+  let q = c.from('installation').select(SELECT).eq('company_id', filters.companyId).order(filters.sortBy ?? 'scheduled_date', { ascending: filters.ascending ?? true, nullsFirst: false });
   if (filters.status && filters.status !== 'ALL') q = q.eq('status', filters.status);
   if (filters.from) q = q.gte('scheduled_date', filters.from);
   if (filters.to) q = q.lte('scheduled_date', filters.to);
