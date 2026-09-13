@@ -138,6 +138,7 @@ export function InstallationsList() {
                 <th>Pedido</th>
                 <th>Cliente</th>
                 <th>Tipo</th>
+                <th>Cuadrilla</th>
                 <th>Instalador(es)</th>
                 <th>Estado</th>
               </tr>
@@ -145,13 +146,13 @@ export function InstallationsList() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="sales-order-empty">
+                  <td colSpan={7} className="sales-order-empty">
                     Cargando montajes…
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="sales-order-empty">
+                  <td colSpan={7} className="sales-order-empty">
                     No hay montajes con estos filtros.
                   </td>
                 </tr>
@@ -172,6 +173,7 @@ export function InstallationsList() {
                       </td>
                       <td>{r.customerName || '—'}</td>
                       <td>{r.installationTypeDescription || '—'}</td>
+                      <td>{r.crewName ? (<><span className="zone-dot" style={{ background: r.crewColor || 'var(--muted-2)', display: 'inline-block', marginRight: 6 }} />{r.crewName}</>) : '—'}</td>
                       <td>{r.installers.length ? r.installers.map(i => i.name).join(', ') : '—'}</td>
                       <td>
                         <span className={`status-pill ${statusTone[r.status]}`}>{statusLabel[r.status]}</span>

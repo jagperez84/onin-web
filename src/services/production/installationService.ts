@@ -81,6 +81,10 @@ export type Installation = {
   status: InstallationStatus;
   createdAt: string;
   updatedAt: string;
+  /** Cuadrilla asignada, si la hay — installers sigue siendo la lista real de quién va a esta visita. */
+  crewId: number | null;
+  crewName?: string | null;
+  crewColor?: string | null;
   salesOrderCode?: string | null;
   customerName?: string | null;
   /** Líneas del pedido (sales_order_line.id) que cubre esta visita de montaje. */
@@ -134,6 +138,9 @@ function mapInstallation(row: any): Installation {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    crewId: row.crew_id == null ? null : Number(row.crew_id),
+    crewName: row.crew?.name ?? null,
+    crewColor: row.crew?.color ?? null,
     salesOrderCode: row.sales_order?.code ?? null,
     customerName: row.sales_order?.customer?.party?.trade_name || row.sales_order?.customer?.party?.legal_name || null,
     lineIds: Array.isArray(row.lines) ? row.lines.map((l: any) => Number(l.sales_order_line_id)) : [],
@@ -143,7 +150,8 @@ function mapInstallation(row: any): Installation {
 }
 
 const SELECT =
-  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,' +
+  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,crew_id,' +
+  'crew:crew_id(name,color),' +
   'installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),' +
   'lines:installation_line(sales_order_line_id),' +
   'sessions:installation_session(id,installation_id,session_date,start_time,end_time,notes,created_at),' +
@@ -162,6 +170,14 @@ export async function listInstallers(companyId: number): Promise<Installer[]> {
   const installers = scoped.filter(u => u.role_code === 'INSTALLER');
   const source = installers.length ? installers : scoped;
   return source.map(u => ({ id: u.id, name: u.display_name || u.username }));
+}
+
+/** Candidatos a formar parte de una cuadrilla: instaladores y cualquiera marcado como medidor — en una pyme la misma persona suele hacer ambas cosas. */
+export async function listFieldStaff(companyId: number): Promise<Installer[]> {
+  const users = await listUsers('', 'active');
+  return users
+    .filter(u => u.company_id === companyId && (u.role_code === 'INSTALLER' || u.can_measure))
+    .map(u => ({ id: u.id, name: u.display_name || u.username }));
 }
 
 /** Todas las visitas de montaje activas (no canceladas) de un pedido — puede haber varias, cada una cubriendo líneas distintas. */
@@ -202,6 +218,8 @@ export async function upsertInstallation(input: {
   estimatedDuration: string | null;
   installers: Installer[];
   notes: string | null;
+  /** Cuadrilla de referencia para esta visita — installers puede seguir ajustándose a mano. */
+  crewId?: number | null;
   /** Líneas del pedido que cubre esta visita. Solo se aplica al crear; no se puede reasignar después. */
   salesOrderLineIds?: number[];
 }): Promise<Installation> {
@@ -215,6 +233,7 @@ export async function upsertInstallation(input: {
     estimated_duration: input.estimatedDuration,
     installers: input.installers,
     notes: input.notes,
+    crew_id: input.crewId ?? null,
   };
   if (input.id) {
     const { data, error } = await c.from('installation').update(payload).eq('id', input.id).select(SELECT).single();
