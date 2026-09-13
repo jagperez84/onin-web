@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { Link } from "react-router-dom";
 import {
   MapPin,
@@ -33,6 +31,7 @@ import {
 import { CoreRepositoryError } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { AddressSearchBox } from "../customers/AddressLookup";
+import { MapCanvas, type CanvasPoint } from "./MapCanvas";
 import "./map-view.css";
 
 const ZONE_COLOR_PRESETS = [
@@ -45,7 +44,6 @@ const ZONE_COLOR_PRESETS = [
   "#c07a2c",
   "#4a6fa5",
 ];
-const SPAIN_CENTER: [number, number] = [40.2, -3.6];
 
 function pointKey(p: Pick<MapPoint, "kind" | "id">) {
   return `${p.kind}:${p.id}`;
@@ -107,10 +105,11 @@ function endOfWeekStr(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Mapa (Leaflet vanilla — sin react-leaflet para evitar el gotcha de assets
-// de los iconos por defecto: los marcadores son divIcon con color por zona).
+// Mapa: adapta MapPoint (mediciones + montajes, color por zona) al formato
+// genérico de MapCanvas — el mismo componente de dibujo que usa el mapa del
+// día de la Agenda, ahí con color por cuadrilla y pines numerados.
 // ---------------------------------------------------------------------------
-function MapCanvas({
+function MapCanvasAdapter({
   points,
   zones,
   focusKey,
@@ -119,77 +118,29 @@ function MapCanvas({
   zones: Zone[];
   focusKey: string | null;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
-  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const canvasPoints: CanvasPoint[] = useMemo(
+    () =>
+      points
+        .filter((p) => p.latitude != null && p.longitude != null)
+        .map((p) => {
+          const zone = zones.find((z) => z.id === p.zoneId);
+          const fallbackColor = p.kind === "medicion" ? "#5c7a74" : "#8a6d3b";
+          const color = zone?.color && /^#[0-9a-fA-F]{3,8}$/.test(zone.color) ? zone.color : fallbackColor;
+          const address = escapeHtml(fullAddress(p) || "Sin dirección");
+          const dateLine = p.date ? `<span>${p.kind === "medicion" ? "Medición" : "Montaje"}: ${formatDate(p.date)}</span>` : "";
+          return {
+            key: pointKey(p),
+            lat: p.latitude as number,
+            lon: p.longitude as number,
+            color,
+            shape: p.kind === "medicion" ? "circle" : "diamond",
+            popupHtml: `<div class="map-popup"><strong>${escapeHtml(p.code)}</strong><span>${escapeHtml(p.customerName || "—")}</span><span>${address}</span>${dateLine}<span class="map-popup-status">${escapeHtml(statusLabel(p))}</span></div>`,
+          } satisfies CanvasPoint;
+        }),
+    [points, zones]
+  );
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    const map = L.map(containerRef.current, {
-      center: SPAIN_CENTER,
-      zoom: 6,
-    });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
-    layerRef.current = L.layerGroup().addTo(map);
-    mapRef.current = map;
-    return () => {
-      map.remove();
-      mapRef.current = null;
-      layerRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    const layer = layerRef.current;
-    const map = mapRef.current;
-    if (!layer || !map) return;
-    layer.clearLayers();
-    markersRef.current.clear();
-    const bounds: [number, number][] = [];
-    for (const p of points) {
-      if (p.latitude == null || p.longitude == null) continue;
-      const zone = zones.find((z) => z.id === p.zoneId);
-      const fallbackColor = p.kind === "medicion" ? "#5c7a74" : "#8a6d3b";
-      const color = zone?.color && /^#[0-9a-fA-F]{3,8}$/.test(zone.color) ? zone.color : fallbackColor;
-      const icon = L.divIcon({
-        className: "map-marker",
-        html: `<span class="map-marker-dot ${p.kind}" style="background:${color}"></span>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-        popupAnchor: [0, -8],
-      });
-      const marker = L.marker([p.latitude, p.longitude], { icon });
-      const address = escapeHtml(fullAddress(p) || "Sin dirección");
-      const dateLine = p.date ? `<span>${p.kind === "medicion" ? "Medición" : "Montaje"}: ${formatDate(p.date)}</span>` : "";
-      marker.bindPopup(
-        `<div class="map-popup"><strong>${escapeHtml(p.code)}</strong><span>${escapeHtml(p.customerName || "—")}</span><span>${address}</span>${dateLine}<span class="map-popup-status">${escapeHtml(statusLabel(p))}</span></div>`
-      );
-      marker.addTo(layer);
-      markersRef.current.set(pointKey(p), marker);
-      bounds.push([p.latitude, p.longitude]);
-    }
-    if (bounds.length) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-    } else {
-      map.setView(SPAIN_CENTER, 6);
-    }
-  }, [points, zones]);
-
-  useEffect(() => {
-    if (!focusKey) return;
-    const map = mapRef.current;
-    const marker = markersRef.current.get(focusKey);
-    if (!map || !marker) return;
-    map.flyTo(marker.getLatLng(), 15, { duration: 0.6 });
-    marker.openPopup();
-  }, [focusKey]);
-
-  return <div ref={containerRef} className="map-canvas" />;
+  return <MapCanvas points={canvasPoints} focusKey={focusKey} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -704,7 +655,7 @@ export function MapView() {
         <div className="loading-block">Cargando mapa…</div>
       ) : (
         <div className="map-layout">
-          <MapCanvas points={visiblePoints} zones={zones} focusKey={focusKey} />
+          <MapCanvasAdapter points={visiblePoints} zones={zones} focusKey={focusKey} />
           <div className="map-sidebar">
             <ZonePanel
               zones={zones}

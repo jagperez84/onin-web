@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, GripVertical } from 'lucide-react';
 import {
   DndContext,
   PointerSensor,
@@ -19,12 +19,14 @@ import {
   listInstallations,
   listOrdersAwaitingInstallation,
   resolveCurrentCompanyId,
+  setInstallationRouteSequence,
   upsertInstallation,
   type Installation,
   type Installer,
   type OrderAwaitingInstallation,
 } from '../../services/production/installationService';
 import { listInstallationCrews, type InstallationCrew } from '../../services/production/installationCrewService';
+import { MapCanvas, type CanvasPoint, type CanvasRoute } from '../map/MapCanvas';
 import '../map/map-view.css';
 import './installations-agenda.css';
 
@@ -51,6 +53,20 @@ function formatDayLong(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00`);
   return d.toLocaleDateString('es-ES', { weekday: 'long', day: '2-digit', month: 'long' });
 }
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c);
+}
+/** Distancia en línea recta (no ruta real por carretera) — solo para avisar de saltos grandes entre paradas consecutivas. */
+function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLon = ((b.lon - a.lon) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.asin(Math.sqrt(h));
+}
+const DISTANCE_WARNING_KM = 30;
 
 type Lane = { key: string; label: string; color: string | null; crewId: number | null };
 
@@ -106,6 +122,7 @@ function OrderCard({ order }: { order: OrderAwaitingInstallation }) {
 export function InstallationsAgenda() {
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [weekStart, setWeekStart] = useState(startOfWeekStr());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [crews, setCrews] = useState<InstallationCrew[]>([]);
   const [fieldStaff, setFieldStaff] = useState<Installer[]>([]);
   const [allInstallations, setAllInstallations] = useState<Installation[]>([]);
@@ -171,6 +188,69 @@ export function InstallationsAgenda() {
     const crew = crews.find((c) => c.id === crewId);
     if (!crew) return [];
     return crew.memberIds.map((id) => ({ id, name: staffById.get(id) || `Usuario #${id}` }));
+  }
+
+  const dayInstallations = useMemo(
+    () => (selectedDay ? allInstallations.filter((i) => i.scheduledDate === selectedDay) : []),
+    [allInstallations, selectedDay]
+  );
+  const dayGroups = useMemo(
+    () =>
+      lanes.map((lane) => ({
+        lane,
+        items: dayInstallations
+          .filter((i) => i.crewId === lane.crewId)
+          .sort((a, b) => (a.routeSequence ?? 9999) - (b.routeSequence ?? 9999) || a.id - b.id),
+      })),
+    [lanes, dayInstallations]
+  );
+  const dayMapPoints: CanvasPoint[] = useMemo(() => {
+    const pts: CanvasPoint[] = [];
+    for (const { lane, items } of dayGroups) {
+      items.forEach((inst, idx) => {
+        if (inst.latitude == null || inst.longitude == null) return;
+        pts.push({
+          key: `inst-${inst.id}`,
+          lat: inst.latitude,
+          lon: inst.longitude,
+          color: lane.color || '#8a6d3b',
+          label: String(idx + 1),
+          popupHtml: `<div class="map-popup"><strong>${escapeHtml(inst.salesOrderCode || `#${inst.salesOrderId}`)}</strong><span>${escapeHtml(inst.customerName || '—')}</span><span class="map-popup-status">${escapeHtml(lane.label)}</span></div>`,
+        });
+      });
+    }
+    return pts;
+  }, [dayGroups]);
+  const dayMapRoutes: CanvasRoute[] = useMemo(
+    () =>
+      dayGroups
+        .filter((g) => g.items.length > 1)
+        .map((g) => ({
+          color: g.lane.color || '#8a6d3b',
+          keys: g.items.filter((i) => i.latitude != null && i.longitude != null).map((i) => `inst-${i.id}`),
+        })),
+    [dayGroups]
+  );
+
+  async function reorderWithinCrew(crewId: number | null, installationId: number, direction: -1 | 1) {
+    const group = dayInstallations
+      .filter((i) => i.crewId === crewId)
+      .sort((a, b) => (a.routeSequence ?? 9999) - (b.routeSequence ?? 9999) || a.id - b.id);
+    const idx = group.findIndex((i) => i.id === installationId);
+    const swapIdx = idx + direction;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= group.length || companyId == null) return;
+    const reordered = [...group];
+    [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
+    setBusy(true);
+    setError('');
+    try {
+      await Promise.all(reordered.map((inst, i) => setInstallationRouteSequence(inst.id, i)));
+      await loadAll(companyId);
+    } catch (e) {
+      setError(e instanceof CoreRepositoryError ? e.message : 'No se pudo reordenar la ruta.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function confirmIfCrewBusy(crewId: number | null, date: string, excludeInstallationId?: number): Promise<boolean> {
@@ -260,20 +340,35 @@ export function InstallationsAgenda() {
   return (
     <div className="agenda-wrap">
       {error && <div className="inline-error">{error}</div>}
-      <div className="agenda-toolbar">
-        <button type="button" className="icon-link" onClick={() => setWeekStart(addDaysStr(weekStart, -7))} aria-label="Semana anterior">
-          <ChevronLeft size={16} />
-        </button>
-        <strong className="agenda-week-label">
-          {formatDay(days[0])} – {formatDay(days[6])}
-        </strong>
-        <button type="button" className="icon-link" onClick={() => setWeekStart(addDaysStr(weekStart, 7))} aria-label="Semana siguiente">
-          <ChevronRight size={16} />
-        </button>
-        <button type="button" className="secondary-button compact" onClick={() => setWeekStart(startOfWeekStr())}>
-          Hoy
-        </button>
-      </div>
+      {selectedDay ? (
+        <div className="agenda-toolbar">
+          <button type="button" className="secondary-button compact" onClick={() => setSelectedDay(null)}>
+            <ArrowLeft size={14} /> Volver a la semana
+          </button>
+          <button type="button" className="icon-link" onClick={() => setSelectedDay(addDaysStr(selectedDay, -1))} aria-label="Día anterior">
+            <ChevronLeft size={16} />
+          </button>
+          <strong className="agenda-week-label">{formatDayLong(selectedDay)}</strong>
+          <button type="button" className="icon-link" onClick={() => setSelectedDay(addDaysStr(selectedDay, 1))} aria-label="Día siguiente">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      ) : (
+        <div className="agenda-toolbar">
+          <button type="button" className="icon-link" onClick={() => setWeekStart(addDaysStr(weekStart, -7))} aria-label="Semana anterior">
+            <ChevronLeft size={16} />
+          </button>
+          <strong className="agenda-week-label">
+            {formatDay(days[0])} – {formatDay(days[6])}
+          </strong>
+          <button type="button" className="icon-link" onClick={() => setWeekStart(addDaysStr(weekStart, 7))} aria-label="Semana siguiente">
+            <ChevronRight size={16} />
+          </button>
+          <button type="button" className="secondary-button compact" onClick={() => setWeekStart(startOfWeekStr())}>
+            Hoy
+          </button>
+        </div>
+      )}
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="agenda-layout">
@@ -304,36 +399,103 @@ export function InstallationsAgenda() {
             )}
           </div>
 
-          <div className="agenda-grid-scroll">
-            <div className="agenda-grid">
-              <div className="agenda-grid-corner" />
-              {days.map((d) => (
-                <div key={d} className={`agenda-day-head ${d === todayStr() ? 'is-today' : ''}`}>
-                  {formatDay(d)}
-                </div>
-              ))}
-              {lanes.map((lane) => (
-                <Fragment key={lane.key}>
-                  <div className="agenda-lane-label">
-                    {lane.color && <span className="zone-dot" style={{ background: lane.color, display: 'inline-block' }} />}
-                    {lane.label}
+          {selectedDay ? (
+            <div className="agenda-day-split">
+              <div className="agenda-day-list">
+                {dayGroups.map(({ lane, items }) => (
+                  <div key={lane.key} className="agenda-day-crew-group">
+                    <div className="agenda-lane-label">
+                      {lane.color && <span className="zone-dot" style={{ background: lane.color, display: 'inline-block' }} />}
+                      {lane.label}
+                    </div>
+                    <DroppableCell id={`cell:${lane.key}:${selectedDay}`}>
+                      {items.length === 0 && <span className="agenda-empty-hint">Sin visitas este día.</span>}
+                      {items.map((inst, idx) => {
+                        const prev = items[idx - 1];
+                        const dist =
+                          prev && prev.latitude != null && prev.longitude != null && inst.latitude != null && inst.longitude != null
+                            ? haversineKm({ lat: prev.latitude, lon: prev.longitude }, { lat: inst.latitude, lon: inst.longitude })
+                            : null;
+                        return (
+                          <div key={inst.id} className="agenda-day-row">
+                            <span className="agenda-day-row-seq">{idx + 1}</span>
+                            <DraggableCard id={`card:installation:${inst.id}`} disabled={inst.status !== 'SCHEDULED'}>
+                              <InstallationCard inst={inst} />
+                            </DraggableCard>
+                            <div className="agenda-day-row-controls">
+                              <button
+                                type="button"
+                                className="icon-link"
+                                disabled={idx === 0 || busy}
+                                onClick={() => void reorderWithinCrew(lane.crewId, inst.id, -1)}
+                                aria-label="Subir en el orden de ruta"
+                              >
+                                <ChevronUp size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="icon-link"
+                                disabled={idx === items.length - 1 || busy}
+                                onClick={() => void reorderWithinCrew(lane.crewId, inst.id, 1)}
+                                aria-label="Bajar en el orden de ruta"
+                              >
+                                <ChevronDown size={13} />
+                              </button>
+                            </div>
+                            {dist != null && dist > DISTANCE_WARNING_KM && (
+                              <span className="agenda-distance-warning">
+                                <AlertTriangle size={12} /> {Math.round(dist)} km desde la parada anterior (línea recta)
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </DroppableCell>
                   </div>
-                  {days.map((d) => {
-                    const items = weekInstallations.filter((i) => i.crewId === lane.crewId && i.scheduledDate === d);
-                    return (
-                      <DroppableCell key={`${lane.key}-${d}`} id={`cell:${lane.key}:${d}`}>
-                        {items.map((i) => (
-                          <DraggableCard key={i.id} id={`card:installation:${i.id}`} disabled={i.status !== 'SCHEDULED'}>
-                            <InstallationCard inst={i} />
-                          </DraggableCard>
-                        ))}
-                      </DroppableCell>
-                    );
-                  })}
-                </Fragment>
-              ))}
+                ))}
+              </div>
+              <div className="agenda-day-map">
+                <MapCanvas points={dayMapPoints} routes={dayMapRoutes} />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="agenda-grid-scroll">
+              <div className="agenda-grid">
+                <div className="agenda-grid-corner" />
+                {days.map((d) => (
+                  <button
+                    type="button"
+                    key={d}
+                    className={`agenda-day-head ${d === todayStr() ? 'is-today' : ''}`}
+                    onClick={() => setSelectedDay(d)}
+                    title="Ver el mapa y el orden de ruta de este día"
+                  >
+                    {formatDay(d)}
+                  </button>
+                ))}
+                {lanes.map((lane) => (
+                  <Fragment key={lane.key}>
+                    <div className="agenda-lane-label">
+                      {lane.color && <span className="zone-dot" style={{ background: lane.color, display: 'inline-block' }} />}
+                      {lane.label}
+                    </div>
+                    {days.map((d) => {
+                      const items = weekInstallations.filter((i) => i.crewId === lane.crewId && i.scheduledDate === d);
+                      return (
+                        <DroppableCell key={`${lane.key}-${d}`} id={`cell:${lane.key}:${d}`}>
+                          {items.map((i) => (
+                            <DraggableCard key={i.id} id={`card:installation:${i.id}`} disabled={i.status !== 'SCHEDULED'}>
+                              <InstallationCard inst={i} />
+                            </DraggableCard>
+                          ))}
+                        </DroppableCell>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </DndContext>
     </div>
