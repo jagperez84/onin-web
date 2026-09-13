@@ -110,10 +110,12 @@ function mapPartyCustomer(value: any): string | undefined {
 const LIST_SELECT =
   'id,code,sales_order_id,customer_id,issue_date,status,invoice_type,reference,total_amount,sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name))';
 
-export async function listInvoices(search = ''): Promise<Invoice[]> {
+export type InvoiceSortField = 'issue_date' | 'total_amount';
+
+export async function listInvoices(search = '', sortBy: InvoiceSortField = 'issue_date', ascending = false): Promise<Invoice[]> {
   const c = client();
   const cid = await companyId();
-  let q = c.from('invoice').select(LIST_SELECT).eq('company_id', cid).order('issue_date', { ascending: false }).order('id', { ascending: false });
+  let q = c.from('invoice').select(LIST_SELECT).eq('company_id', cid).order(sortBy, { ascending }).order('id', { ascending: false });
   const term = sanitizeSearchTerm(search);
   if (term) q = q.or(`code.ilike.%${term}%,reference.ilike.%${term}%`);
   const { data, error } = await q;

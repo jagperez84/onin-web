@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Truck, Search, RotateCcw, Eye } from "lucide-react";
+import { ArrowDown, ArrowUp, Truck, Search, RotateCcw, Eye } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { listDeliveryNotes, getDeliveryNoteById, type DeliveryNote } from "../../services/sales/deliveryNoteService";
+import { listDeliveryNotes, getDeliveryNoteById, type DeliveryNote, type DeliveryNoteSortField } from "../../services/sales/deliveryNoteService";
 import { SalesOrderDeliveryNoteModal } from "../orders/SalesOrderDeliveryNoteModal";
 import { CoreRepositoryError } from "../../services/core/coreRepository";
 import "./quotation.css";
+import "../orders/sales-order.css";
 
 const money = (n: number) =>
   n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
@@ -13,6 +14,8 @@ export function DeliveryNoteList() {
   const [notes, setNotes] = useState<DeliveryNote[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sortBy, setSortBy] = useState<DeliveryNoteSortField>("issue_date");
+  const [ascending, setAscending] = useState(false);
   const [selectedNote, setSelectedNote] = useState<DeliveryNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,7 +25,7 @@ export function DeliveryNoteList() {
     setLoading(true);
     setError("");
     try {
-      setNotes(await listDeliveryNotes());
+      setNotes(await listDeliveryNotes(sortBy, ascending));
     } catch (e) {
       setError(e instanceof CoreRepositoryError || e instanceof Error ? e.message : "No se pudieron cargar los albaranes.");
     } finally {
@@ -33,7 +36,7 @@ export function DeliveryNoteList() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sortBy, ascending]);
 
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -126,6 +129,16 @@ export function DeliveryNoteList() {
           <option value="SHIPPED">Enviado</option>
           <option value="DELIVERED">Entregado</option>
         </select>
+        <div className="sales-order-sort">
+          <label htmlFor="delivery-note-sort-field">Ordenar por</label>
+          <select id="delivery-note-sort-field" value={sortBy} onChange={(e) => setSortBy(e.target.value as DeliveryNoteSortField)}>
+            <option value="issue_date">Fecha de emisión</option>
+            <option value="delivery_date">Fecha de entrega</option>
+          </select>
+          <button type="button" className="icon-link" onClick={() => setAscending((a) => !a)} title={ascending ? "Orden ascendente" : "Orden descendente"} aria-label={ascending ? "Orden ascendente" : "Orden descendente"}>
+            {ascending ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          </button>
+        </div>
         <span className="result-count">{filtered.length} albaranes</span>
       </div>
 

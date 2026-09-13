@@ -114,7 +114,9 @@ function mapRow(row: any): DeliveryNote {
   };
 }
 
-export async function listDeliveryNotes(): Promise<DeliveryNote[]> {
+export type DeliveryNoteSortField = 'issue_date' | 'delivery_date';
+
+export async function listDeliveryNotes(sortBy: DeliveryNoteSortField = 'issue_date', ascending = false): Promise<DeliveryNote[]> {
   const c = client();
   const companyId = await getCurrentCompanyId();
   const { data, error } = await c
@@ -122,7 +124,7 @@ export async function listDeliveryNotes(): Promise<DeliveryNote[]> {
     .select(SELECT)
     .eq('company_id', companyId)
     .is('deleted_at', null)
-    .order('issue_date', { ascending: false })
+    .order(sortBy, { ascending, nullsFirst: false })
     .order('id', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
   return (data ?? []).map(mapRow);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Eye, Receipt } from 'lucide-react';
-import { listInvoices, type Invoice } from '../../services/sales/invoiceService';
+import { ArrowDown, ArrowUp, Search, Eye, Receipt } from 'lucide-react';
+import { listInvoices, type Invoice, type InvoiceSortField } from '../../services/sales/invoiceService';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import '../orders/sales-order.css';
 
@@ -12,9 +12,9 @@ const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR
 const date=(v:string)=>new Date(`${v}T00:00:00`).toLocaleDateString('es-ES');
 
 export function InvoiceList(){
- const [rows,setRows]=useState<Invoice[]>([]); const [search,setSearch]=useState(''); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
- async function load(){try{setLoading(true);setError('');setRows(await listInvoices(search));}catch(e){setError(e instanceof CoreRepositoryError?e.message:'No se pudieron cargar las facturas.');}finally{setLoading(false);}}
- useEffect(()=>{const t=setTimeout(()=>void load(),200);return()=>clearTimeout(t);},[search]);
+ const [rows,setRows]=useState<Invoice[]>([]); const [search,setSearch]=useState(''); const [sortBy,setSortBy]=useState<InvoiceSortField>('issue_date'); const [ascending,setAscending]=useState(false); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
+ async function load(){try{setLoading(true);setError('');setRows(await listInvoices(search,sortBy,ascending));}catch(e){setError(e instanceof CoreRepositoryError?e.message:'No se pudieron cargar las facturas.');}finally{setLoading(false);}}
+ useEffect(()=>{const t=setTimeout(()=>void load(),200);return()=>clearTimeout(t);},[search,sortBy,ascending]);
  return <div className="module-page sales-order-page">
   <div className="sales-order-head">
    <div>
@@ -25,6 +25,16 @@ export function InvoiceList(){
   </div>
   <div className="sales-order-toolbar">
    <div className="search-box sales-order-search"><Search size={16}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por factura o referencia…"/></div>
+   <div className="sales-order-sort">
+    <label htmlFor="invoice-sort-field">Ordenar por</label>
+    <select id="invoice-sort-field" value={sortBy} onChange={e=>setSortBy(e.target.value as InvoiceSortField)}>
+     <option value="issue_date">Fecha de emisión</option>
+     <option value="total_amount">Importe</option>
+    </select>
+    <button type="button" className="icon-link" onClick={()=>setAscending(a=>!a)} title={ascending?'Orden ascendente':'Orden descendente'} aria-label={ascending?'Orden ascendente':'Orden descendente'}>
+     {ascending?<ArrowUp size={16}/>:<ArrowDown size={16}/>}
+    </button>
+   </div>
    <span className="sales-order-count">{rows.length} {rows.length===1?'factura':'facturas'}</span>
   </div>
   {error&&<div className="inline-error">{error}</div>}
