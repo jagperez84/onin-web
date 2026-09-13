@@ -272,12 +272,18 @@ export async function listProfileStockPieces(input: {
   // Materialize / synchronize physical stock items
   await syncWarehouseStockItems(input.companyId, productId).catch(() => {});
 
+  // Las piezas disponibles se leen de warehouse_stock_item (el ledger real de
+  // piezas físicas, igual que hace Existencias) en vez de reconstruirlas
+  // sumando el historial de stock_movement: ese cálculo dependía de que
+  // dimension_values estuviera siempre relleno en cada movimiento, y para
+  // remanentes generados por corte (o piezas de stock inicial sembradas
+  // directamente) eso no era fiable — se perdían restos ya disponibles como
+  // candidatos válidos para el corte.
   const { data, error } = await c
-    .from('stock_movement')
-    .select('warehouse_id,product_id,characteristic_id,quantity,movement_date,dimension_values,movement_type:stock_movement_type(direction),warehouse:warehouse(code,name),characteristic:product_characteristic(code,description)')
-    .eq('company_id', input.companyId)
+    .from('warehouse_stock_item')
+    .select('characteristic_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_characteristic(code,description)')
     .eq('product_id', productId)
-    .order('movement_date', { ascending: true })
+    .eq('status', 'AVAILABLE')
     .limit(2000);
   if (error) throw new CoreRepositoryError(error.message);
 
@@ -300,26 +306,28 @@ export async function listProfileStockPieces(input: {
     const length = Number(dims[0]);
     if (!Number.isFinite(length) || length < input.requiredLength) continue;
 
+    const warehouseId = r.warehouse_stock?.warehouse_id;
+    if (warehouseId == null) continue;
+
     const characteristicCode = r.characteristic?.code ?? null;
     const characteristicName = r.characteristic?.description || r.characteristic?.code || null;
 
-    const key = [r.warehouse_id, r.characteristic_id ?? '', length].join('|');
-    const direction = Number(r.movement_type?.direction ?? 0);
-    const signed = direction === 1 ? Number(r.quantity) : direction === -1 ? -Number(r.quantity) : 0;
+    const key = [warehouseId, r.characteristic_id ?? '', length].join('|');
     const existing = groups.get(key);
+    const quantity = Number(r.quantity || 0);
     if (existing) {
-      existing.quantity += signed;
+      existing.quantity += quantity;
     } else {
       groups.set(key, {
-        warehouseId: Number(r.warehouse_id),
-        warehouseCode: r.warehouse?.code ?? '—',
-        warehouseName: r.warehouse?.name ?? '—',
+        warehouseId: Number(warehouseId),
+        warehouseCode: r.warehouse_stock?.warehouse?.code ?? '—',
+        warehouseName: r.warehouse_stock?.warehouse?.name ?? '—',
         characteristicId: r.characteristic_id == null ? null : Number(r.characteristic_id),
         characteristicCode,
         characteristicName,
         length,
         dimensionValues: dims,
-        quantity: signed
+        quantity
       });
     }
   }
