@@ -17,6 +17,7 @@ export type SalesOrder = {
   reference: string | null;
   notes: string | null;
   created_at?: string;
+  created_by?: string | null;
   installation_latitude: number | null;
   installation_longitude: number | null;
   zone_id: number | null;

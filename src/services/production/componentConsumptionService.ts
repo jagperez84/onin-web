@@ -90,6 +90,7 @@ export type ComponentConsumptionWorkSheet = {
   quantity: number;
   reference: string | null;
   notes: string | null;
+  createdBy: string | null;
   lines: ComponentConsumptionLine[];
 };
 
@@ -104,6 +105,7 @@ function mapSheet(row: any): ComponentConsumptionWorkSheet {
     quantity: Number(row.quantity || 0),
     reference: row.reference ?? null,
     notes: row.notes ?? null,
+    createdBy: row.created_by ?? null,
     lines: (row.lines || [])
       .sort((a: any, b: any) => Number(a.line_no) - Number(b.line_no))
       .map((l: any) => ({

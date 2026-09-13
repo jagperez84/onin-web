@@ -71,6 +71,8 @@ type LifecycleProps = {
   invoice: Invoice | null;
   /** Albaranes del pedido — solo hace falta para el historial detallado. */
   deliveryNotes?: DeliveryNote[];
+  /** auth_user_id -> nombre a mostrar, para el "Por: ..." de cada evento del historial. */
+  creatorNames?: Record<string, string>;
   /** Nº de líneas del pedido con algo aún pendiente de entregar (delivery_note). */
   pendingDeliveryLines?: number;
   totalDeliveryLines?: number;
@@ -159,7 +161,7 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
   };
 }
 
-function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, deliveryNotes }: LifecycleProps): TimelineEvent[] {
+function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, deliveryNotes, creatorNames }: LifecycleProps): TimelineEvent[] {
   const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED', 'INVOICED'].includes(order.status);
   const fabricationDates = [
     ...cutSheets.map((s) => s.issue_date),
@@ -169,8 +171,13 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
   const earliestFabricationDate = fabricationDates.length ? fabricationDates.reduce((a, b) => (a < b ? a : b)) : null;
   const latestFabricationDate = fabricationDates.length ? fabricationDates.reduce((a, b) => (a > b ? a : b)) : null;
 
+  const byLine = (authUserId: string | null | undefined): string[] => {
+    const name = authUserId ? creatorNames?.[authUserId] : null;
+    return name ? [`Por: ${name}`] : [];
+  };
+
   return [
-    { key: 'order-created', date: order.issue_date, priority: 0, title: 'Pedido creado', lines: [order.code] },
+    { key: 'order-created', date: order.issue_date, priority: 0, title: 'Pedido creado', lines: [order.code, ...byLine(order.created_by)] },
     ...(earliestFabricationDate
       ? [{ key: 'fabrication-started', date: earliestFabricationDate, priority: 9, title: 'Fabricación iniciada' }]
       : []),
@@ -179,21 +186,21 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
       date: s.issue_date,
       priority: 10,
       title: 'Corte de perfil realizado',
-      lines: [s.code],
+      lines: [s.code, ...byLine(s.created_by)],
     })),
     ...lonaSheets.map((s) => ({
       key: `lona-${s.id}`,
       date: s.issueDate,
       priority: 10,
       title: 'Confección de lona realizada',
-      lines: [s.code],
+      lines: [s.code, ...byLine(s.createdBy)],
     })),
     ...componentSheets.map((s) => ({
       key: `comp-${s.id}`,
       date: s.issueDate,
       priority: 10,
       title: 'Componentes descontados',
-      lines: [s.code],
+      lines: [s.code, ...byLine(s.createdBy)],
     })),
     ...(isManufactured && latestFabricationDate
       ? [{ key: 'fabrication-completed', date: latestFabricationDate, priority: 11, title: 'Fabricación completada' }]
@@ -207,6 +214,7 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
         lines: [
           [shortDate(installation.scheduledDate), installation.startTime].filter(Boolean).join(' · '),
           installation.installers.length ? `Montador: ${installation.installers.map((i) => i.name).join(', ')}` : null,
+          ...byLine(installation.createdBy),
         ].filter(Boolean) as string[],
       },
       ...(installation.status === 'COMPLETED'
@@ -216,6 +224,7 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
               date: installation.updatedAt,
               priority: 21,
               title: 'Montaje completado',
+              lines: byLine(installation.completedBy),
             },
           ]
         : []),
@@ -225,9 +234,11 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
       date: note.issue_date,
       priority: 29,
       title: 'Entrega realizada',
-      lines: [note.code],
+      lines: [note.code, ...byLine(note.created_by)],
     })),
-    ...(invoice ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, priority: 30, title: 'Factura emitida', lines: [invoice.code] }] : []),
+    ...(invoice
+      ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, priority: 30, title: 'Factura emitida', lines: [invoice.code, ...byLine(invoice.created_by)] }]
+      : []),
   ].sort((a, b) => {
     const dayA = (a.date || '').slice(0, 10);
     const dayB = (b.date || '').slice(0, 10);

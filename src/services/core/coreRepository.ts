@@ -86,6 +86,20 @@ export async function getUserDisplayName(authUserId:string|null):Promise<string|
   const row=data as {display_name?:string|null;username?:string|null;email?:string|null};
   return row.display_name?.trim()||row.username?.trim()||row.email?.trim()||null;
 }
+/** Resuelve varios auth_user_id (created_by/completed_by…) a nombre en una sola consulta. */
+export async function getUserDisplayNames(authUserIds:(string|null|undefined)[]):Promise<Record<string,string>>{
+  const ids=Array.from(new Set(authUserIds.filter((v):v is string=>Boolean(v))));
+  if(!ids.length) return {};
+  const client=requireClient();
+  const {data,error}=await client.from('user_account').select('auth_user_id,display_name,username,email').in('auth_user_id',ids);
+  if(error) throw new CoreRepositoryError(error.message);
+  const map:Record<string,string>={};
+  for(const row of (data??[]) as {auth_user_id:string;display_name?:string|null;username?:string|null;email?:string|null}[]){
+    const name=row.display_name?.trim()||row.username?.trim()||row.email?.trim();
+    if(name) map[row.auth_user_id]=name;
+  }
+  return map;
+}
 export async function getAddresses(partyId:number):Promise<Address[]>{
   const client=requireClient(); const {data,error}=await client.from('address').select('*').eq('party_id',partyId).order('id');
   if(error) throw new CoreRepositoryError(error.message); return (data??[]) as Address[];

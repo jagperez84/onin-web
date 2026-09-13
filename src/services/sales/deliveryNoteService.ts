@@ -42,6 +42,7 @@ export type DeliveryNote = {
   tax_amount: number;
   total_amount: number;
   created_at: string;
+  created_by: string | null;
 };
 
 function client() {
@@ -57,7 +58,7 @@ function one<T>(value: T | T[] | null | undefined): T | null {
 const SELECT =
   'id,code,sales_order_id,installation_id,customer_id,issue_date,delivery_date,carrier,tracking_number,' +
   'delivery_address_street,delivery_address_city,delivery_address_postal_code,delivery_address_region,' +
-  'status,notes,net_amount,tax_amount,total_amount,created_at,' +
+  'status,notes,net_amount,tax_amount,total_amount,created_at,created_by,' +
   'sales_order:sales_order_id(code),' +
   'customer:customer_id(party:party_id(legal_name,trade_name)),' +
   'lines:delivery_note_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,net_amount,total_amount,specific_data,product:product_id(code))';
@@ -111,6 +112,7 @@ function mapRow(row: any): DeliveryNote {
     tax_amount: Number(row.tax_amount || 0),
     total_amount: Number(row.total_amount || 0),
     created_at: row.created_at,
+    created_by: row.created_by ?? null,
   };
 }
 

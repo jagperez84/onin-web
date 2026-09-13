@@ -81,6 +81,8 @@ export type Installation = {
   status: InstallationStatus;
   createdAt: string;
   updatedAt: string;
+  createdBy: string | null;
+  completedBy: string | null;
   salesOrderCode?: string | null;
   customerName?: string | null;
   /** Líneas del pedido (sales_order_line.id) que cubre esta visita de montaje. */
@@ -134,6 +136,8 @@ function mapInstallation(row: any): Installation {
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    createdBy: row.created_by ?? null,
+    completedBy: row.completed_by ?? null,
     salesOrderCode: row.sales_order?.code ?? null,
     customerName: row.sales_order?.customer?.party?.trade_name || row.sales_order?.customer?.party?.legal_name || null,
     lineIds: Array.isArray(row.lines) ? row.lines.map((l: any) => Number(l.sales_order_line_id)) : [],
@@ -143,7 +147,7 @@ function mapInstallation(row: any): Installation {
 }
 
 const SELECT =
-  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,' +
+  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,created_by,completed_by,' +
   'installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),' +
   'lines:installation_line(sales_order_line_id),' +
   'sessions:installation_session(id,installation_id,session_date,start_time,end_time,notes,created_at),' +
@@ -221,7 +225,8 @@ export async function upsertInstallation(input: {
     if (error) throw new CoreRepositoryError(error.message);
     return mapInstallation(data);
   }
-  const { data: created, error: createError } = await c.from('installation').insert({ ...payload, status: 'SCHEDULED' }).select(SELECT).single();
+  const { data: authData } = await c.auth.getUser();
+  const { data: created, error: createError } = await c.from('installation').insert({ ...payload, status: 'SCHEDULED', created_by: authData.user?.id ?? null }).select(SELECT).single();
   if (createError) throw new CoreRepositoryError(createError.message);
   const createdId = (created as any).id;
   const lineIds = input.salesOrderLineIds ?? [];
