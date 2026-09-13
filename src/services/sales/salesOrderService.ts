@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { sanitizeSearchTerm } from '../core/searchSanitize';
 
-export type SalesOrderStatus = 'PENDING_MANUFACTURING' | 'PREPARED' | 'FABRICATING' | 'CONFECTIONED' | 'MANUFACTURED' | 'INSTALLATION_SCHEDULED' | 'INSTALLED' | 'CANCELLED';
+export type SalesOrderStatus = 'PENDING_MANUFACTURING' | 'PREPARED' | 'FABRICATING' | 'CONFECTIONED' | 'MANUFACTURED' | 'INSTALLATION_SCHEDULED' | 'INSTALLED' | 'INVOICED' | 'CANCELLED';
 
 export type SalesOrder = {
   id: number;

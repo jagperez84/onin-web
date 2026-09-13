@@ -72,7 +72,7 @@ type LifecycleProps = {
 function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, pendingDeliveryLines, totalDeliveryLines }: LifecycleProps) {
   const status = order.status;
   const isCancelled = status === 'CANCELLED';
-  const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED'].includes(status);
+  const isManufactured = ['MANUFACTURED', 'INSTALLATION_SCHEDULED', 'INSTALLED', 'INVOICED'].includes(status);
   const hasStartedFabrication = cutSheets.length + lonaSheets.length + componentSheets.length > 0;
 
   const fabricationDates = [

@@ -5,13 +5,13 @@ import { listSalesOrders, type SalesOrder, type SalesOrderSortField } from '../.
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import './sales-order.css';
 
-const statusLabel: Record<string,string>={PENDING_MANUFACTURING:'Pendiente de fabricación',PREPARED:'Preparado',FABRICATING:'Fabricando',CONFECTIONED:'Confeccionado',MANUFACTURED:'Fabricado',INSTALLATION_SCHEDULED:'Montaje programado',INSTALLED:'Instalado',CANCELLED:'Cancelado'};
-const statusTone: Record<string,string>={PENDING_MANUFACTURING:'warning',PREPARED:'',FABRICATING:'',CONFECTIONED:'',MANUFACTURED:'success',INSTALLATION_SCHEDULED:'',INSTALLED:'success',CANCELLED:'danger'};
+const statusLabel: Record<string,string>={PENDING_MANUFACTURING:'Pendiente de fabricación',PREPARED:'Preparado',FABRICATING:'Fabricando',CONFECTIONED:'Confeccionado',MANUFACTURED:'Fabricado',INSTALLATION_SCHEDULED:'Montaje programado',INSTALLED:'Instalado',INVOICED:'Facturado',CANCELLED:'Cancelado'};
+const statusTone: Record<string,string>={PENDING_MANUFACTURING:'warning',PREPARED:'',FABRICATING:'',CONFECTIONED:'',MANUFACTURED:'success',INSTALLATION_SCHEDULED:'',INSTALLED:'success',INVOICED:'success',CANCELLED:'danger'};
 const money=(n:number)=>n.toLocaleString('es-ES',{style:'currency',currency:'EUR'});
 const date=(v:string)=>new Date(`${v}T00:00:00`).toLocaleDateString('es-ES');
 
 function deliveryUrgency(r: SalesOrder): 'overdue'|'soon'|null {
- if(!r.requested_delivery_date||r.status==='INSTALLED'||r.status==='CANCELLED') return null;
+ if(!r.requested_delivery_date||r.status==='INSTALLED'||r.status==='INVOICED'||r.status==='CANCELLED') return null;
  const today=new Date(); today.setHours(0,0,0,0);
  const due=new Date(`${r.requested_delivery_date}T00:00:00`);
  const diffDays=Math.floor((due.getTime()-today.getTime())/86400000);
