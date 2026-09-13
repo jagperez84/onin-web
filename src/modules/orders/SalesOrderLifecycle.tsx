@@ -36,6 +36,8 @@ type Stage = {
 type TimelineEvent = {
   key: string;
   date: string | null;
+  /** Orden dentro del mismo día cuando la fecha no lleva hora (p. ej. issue_date de pedido/factura, que son solo fecha) — sin esto un evento sin hora se ordenaba antes que cualquier evento con hora del mismo día, aunque en el flujo real vaya después. */
+  priority: number;
   title: string;
   detail?: string;
   docCode?: string;
@@ -154,22 +156,25 @@ function useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, inst
 
 function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, installations, invoice }: LifecycleProps): TimelineEvent[] {
   return [
-    { key: 'order-created', date: order.issue_date, title: 'Pedido creado a partir del presupuesto' },
+    { key: 'order-created', date: order.issue_date, priority: 0, title: 'Pedido creado a partir del presupuesto' },
     ...cutSheets.map((s) => ({
       key: `cut-${s.id}`,
       date: s.issue_date,
+      priority: 10,
       title: 'Corte de perfil realizado',
       docCode: s.code,
     })),
     ...lonaSheets.map((s) => ({
       key: `lona-${s.id}`,
       date: s.issueDate,
+      priority: 10,
       title: 'Confección de lona realizada',
       docCode: s.code,
     })),
     ...componentSheets.map((s) => ({
       key: `comp-${s.id}`,
       date: s.issueDate,
+      priority: 10,
       title: 'Componentes descontados',
       docCode: s.code,
     })),
@@ -177,21 +182,29 @@ function buildTimelineEvents({ order, cutSheets, lonaSheets, componentSheets, in
       {
         key: `install-scheduled-${installation.id}`,
         date: installation.createdAt,
+        priority: 20,
         title: 'Montaje programado',
-        detail: `${shortDate(installation.scheduledDate)}${installation.startTime ? ` · ${installation.startTime}` : ''}`,
+        detail: [shortDate(installation.scheduledDate), installation.startTime].filter(Boolean).join(' · ') || undefined,
       },
       ...(installation.status === 'COMPLETED'
         ? [
             {
               key: `install-completed-${installation.id}`,
               date: installation.updatedAt,
+              priority: 21,
               title: 'Montaje completado',
             },
           ]
         : []),
     ]),
-    ...(invoice ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, title: 'Factura emitida', docCode: invoice.code }] : []),
-  ].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    ...(invoice ? [{ key: `invoice-${invoice.id}`, date: invoice.issue_date, priority: 30, title: 'Factura emitida', docCode: invoice.code }] : []),
+  ].sort((a, b) => {
+    const dayA = (a.date || '').slice(0, 10);
+    const dayB = (b.date || '').slice(0, 10);
+    if (dayA !== dayB) return dayA.localeCompare(dayB);
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return (a.date || '').localeCompare(b.date || '');
+  });
 }
 
 export function SalesOrderLifecycleStepper({
