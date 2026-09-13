@@ -51,6 +51,7 @@ export type Invoice = {
   status: InvoiceStatus;
   reference: string | null;
   notes: string | null;
+  created_by?: string | null;
   payment_method_id: number | null;
   payment_method_name?: string | null;
   payment_term_id: number | null;
@@ -108,7 +109,7 @@ function mapPartyCustomer(value: any): string | undefined {
 }
 
 const LIST_SELECT =
-  'id,code,sales_order_id,customer_id,issue_date,status,invoice_type,reference,total_amount,sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name))';
+  'id,code,sales_order_id,customer_id,issue_date,status,invoice_type,reference,total_amount,created_by,sales_order:sales_order_id(code),customer:customer_id(party:party_id(legal_name,trade_name))';
 
 export type InvoiceSortField = 'issue_date' | 'total_amount';
 

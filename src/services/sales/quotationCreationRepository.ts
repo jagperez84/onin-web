@@ -148,6 +148,7 @@ export async function createQuotation(input: {
 }): Promise<number> {
   const c = client();
   const cid = await companyId();
+  const { data: authData } = await c.auth.getUser();
   if (!input.lines.length) throw new CoreRepositoryError('El presupuesto debe tener al menos una línea.');
 
   const productIds = input.lines.map(l => l.product_id).filter((id): id is number => id !== null);
@@ -253,6 +254,7 @@ export async function createQuotation(input: {
     discount_amount: discount,
     tax_amount: tax,
     total_amount: net + tax,
+    created_by: authData.user?.id ?? null,
   };
 
   let { data: header, error: headerError } = await c.from('quotation').insert(insertPayload).select('id').single();
