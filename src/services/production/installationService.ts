@@ -1,6 +1,12 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { listUsers } from '../core/userRepository';
+import { getSalesOrderDeliveryStatus } from '../sales/deliveryNoteService';
+
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
 
 function client() {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
@@ -83,6 +89,10 @@ export type Installation = {
   updatedAt: string;
   createdBy: string | null;
   completedBy: string | null;
+  /** Cuadrilla asignada, si la hay — installers sigue siendo la lista real de quién va a esta visita. */
+  crewId: number | null;
+  crewName?: string | null;
+  crewColor?: string | null;
   salesOrderCode?: string | null;
   customerName?: string | null;
   /** Líneas del pedido (sales_order_line.id) que cubre esta visita de montaje. */
@@ -138,6 +148,9 @@ function mapInstallation(row: any): Installation {
     updatedAt: row.updated_at,
     createdBy: row.created_by ?? null,
     completedBy: row.completed_by ?? null,
+    crewId: row.crew_id == null ? null : Number(row.crew_id),
+    crewName: row.crew?.name ?? null,
+    crewColor: row.crew?.color ?? null,
     salesOrderCode: row.sales_order?.code ?? null,
     customerName: row.sales_order?.customer?.party?.trade_name || row.sales_order?.customer?.party?.legal_name || null,
     lineIds: Array.isArray(row.lines) ? row.lines.map((l: any) => Number(l.sales_order_line_id)) : [],
@@ -147,7 +160,8 @@ function mapInstallation(row: any): Installation {
 }
 
 const SELECT =
-  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,created_by,completed_by,' +
+  'id,company_id,sales_order_id,installation_type_id,scheduled_date,start_time,end_time,estimated_duration,actual_duration,installers,notes,status,created_at,updated_at,created_by,completed_by,crew_id,' +
+  'crew:crew_id(name,color),' +
   'installation_type:installation_type_id(description),sales_order:sales_order_id(code,customer:customer_id(party:party_id(legal_name,trade_name))),' +
   'lines:installation_line(sales_order_line_id),' +
   'sessions:installation_session(id,installation_id,session_date,start_time,end_time,notes,created_at),' +
@@ -166,6 +180,14 @@ export async function listInstallers(companyId: number): Promise<Installer[]> {
   const installers = scoped.filter(u => u.role_code === 'INSTALLER');
   const source = installers.length ? installers : scoped;
   return source.map(u => ({ id: u.id, name: u.display_name || u.username }));
+}
+
+/** Candidatos a formar parte de una cuadrilla: instaladores y cualquiera marcado como medidor — en una pyme la misma persona suele hacer ambas cosas. */
+export async function listFieldStaff(companyId: number): Promise<Installer[]> {
+  const users = await listUsers('', 'active');
+  return users
+    .filter(u => u.company_id === companyId && (u.role_code === 'INSTALLER' || u.can_measure))
+    .map(u => ({ id: u.id, name: u.display_name || u.username }));
 }
 
 /** Todas las visitas de montaje activas (no canceladas) de un pedido — puede haber varias, cada una cubriendo líneas distintas. */
@@ -206,6 +228,8 @@ export async function upsertInstallation(input: {
   estimatedDuration: string | null;
   installers: Installer[];
   notes: string | null;
+  /** Cuadrilla de referencia para esta visita — installers puede seguir ajustándose a mano. */
+  crewId?: number | null;
   /** Líneas del pedido que cubre esta visita. Solo se aplica al crear; no se puede reasignar después. */
   salesOrderLineIds?: number[];
 }): Promise<Installation> {
@@ -219,6 +243,7 @@ export async function upsertInstallation(input: {
     estimated_duration: input.estimatedDuration,
     installers: input.installers,
     notes: input.notes,
+    crew_id: input.crewId ?? null,
   };
   if (input.id) {
     const { data, error } = await c.from('installation').update(payload).eq('id', input.id).select(SELECT).single();
@@ -303,4 +328,56 @@ export async function getInstallation(id: number): Promise<Installation | null> 
   const { data, error } = await c.from('installation').select(SELECT).eq('id', id).maybeSingle();
   if (error) throw new CoreRepositoryError(error.message);
   return data ? mapInstallation(data) : null;
+}
+
+export type OrderAwaitingInstallation = {
+  salesOrderId: number;
+  code: string;
+  customerName: string | null;
+  lineIds: number[];
+  linesLabel: string;
+};
+
+/**
+ * Pedidos fabricados que todavía no tienen ninguna visita de montaje activa cubriendo
+ * sus líneas OTD pendientes — el backlog de la Agenda. Hace una llamada por pedido
+ * (delivery status + instalaciones) porque son pocos a la vez en una pyme de este
+ * tamaño; no vale la pena una vista SQL solo para esto.
+ */
+export async function listOrdersAwaitingInstallation(companyId: number): Promise<OrderAwaitingInstallation[]> {
+  const c = client();
+  const { data, error } = await c
+    .from('sales_order')
+    .select('id,code,customer:customer_id(party:party_id(legal_name,trade_name)),lines:sales_order_line(id,line_no,description)')
+    .eq('company_id', companyId)
+    .eq('status', 'MANUFACTURED')
+    .order('id', { ascending: false });
+  if (error) throw new CoreRepositoryError(error.message);
+
+  const results: OrderAwaitingInstallation[] = [];
+  for (const row of (data ?? []) as any[]) {
+    const [deliveryStatus, installations] = await Promise.all([
+      getSalesOrderDeliveryStatus(Number(row.id)).catch(() => []),
+      listInstallationsBySalesOrder(Number(row.id)).catch(() => []),
+    ]);
+    const coveredLineIds = new Set(installations.filter((i) => i.status !== 'CANCELLED').flatMap((i) => i.lineIds));
+    const pending = deliveryStatus.filter((s) => s.isOtd && s.remainingQuantity > 0 && !coveredLineIds.has(s.salesOrderLineId));
+    if (pending.length === 0) continue;
+    const lines = (row.lines ?? []) as any[];
+    const customer = one(row.customer);
+    const party = one((customer as any)?.party);
+    results.push({
+      salesOrderId: Number(row.id),
+      code: row.code,
+      customerName: party?.trade_name || party?.legal_name || null,
+      lineIds: pending.map((p) => p.salesOrderLineId),
+      linesLabel: pending
+        .map((p) => {
+          const line = lines.find((l) => Number(l.id) === p.salesOrderLineId);
+          return `#${p.lineNo}${line?.description ? ' · ' + line.description : ''}`;
+        })
+        .join(', '),
+    });
+  }
+  return results;
 }

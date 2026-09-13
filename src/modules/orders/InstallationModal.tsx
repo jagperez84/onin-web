@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarClock, CheckCircle2, FileText, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import type { SalesOrder } from '../../services/sales/salesOrderService';
+import type { InstallationCrew } from '../../services/production/installationCrewService';
 import {
   addInstallationSession,
   cancelInstallation,
@@ -38,12 +39,13 @@ type Props = {
   availableLines: InstallableLine[];
   types: InstallationType[];
   installers: Installer[];
+  crews: InstallationCrew[];
   onClose: () => void;
   onDone: (installation: Installation) => void;
   onCancelled?: (installation: Installation) => void;
 };
 
-export function InstallationModal({ order, companyId, installation: initialInstallation, availableLines, types, installers, onClose, onDone, onCancelled }: Props) {
+export function InstallationModal({ order, companyId, installation: initialInstallation, availableLines, types, installers, crews, onClose, onDone, onCancelled }: Props) {
   const [installation, setInstallation] = useState(initialInstallation);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
   const [sessionStart, setSessionStart] = useState('');
@@ -122,6 +124,7 @@ export function InstallationModal({ order, companyId, installation: initialInsta
   const [scheduledDate, setScheduledDate] = useState(installation?.scheduledDate || (order as any).requested_delivery_date || '');
   const [startTime, setStartTime] = useState(installation?.startTime || '');
   const [estimatedDuration, setEstimatedDuration] = useState(installation?.estimatedDuration || '');
+  const [crewId, setCrewId] = useState<number | null>(installation?.crewId ?? null);
   const [selectedInstallerIds, setSelectedInstallerIds] = useState<Set<number>>(new Set((installation?.installers ?? []).map((i) => i.id)));
   const [notes, setNotes] = useState(installation?.notes || '');
   const [selectedLineIds, setSelectedLineIds] = useState<Set<number>>(new Set(installation ? installation.lineIds : availableLines.map((l) => l.id)));
@@ -141,6 +144,11 @@ export function InstallationModal({ order, companyId, installation: initialInsta
       else next.add(id);
       return next;
     });
+  };
+  const pickCrew = (id: number | null) => {
+    setCrewId(id);
+    const crew = id == null ? null : crews.find((c) => c.id === id);
+    if (crew) setSelectedInstallerIds(new Set(crew.memberIds));
   };
   const toggleLine = (id: number) => {
     setSelectedLineIds((previous) => {
@@ -175,6 +183,7 @@ export function InstallationModal({ order, companyId, installation: initialInsta
         scheduledDate: scheduledDate || null,
         startTime: startTime || null,
         estimatedDuration: estimatedDuration || null,
+        crewId,
         installers: selectedInstallers,
         notes: notes || null,
         salesOrderLineIds: installation ? undefined : Array.from(selectedLineIds),
@@ -318,6 +327,20 @@ export function InstallationModal({ order, companyId, installation: initialInsta
                 ))}
               </select>
             </label>
+
+            {crews.length > 0 && (
+              <label className="installation-form-field">
+                <span>Cuadrilla</span>
+                <select value={crewId ?? ''} onChange={(e) => pickCrew(e.target.value ? Number(e.target.value) : null)} disabled={isCompleted}>
+                  <option value="">Sin cuadrilla asignada</option>
+                  {crews.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <label className="installation-form-field">
               <span>Equipo de instalación</span>

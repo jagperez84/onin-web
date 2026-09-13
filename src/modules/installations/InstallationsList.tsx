@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, Search } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, CalendarClock, CalendarRange, List, Search } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import {
   INSTALLATION_STATUS_LABEL as statusLabel,
@@ -13,12 +13,14 @@ import {
   type InstallationStatus,
   type Installer,
 } from '../../services/production/installationService';
+import { InstallationsAgenda } from './InstallationsAgenda';
 import '../orders/sales-order.css';
 import '../orders/installation.css';
 const fmtDate = (v: string | null) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('es-ES') : '—');
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export function InstallationsList() {
+  const [view, setView] = useState<'lista' | 'agenda'>('lista');
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [rows, setRows] = useState<Installation[]>([]);
   const [installers, setInstallers] = useState<Installer[]>([]);
@@ -85,8 +87,20 @@ export function InstallationsList() {
           </div>
           <p>Visitas de instalación programadas para pedidos ya fabricados.</p>
         </div>
+        <div className="page-actions">
+          <button type="button" className={view === 'lista' ? 'primary-button' : 'secondary-button'} onClick={() => setView('lista')}>
+            <List size={15} /> Lista
+          </button>
+          <button type="button" className={view === 'agenda' ? 'primary-button' : 'secondary-button'} onClick={() => setView('agenda')}>
+            <CalendarRange size={15} /> Agenda
+          </button>
+        </div>
       </div>
 
+      {view === 'agenda' ? (
+        <InstallationsAgenda />
+      ) : (
+        <>
       <div className="sales-order-toolbar">
         <div className="search-box sales-order-search">
           <Search size={16} />
@@ -138,6 +152,7 @@ export function InstallationsList() {
                 <th>Pedido</th>
                 <th>Cliente</th>
                 <th>Tipo</th>
+                <th>Cuadrilla</th>
                 <th>Instalador(es)</th>
                 <th>Estado</th>
               </tr>
@@ -145,13 +160,13 @@ export function InstallationsList() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="sales-order-empty">
+                  <td colSpan={7} className="sales-order-empty">
                     Cargando montajes…
                   </td>
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="sales-order-empty">
+                  <td colSpan={7} className="sales-order-empty">
                     No hay montajes con estos filtros.
                   </td>
                 </tr>
@@ -172,6 +187,7 @@ export function InstallationsList() {
                       </td>
                       <td>{r.customerName || '—'}</td>
                       <td>{r.installationTypeDescription || '—'}</td>
+                      <td>{r.crewName ? (<><span className="zone-dot" style={{ background: r.crewColor || 'var(--muted-2)', display: 'inline-block', marginRight: 6 }} />{r.crewName}</>) : '—'}</td>
                       <td>{r.installers.length ? r.installers.map(i => i.name).join(', ') : '—'}</td>
                       <td>
                         <span className={`status-pill ${statusTone[r.status]}`}>{statusLabel[r.status]}</span>
@@ -183,6 +199,8 @@ export function InstallationsList() {
             </tbody>
         </table>
       </div>
+        </>
+      )}
     </div>
   );
 }
