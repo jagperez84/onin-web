@@ -7,6 +7,72 @@ import type { AddressForm } from "./types";
 import { getLocality, getProvince } from "./addressUtils";
 import "./customer-address.css";
 
+export function AddressSearchBox({
+  query,
+  onQueryChange,
+  onSearch,
+  searching,
+  results,
+  onSelect,
+  error,
+  disabled = false,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+  onSearch: () => void;
+  searching: boolean;
+  results: AddressLookupResult[];
+  onSelect: (result: AddressLookupResult) => void;
+  error?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <>
+      <div className="input-with-action">
+        <input
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onSearch();
+            }
+          }}
+          placeholder="Calle, número, CP, localidad…"
+        />
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onSearch}
+          disabled={disabled || searching}
+        >
+          {searching ? "Buscando…" : "Buscar"}
+        </button>
+      </div>
+      {error && <div className="inline-error">{error}</div>}
+      {results.length > 0 && (
+        <div
+          className="lookup-results"
+          role="listbox"
+          aria-label="Resultados de dirección"
+        >
+          {results.map((r, i) => (
+            <button
+              type="button"
+              key={`${r.lat}-${r.lon}-${i}`}
+              disabled={disabled}
+              onClick={() => onSelect(r)}
+            >
+              {r.display_name}
+            </button>
+          ))}
+          <small>Datos © OpenStreetMap contributors</small>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function AddressLookup({
   value,
   onChange,
@@ -56,46 +122,15 @@ export function AddressLookup({
   return (
     <div className="wide address-lookup">
       <label>Buscar dirección con OpenStreetMap</label>
-      <div className="input-with-action">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              lookup();
-            }
-          }}
-          placeholder="Calle, número, CP, localidad…"
-        />
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={lookup}
-          disabled={searching}
-        >
-          {searching ? "Buscando…" : "Buscar"}
-        </button>
-      </div>
-      {error && <div className="inline-error">{error}</div>}
-      {results.length > 0 && (
-        <div
-          className="lookup-results"
-          role="listbox"
-          aria-label="Resultados de dirección"
-        >
-          {results.map((r, i) => (
-            <button
-              type="button"
-              key={`${r.lat}-${r.lon}-${i}`}
-              onClick={() => apply(r)}
-            >
-              {r.display_name}
-            </button>
-          ))}
-          <small>Datos © OpenStreetMap contributors</small>
-        </div>
-      )}
+      <AddressSearchBox
+        query={query}
+        onQueryChange={setQuery}
+        onSearch={lookup}
+        searching={searching}
+        results={results}
+        onSelect={apply}
+        error={error}
+      />
     </div>
   );
 }

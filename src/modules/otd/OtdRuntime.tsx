@@ -32,21 +32,29 @@ import {
   calculateOtdRuntime,
   buildOtdConfigurationSnapshot,
   fetchProductForOtdComponent,
+  searchOninProducts,
   type OtdRuntimeData,
   type OtdCalculationResult,
   type OtdConfigurationSnapshot,
   type OtdComponentDef,
+  type OninProduct,
 } from "../../services/otd/otdCalculationService";
-import type {
-  Product,
-  ProductCharacteristic,
-} from "../../services/catalog/productRepository";
 import { Toast } from "../../components/ui/Toast";
 import { FormulaPredictiveInput } from "./FormulaPredictiveInput";
+import { EntitySearchField, type EntitySearchOption } from "../../components/ui/EntitySearchField";
 import "./otd-runtime.css";
 
 const euro = (n: number) =>
   n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+
+type OtdCatalogOption = OninProduct & EntitySearchOption;
+
+function toCatalogOption(p: OninProduct): OtdCatalogOption {
+  return {
+    ...p,
+    label: `${p.code} · ${p.commercial_description || p.technical_description || "Sin descripción"}`,
+  };
+}
 
 export function OtdRuntime() {
   const { id } = useParams();
@@ -70,9 +78,6 @@ export function OtdRuntime() {
     index: number | null; // null = adding new
   } | null>(null);
 
-  const [productSearch, setProductSearch] = useState("");
-  const [productResults, setProductResults] = useState<Product[]>([]);
-  const [searchingProducts, setSearchingProducts] = useState(false);
   const [loadingProductDetails, setLoadingProductDetails] = useState(false);
 
   const [quotations, setQuotations] = useState<
@@ -193,34 +198,8 @@ export function OtdRuntime() {
     return buildOtdConfigurationSnapshot(effectiveRuntimeData, calculation);
   }, [effectiveRuntimeData, calculation]);
 
-  // Product Catalog Search
-  async function searchCatalog(term: string) {
-    setProductSearch(term);
-    if (!supabase || term.trim().length < 2) {
-      setProductResults([]);
-      return;
-    }
-    try {
-      setSearchingProducts(true);
-      const clean = `%${term.trim()}%`;
-      const { data } = await supabase
-        .from("product")
-        .select("*")
-        .or(
-          `code.ilike.${clean},commercial_description.ilike.${clean},technical_description.ilike.${clean}`,
-        )
-        .limit(12);
-
-      setProductResults((data ?? []) as Product[]);
-    } catch {
-      setProductResults([]);
-    } finally {
-      setSearchingProducts(false);
-    }
-  }
-
   // Handle selecting a new product for a component
-  async function handleSelectProductForComp(product: Product) {
+  async function handleSelectProductForComp(product: OninProduct) {
     try {
       setLoadingProductDetails(true);
       const details = await fetchProductForOtdComponent(product.id);
@@ -266,8 +245,6 @@ export function OtdRuntime() {
         ...editingCompModal,
         comp: updatedComp,
       });
-      setProductResults([]);
-      setProductSearch("");
       setToast(`Artículo '${product.code}' asignado al componente.`);
     } catch (err: any) {
       setToast(`Error al cargar datos del producto: ${err?.message || err}`);
@@ -282,8 +259,6 @@ export function OtdRuntime() {
       comp: { ...comp },
       index,
     });
-    setProductSearch("");
-    setProductResults([]);
 
     if (comp.product_id && (!comp.dimensions || comp.dimensions.length === 0)) {
       try {
@@ -360,8 +335,6 @@ export function OtdRuntime() {
       comp: newComp,
       index: null,
     });
-    setProductSearch("");
-    setProductResults([]);
   };
 
   const handleSaveComponentFromModal = () => {
@@ -1166,52 +1139,26 @@ export function OtdRuntime() {
             <div className="modal-body">
               {/* Product Catalog Search */}
               <div className="quote-select-field">
-                <label>
-                  <span>Buscar Artículo del Catálogo ONIN</span>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      type="text"
-                      placeholder="Escribe código o descripción (ej. MOT, LONA, PERFIL…)"
-                      value={productSearch}
-                      onChange={(e) => searchCatalog(e.target.value)}
-                      className="runtime-input"
-                    />
-                    {searchingProducts && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          right: 12,
-                          top: 10,
-                          fontSize: 12,
-                          color: "#64748b",
-                        }}
-                      >
-                        Buscando…
-                      </span>
-                    )}
-                  </div>
-                </label>
-
-                {productResults.length > 0 && (
-                  <div className="search-results-list">
-                    {productResults.map((p) => (
-                      <div
-                        key={p.id}
-                        className="search-result-item"
-                        onClick={() => handleSelectProductForComp(p)}
-                      >
-                        <div>
-                          <strong>
-                            {p.commercial_description ||
-                              p.technical_description ||
-                              p.code}
-                          </strong>
-                        </div>
-                        <span className="search-result-code">{p.code}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <EntitySearchField<OtdCatalogOption>
+                  label="Buscar artículo del catálogo ONIN"
+                  value={null}
+                  onChange={(opt) => opt && handleSelectProductForComp(opt)}
+                  onSearch={async (term) => {
+                    if (term.trim().length < 2) return [];
+                    return (await searchOninProducts(term)).map(toCatalogOption);
+                  }}
+                  placeholder="Escribe código o descripción (ej. MOT, LONA, PERFIL…)"
+                  loadingText="Buscando…"
+                  emptyText="No se han encontrado artículos."
+                  renderOption={(o) => (
+                    <div className="entity-search-option-block">
+                      <strong>
+                        {o.commercial_description || o.technical_description || o.code}
+                      </strong>
+                      <span className="entity-search-option-block-desc">{o.code}</span>
+                    </div>
+                  )}
+                />
               </div>
 
               {/* Current Selected Product Display */}

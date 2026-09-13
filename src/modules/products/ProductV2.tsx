@@ -26,7 +26,7 @@ import {
   type ProductListRow,
   type ProductStatus,
 } from "../../services/catalog/productRepository";
-import { EntitySearchHelp } from "./ProductCommercialPanel";
+import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import "./product.css";
 import "./product-fixes.css";
 
@@ -663,18 +663,22 @@ function ProductEditor({
             </label>
             <label>
               Proveedor habitual
-              <EntitySearchHelp
+              <EntitySearchField
+                variant="modal"
                 title="Buscar proveedor"
                 placeholder="Seleccionar proveedor…"
-                items={refs?.suppliers ?? []}
-                value={form.default_supplier_party_id}
-                onChange={(id) => update("default_supplier_party_id", id)}
-                labelOf={(item) => {
-                  const supplier = refs?.suppliers.find(
-                    (x) => x.id === item.id,
-                  );
-                  return supplier?.name ?? `Proveedor ${item.id}`;
-                }}
+                options={(refs?.suppliers ?? []).map((s) => ({ id: s.id, label: s.name }))}
+                value={
+                  form.default_supplier_party_id != null
+                    ? {
+                        id: form.default_supplier_party_id,
+                        label:
+                          refs?.suppliers.find((x) => x.id === form.default_supplier_party_id)?.name ??
+                          `Proveedor ${form.default_supplier_party_id}`,
+                      }
+                    : null
+                }
+                onChange={(opt) => update("default_supplier_party_id", (opt?.id as number) ?? null)}
               />
             </label>
             <label>

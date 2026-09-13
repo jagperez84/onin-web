@@ -638,28 +638,3 @@
   border-color: var(--status-danger-border);
 }
 
-
-.otd-search-results-dropdown {
-  max-height: 180px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  box-shadow: var(--shadow-hover);
-  margin-top: 4px;
-}
-
-.otd-search-result-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  font-size: 13px;
-  border-bottom: 1px solid var(--canvas-stripe);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.otd-search-result-item:hover {
-  background: var(--primary-soft);
-  color: var(--primary-hover);
-}

@@ -269,13 +269,13 @@
   font-weight: 800;
   color: var(--muted);
 }
-.measurement-dimension-row .lookup-field {
+.measurement-dimension-row .entity-search-field {
   min-width: 0;
 }
-.measurement-dimension-row .lookup-control {
+.measurement-dimension-row .entity-search-control {
   min-width: 0;
 }
-.measurement-dimension-row .lookup-control input {
+.measurement-dimension-row .entity-search-control input {
   width: 100%;
   min-width: 0;
 }

@@ -11,11 +11,10 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  getCustomerById,
   getCustomerSummaries,
-  getPartyById,
   getUserDisplayName,
 } from "../../services/core/coreRepository";
+import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import {
   createMeasurement,
   getMeasurement,
@@ -101,7 +100,6 @@ export function MeasurementDetail({
   const { user } = useAuth();
   const [measurement, setMeasurement] = useState<Measurement | null>(null);
   const [activities, setActivities] = useState<MeasurementActivity[]>([]);
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,21 +118,6 @@ export function MeasurementDetail({
   useEffect(() => {
     if (measurementId) load();
   }, [measurementId]);
-  useEffect(() => {
-    const q = customerSearch.trim();
-    if (!editing || !q || draft.customer_id) {
-      setCustomers([]);
-      return;
-    }
-    const t = setTimeout(
-      () =>
-        getCustomerSummaries(q)
-          .then((d) => setCustomers(d as CustomerOption[]))
-          .catch(() => setCustomers([])),
-      180,
-    );
-    return () => clearTimeout(t);
-  }, [customerSearch, editing, draft.customer_id]);
   async function load() {
     setLoading(true);
     setError("");
@@ -176,25 +159,17 @@ export function MeasurementDetail({
       setLoading(false);
     }
   }
-  async function chooseCustomer(id: number) {
-    try {
-      const c = await getCustomerById(id);
-      const p = await getPartyById(c.party_id);
-      setDraft((v) => ({
-        ...v,
-        customer_id: c.id,
-        customer_name_snapshot: p.trade_name || p.legal_name,
-        customer_tax_id_snapshot: p.tax_id ?? null,
-        customer_phone_snapshot: p.phone ?? null,
-        customer_email_snapshot: p.email ?? null,
-      }));
-      setCustomerSearch(p.trade_name || p.legal_name);
-      setCustomers([]);
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "No se pudo cargar el cliente.",
-      );
-    }
+  function chooseCustomer(customer: CustomerOption) {
+    const label = customer.party.trade_name || customer.party.legal_name;
+    setDraft((v) => ({
+      ...v,
+      customer_id: customer.id,
+      customer_name_snapshot: label,
+      customer_tax_id_snapshot: customer.party.tax_id ?? null,
+      customer_phone_snapshot: customer.party.phone ?? null,
+      customer_email_snapshot: customer.party.email ?? null,
+    }));
+    setCustomerSearch(label);
   }
   function clearCustomer() {
     setDraft((v) => ({
@@ -207,7 +182,6 @@ export function MeasurementDetail({
       customer_email_snapshot: null,
     }));
     setCustomerSearch("");
-    setCustomers([]);
   }
   function update<K extends keyof Measurement>(key: K, value: Measurement[K]) {
     setDraft((v) => ({ ...v, [key]: value }));
@@ -512,37 +486,36 @@ export function MeasurementDetail({
             </div>
             {editing && (
               <div className="measurement-customer-picker">
-                <label className="wide">
-                  Cliente (opcional)
-                  <input
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      if (current.customer_id) clearCustomer();
-                    }}
-                    placeholder="Buscar por nombre, código o teléfono…"
-                    autoComplete="off"
-                  />
-                  {customers.length > 0 && (
-                    <div
-                      className="measurement-customer-results"
-                      role="listbox"
-                    >
-                      {customers.slice(0, 6).map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => chooseCustomer(c.id)}
-                        >
-                          <strong>
-                            {c.party.trade_name || c.party.legal_name}
-                          </strong>
-                          <span>{c.party.code || c.party.phone || ""}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </label>
+                <EntitySearchField<CustomerOption & { label: string; secondary?: string }>
+                  label="Cliente (opcional)"
+                  value={
+                    current.customer_id
+                      ? {
+                          id: current.customer_id,
+                          label: customerSearch,
+                          party: {
+                            legal_name: customerSearch,
+                            trade_name: customerSearch,
+                            tax_id: current.customer_tax_id_snapshot ?? null,
+                            code: null,
+                            phone: current.customer_phone_snapshot ?? null,
+                            email: current.customer_email_snapshot ?? null,
+                          },
+                        }
+                      : null
+                  }
+                  onChange={(opt) => (opt ? chooseCustomer(opt) : clearCustomer())}
+                  onSearch={async (q) => {
+                    if (!q.trim()) return [];
+                    const rows = (await getCustomerSummaries(q)) as CustomerOption[];
+                    return rows.map((c) => ({
+                      ...c,
+                      label: c.party.trade_name || c.party.legal_name,
+                      secondary: c.party.code || c.party.phone || undefined,
+                    }));
+                  }}
+                  placeholder="Buscar por nombre, código o teléfono…"
+                />
                 {hasCustomer && (
                   <button
                     type="button"
@@ -809,7 +782,6 @@ export function MeasurementDetail({
                     country_code: measurement.site_country_code || "ES",
                   });
                   setCustomerSearch(measurement.customer_name_snapshot || "");
-                  setCustomers([]);
                   setError("");
                   setEditing(false);
                 }}
