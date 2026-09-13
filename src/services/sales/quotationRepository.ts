@@ -43,11 +43,13 @@ export function getEffectiveStatus(quotation: { status: string; valid_until: str
   return quotation.status;
 }
 
-export async function listQuotations(search='', includeCancelled=false): Promise<QuotationSummary[]> {
+export type QuotationSortField = 'issue_date' | 'valid_until';
+
+export async function listQuotations(search='', includeCancelled=false, sortBy: QuotationSortField = 'issue_date', ascending = false): Promise<QuotationSummary[]> {
   const c=client();
   const cid=await companyId();
-  let q=c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,reference,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order('issue_date',{ascending:false}).order('id',{ascending:false});
-  
+  let q=c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,reference,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order(sortBy,{ascending,nullsFirst:false}).order('id',{ascending:false});
+
   if (!includeCancelled) {
     q = q.neq('status', 'CANCELLED');
     try {
@@ -62,7 +64,7 @@ export async function listQuotations(search='', includeCancelled=false): Promise
   const {data,error}=await q;
   if(error && (error.message.includes('deleted_at') || error.code === '42703')) {
     // Fallback if deleted_at column is not yet present
-    let qFallback = c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,reference,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order('issue_date',{ascending:false}).order('id',{ascending:false});
+    let qFallback = c.from('quotation').select('id,code,issue_date,valid_until,status,total_amount,reference,contact_name,measurement_id,customer:customer_id(party:party_id(legal_name,trade_name)),commercial:commercial_id(party:party_id(legal_name,trade_name))').eq('company_id',cid).order(sortBy,{ascending,nullsFirst:false}).order('id',{ascending:false});
     if (!includeCancelled) {
       qFallback = qFallback.neq('status', 'CANCELLED');
     }

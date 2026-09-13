@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   FileText,
   Plus,
   RotateCcw,
@@ -12,6 +14,7 @@ import {
 import { Link } from "react-router-dom";
 import {
   listQuotations,
+  type QuotationSortField,
   type QuotationSummary,
   getEffectiveStatus,
   renewQuotationValidity,
@@ -20,6 +23,7 @@ import { QuotationEmailModal } from "./QuotationEmailModal";
 import { QuotationRenewModal } from "./QuotationRenewModal";
 import { Toast } from "../../components/ui/Toast";
 import "./quotation.css";
+import "../orders/sales-order.css";
 
 function customerName(row: QuotationSummary) {
   return (
@@ -62,6 +66,8 @@ export function QuotationList() {
   const [rows, setRows] = useState<QuotationSummary[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<QuotationSortField>("issue_date");
+  const [ascending, setAscending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
@@ -72,7 +78,7 @@ export function QuotationList() {
     setLoading(true);
     setError("");
     try {
-      setRows(await listQuotations(search));
+      setRows(await listQuotations(search, false, sortBy, ascending));
     } catch (e) {
       setError(
         e instanceof Error
@@ -87,7 +93,7 @@ export function QuotationList() {
   useEffect(() => {
     const t = setTimeout(() => void load(), 250);
     return () => clearTimeout(t);
-  }, [search]);
+  }, [search, sortBy, ascending]);
 
   const enrichedRows = useMemo(() => {
     return rows.map((r) => ({
@@ -181,6 +187,16 @@ export function QuotationList() {
           <option value="EXPIRED">Caducados ({counts.expired})</option>
           <option value="REJECTED">Rechazados ({counts.rejected})</option>
         </select>
+        <div className="sales-order-sort">
+          <label htmlFor="quotation-sort-field">Ordenar por</label>
+          <select id="quotation-sort-field" value={sortBy} onChange={(e) => setSortBy(e.target.value as QuotationSortField)}>
+            <option value="issue_date">Fecha de emisión</option>
+            <option value="valid_until">Fecha de validez</option>
+          </select>
+          <button type="button" className="icon-link" onClick={() => setAscending((a) => !a)} title={ascending ? "Orden ascendente" : "Orden descendente"} aria-label={ascending ? "Orden ascendente" : "Orden descendente"}>
+            {ascending ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          </button>
+        </div>
         <span className="result-count">{visibleRows.length} presupuestos</span>
       </div>
 
