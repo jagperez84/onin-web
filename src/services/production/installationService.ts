@@ -1,6 +1,12 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { listUsers } from '../core/userRepository';
+import { getSalesOrderDeliveryStatus } from '../sales/deliveryNoteService';
+
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
 
 function client() {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
@@ -317,4 +323,56 @@ export async function getInstallation(id: number): Promise<Installation | null> 
   const { data, error } = await c.from('installation').select(SELECT).eq('id', id).maybeSingle();
   if (error) throw new CoreRepositoryError(error.message);
   return data ? mapInstallation(data) : null;
+}
+
+export type OrderAwaitingInstallation = {
+  salesOrderId: number;
+  code: string;
+  customerName: string | null;
+  lineIds: number[];
+  linesLabel: string;
+};
+
+/**
+ * Pedidos fabricados que todavía no tienen ninguna visita de montaje activa cubriendo
+ * sus líneas OTD pendientes — el backlog de la Agenda. Hace una llamada por pedido
+ * (delivery status + instalaciones) porque son pocos a la vez en una pyme de este
+ * tamaño; no vale la pena una vista SQL solo para esto.
+ */
+export async function listOrdersAwaitingInstallation(companyId: number): Promise<OrderAwaitingInstallation[]> {
+  const c = client();
+  const { data, error } = await c
+    .from('sales_order')
+    .select('id,code,customer:customer_id(party:party_id(legal_name,trade_name)),lines:sales_order_line(id,line_no,description)')
+    .eq('company_id', companyId)
+    .eq('status', 'MANUFACTURED')
+    .order('id', { ascending: false });
+  if (error) throw new CoreRepositoryError(error.message);
+
+  const results: OrderAwaitingInstallation[] = [];
+  for (const row of (data ?? []) as any[]) {
+    const [deliveryStatus, installations] = await Promise.all([
+      getSalesOrderDeliveryStatus(Number(row.id)).catch(() => []),
+      listInstallationsBySalesOrder(Number(row.id)).catch(() => []),
+    ]);
+    const coveredLineIds = new Set(installations.filter((i) => i.status !== 'CANCELLED').flatMap((i) => i.lineIds));
+    const pending = deliveryStatus.filter((s) => s.isOtd && s.remainingQuantity > 0 && !coveredLineIds.has(s.salesOrderLineId));
+    if (pending.length === 0) continue;
+    const lines = (row.lines ?? []) as any[];
+    const customer = one(row.customer);
+    const party = one((customer as any)?.party);
+    results.push({
+      salesOrderId: Number(row.id),
+      code: row.code,
+      customerName: party?.trade_name || party?.legal_name || null,
+      lineIds: pending.map((p) => p.salesOrderLineId),
+      linesLabel: pending
+        .map((p) => {
+          const line = lines.find((l) => Number(l.id) === p.salesOrderLineId);
+          return `#${p.lineNo}${line?.description ? ' · ' + line.description : ''}`;
+        })
+        .join(', '),
+    });
+  }
+  return results;
 }
