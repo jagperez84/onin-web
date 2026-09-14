@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Edit3,
+  Palette,
   Plus,
   RotateCcw,
   Save,
@@ -25,6 +26,13 @@ import {
   type CatalogRow,
   type FallbackProfileEstimate,
 } from "../../services/catalog/catalogRepository";
+import {
+  listAttributeColors,
+  addAttributeColor,
+  removeAttributeColor,
+  getAttributeColorCounts,
+  type AttributeColor,
+} from "../../services/catalog/attributeColorRepository";
 import {
   listMeasurementTypes,
   type MeasurementType,
@@ -228,6 +236,13 @@ export function ProductCatalogV1() {
   );
   const [attributeValues, setAttributeValues] = useState<AttributeValue[]>([]);
   const [valueForm, setValueForm] = useState(emptyValue);
+  const [attributeColorCounts, setAttributeColorCounts] = useState<Record<number, number>>({});
+  const [selectedAttributeForColors, setSelectedAttributeForColors] = useState<CatalogRow | null>(null);
+  const [attributeColors, setAttributeColors] = useState<AttributeColor[]>([]);
+  const [companyColorOptions, setCompanyColorOptions] = useState<CatalogRow[]>([]);
+  const [colorToAddId, setColorToAddId] = useState("");
+  const [colorPanelBusy, setColorPanelBusy] = useState(false);
+  const [colorPanelError, setColorPanelError] = useState("");
   const [references, setReferences] = useState<{
     productTypes: CatalogRow[];
     measurementTypes: MeasurementType[];
@@ -298,9 +313,13 @@ export function ProductCatalogV1() {
       } else if (behavior) {
         setReferences((r) => ({ ...r, lineBehaviors: data }));
       }
-      if (kind !== "attributes") {
+      if (kind === "attributes") {
+        setAttributeColorCounts(await getAttributeColorCounts());
+      } else {
         setSelectedAttribute(null);
         setAttributeValues([]);
+        setSelectedAttributeForColors(null);
+        setAttributeColors([]);
       }
     } catch (e) {
       setError(
@@ -317,6 +336,7 @@ export function ProductCatalogV1() {
     setKind(first.key);
     setEditing(false);
     setSelectedAttribute(null);
+    setSelectedAttributeForColors(null);
     setSearch("");
   }
 
@@ -501,6 +521,7 @@ export function ProductCatalogV1() {
   }
 
   async function selectAttribute(r: CatalogRow) {
+    setSelectedAttributeForColors(null);
     setSelectedAttribute(r);
     setValueForm({ ...emptyValue });
     try {
@@ -512,6 +533,77 @@ export function ProductCatalogV1() {
       );
     }
   }
+
+  async function selectAttributeColors(r: CatalogRow) {
+    setSelectedAttribute(null);
+    setSelectedAttributeForColors(r);
+    setColorToAddId("");
+    setColorPanelError("");
+    try {
+      const [colors, available] = await Promise.all([
+        listAttributeColors(r.id),
+        companyId ? listCatalog("colors", companyId) : Promise.resolve([]),
+      ]);
+      setAttributeColors(colors);
+      setCompanyColorOptions(available);
+    } catch (e) {
+      setColorPanelError(
+        e instanceof Error ? e.message : "No se pudieron cargar los colores.",
+      );
+    }
+  }
+
+  function closeAttributeColors() {
+    setSelectedAttributeForColors(null);
+    setAttributeColors([]);
+    setColorPanelError("");
+  }
+
+  async function addColorToAttribute() {
+    if (!selectedAttributeForColors || !colorToAddId) return;
+    setColorPanelBusy(true);
+    setColorPanelError("");
+    try {
+      await addAttributeColor(selectedAttributeForColors.id, Number(colorToAddId));
+      setAttributeColors(await listAttributeColors(selectedAttributeForColors.id));
+      setAttributeColorCounts(await getAttributeColorCounts());
+      setColorToAddId("");
+    } catch (e) {
+      setColorPanelError(
+        e instanceof Error ? e.message : "No se pudo asociar el color.",
+      );
+    } finally {
+      setColorPanelBusy(false);
+    }
+  }
+
+  async function removeColorFromAttribute(ac: AttributeColor) {
+    if (
+      !(await confirmDialog({
+        title: `¿Quitar el color ${ac.color?.name ?? ""} de esta característica?`,
+        danger: true,
+      }))
+    )
+      return;
+    setColorPanelBusy(true);
+    try {
+      await removeAttributeColor(ac.id);
+      if (selectedAttributeForColors) {
+        setAttributeColors(await listAttributeColors(selectedAttributeForColors.id));
+      }
+      setAttributeColorCounts(await getAttributeColorCounts());
+    } catch (e) {
+      setColorPanelError(
+        e instanceof Error ? e.message : "No se pudo quitar el color.",
+      );
+    } finally {
+      setColorPanelBusy(false);
+    }
+  }
+
+  const availableColorsToAdd = companyColorOptions.filter(
+    (color) => !attributeColors.some((ac) => ac.color_id === color.id),
+  );
 
   async function saveValue() {
     if (!selectedAttribute) return;
@@ -642,6 +734,7 @@ export function ProductCatalogV1() {
                 setKind(c.key);
                 setEditing(false);
                 setSelectedAttribute(null);
+                setSelectedAttributeForColors(null);
                 setSearch("");
               }}
             >
@@ -677,7 +770,7 @@ export function ProductCatalogV1() {
       </div>
 
       <div
-        className={`catalog-layout ${editing || (kind === "attributes" && selectedAttribute) ? "has-editor" : ""}`}
+        className={`catalog-layout ${editing || (kind === "attributes" && (selectedAttribute || selectedAttributeForColors)) ? "has-editor" : ""}`}
       >
         <section className="panel">
           <div className="panel-head">
@@ -706,7 +799,12 @@ export function ProductCatalogV1() {
                       </>
                     )}
                     {behavior && <th>Capacidades</th>}
-                    {kind === "attributes" && <th>Tipo</th>}
+                    {kind === "attributes" && (
+                      <>
+                        <th>Tipo</th>
+                        <th>Colores</th>
+                      </>
+                    )}
                     <th>Estado</th>
                     <th></th>
                   </tr>
@@ -755,7 +853,21 @@ export function ProductCatalogV1() {
                           <td>{caps || "Sin capacidades adicionales"}</td>
                         )}
                         {kind === "attributes" && (
-                          <td>{r.data_type ?? "TEXT"}</td>
+                          <>
+                            <td>{r.data_type ?? "TEXT"}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="secondary-button compact"
+                                onClick={() => selectAttributeColors(r)}
+                                title="Gestionar colores de esta característica"
+                              >
+                                <Palette size={13} />
+                                {attributeColorCounts[r.id] ?? 0}{" "}
+                                {attributeColorCounts[r.id] === 1 ? "color" : "colores"}
+                              </button>
+                            </td>
+                          </>
                         )}
                         <td>
                           <span
@@ -1510,6 +1622,96 @@ export function ProductCatalogV1() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </aside>
+        )}
+
+        {kind === "attributes" && selectedAttributeForColors && (
+          <aside className="panel catalog-editor">
+            <div className="panel-head">
+              <div>
+                <h2>Colores</h2>
+                <p>
+                  {selectedAttributeForColors.code} · {selectedAttributeForColors.name}
+                </p>
+              </div>
+              <button
+                className="icon-action"
+                onClick={closeAttributeColors}
+                title="Cerrar"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            {colorPanelError && <div className="inline-error">{colorPanelError}</div>}
+            <p className="form-help">
+              Familia y artículo heredarán este conjunto de colores, pudiendo excluir los
+              que no apliquen en cada caso.
+            </p>
+            <div className="form-grid">
+              <label className="wide">
+                Añadir color
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <select
+                    value={colorToAddId}
+                    onChange={(e) => setColorToAddId(e.target.value)}
+                  >
+                    <option value="">Selecciona un color…</option>
+                    {availableColorsToAdd.map((color) => (
+                      <option key={color.id} value={color.id}>
+                        {color.code} · {color.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={!colorToAddId || colorPanelBusy}
+                    onClick={addColorToAttribute}
+                  >
+                    <Plus size={15} /> Añadir
+                  </button>
+                </div>
+              </label>
+            </div>
+            <div className="table-panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attributeColors.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="empty">
+                        Sin colores asociados a esta característica.
+                      </td>
+                    </tr>
+                  ) : (
+                    attributeColors.map((ac) => (
+                      <tr key={ac.id}>
+                        <td>{ac.color?.code ?? "—"}</td>
+                        <td>{ac.color?.name ?? "—"}</td>
+                        <td>
+                          <div className="item-actions">
+                            <button
+                              className="icon-action danger"
+                              title="Quitar"
+                              disabled={colorPanelBusy}
+                              onClick={() => removeColorFromAttribute(ac)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
