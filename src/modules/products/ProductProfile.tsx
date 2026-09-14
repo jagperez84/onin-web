@@ -105,13 +105,18 @@ export function ProductProfile() {
       )}
       <MessageLog error={error} success={message} />
       <div className="product-profile-content">
-        <ProductV2 onEditModeChange={setEditing} onScaledChange={setScaled} />
+        <ProductV2
+          onEditModeChange={setEditing}
+          onScaledChange={setScaled}
+          onProductChanged={() => setRefreshKey((k) => k + 1)}
+        />
         {!isNew && (
           <>
             <ProductInheritedMeasurement />
             <div className="product-profile-section-wrap">
               <ProductInheritedMeasurementPanel
                 productId={Number(id)}
+                refreshKey={refreshKey}
                 onError={reportError}
               />
             </div>
@@ -119,6 +124,7 @@ export function ProductProfile() {
               <ProductFamilyCharacteristicsPanel
                 productId={Number(id)}
                 readOnly={!editing}
+                refreshKey={refreshKey}
                 onError={reportError}
               />
             </div>

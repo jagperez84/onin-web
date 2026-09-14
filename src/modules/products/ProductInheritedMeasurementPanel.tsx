@@ -20,10 +20,11 @@ import "./product-fixes.css";
 
 type Props = {
   productId: number;
+  refreshKey?: number;
   onError?: (msg: string) => void;
 };
 
-export function ProductInheritedMeasurementPanel({ productId, onError }: Props) {
+export function ProductInheritedMeasurementPanel({ productId, refreshKey, onError }: Props) {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<MasterProductConfiguration | null>(null);
 
@@ -44,7 +45,7 @@ export function ProductInheritedMeasurementPanel({ productId, onError }: Props) 
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+  }, [loadData, refreshKey]);
 
   const measurementType = config?.measurementType;
   const dimensions = config?.dimensions || [];
