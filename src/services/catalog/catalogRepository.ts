@@ -8,7 +8,7 @@ export type FallbackProfileEstimate = { code:string; name:string; end_deduction_
 export type CatalogRow = {
   id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
-  product_type_id?:number|null; measurement_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
+  product_type_id?:number|null; measurement_type_id?:number|null; line_behavior_id?:number|null;
   description?:string|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; characteristics_enabled?:boolean;
@@ -22,7 +22,7 @@ export type CatalogRow = {
 type CatalogInput = {
   id?:number; code:string; name:string; active:boolean; description?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
-  product_type_id?:number|null; measurement_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
+  product_type_id?:number|null; measurement_type_id?:number|null; line_behavior_id?:number|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; characteristics_enabled?:boolean;
   roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
@@ -58,7 +58,6 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.minimum_remainder=(input.confectionable || input.recuttable) ? (input.minimum_remainder??null) : null;
    base.product_type_id=input.product_type_id??null;
    base.measurement_type_id=input.measurement_type_id??null;
-   base.mounting_type_id=input.mounting_type_id??null;
    base.line_behavior_id=input.line_behavior_id??null;
  }
  if(kind==='lineBehaviors') {
