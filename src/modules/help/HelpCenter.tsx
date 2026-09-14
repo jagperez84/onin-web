@@ -426,6 +426,22 @@ const articles: HelpArticle[] = [
     warnings: ["No existe todavía ningún dato ni proceso de negocio detrás de esta pantalla."],
   },
   {
+    id: "produccion-fabricacion",
+    title: "Producción: control de fabricación",
+    summary: "Monitorea la cola de pedidos en taller, verifica disponibilidad de materiales y lanza la fabricación.",
+    section: "Producción",
+    icon: ClipboardList,
+    route: "/produccion/fabricacion",
+    keywords: ["producción", "fabricación", "taller", "control", "materiales", "stock", "dossier"],
+    status: "Disponible",
+    steps: [
+      "Entra en Producción > Control de fabricación.",
+      "Consulta los pedidos en cola, su avance de fabricación y el estado de disponibilidad de material (perfiles, lonas y componentes).",
+      "Haz clic en el estado de material para inspeccionar faltantes o en 'Fabricar' para abrir el Centro de Fabricación.",
+      "Descarga el Dossier técnico de fabricación o bloquea/desbloquea pedidos por incidencias en taller.",
+    ],
+  },
+  {
     id: "produccion-hojas",
     title: "Producción: hojas de trabajo",
     summary: "Consulta y abre las hojas de trabajo utilizadas en producción.",

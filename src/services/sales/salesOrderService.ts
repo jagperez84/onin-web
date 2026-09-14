@@ -1,8 +1,9 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { sanitizeSearchTerm } from '../core/searchSanitize';
+import { createSalesOrderComment, type SalesOrderComment } from './salesOrderCommentService';
 
-export type SalesOrderStatus = 'PENDING_MANUFACTURING' | 'PREPARED' | 'FABRICATING' | 'CONFECTIONED' | 'MANUFACTURED' | 'INSTALLATION_SCHEDULED' | 'INSTALLED' | 'INVOICED' | 'CANCELLED';
+export type SalesOrderStatus = 'PENDING_MANUFACTURING' | 'PREPARED' | 'FABRICATING' | 'CONFECTIONED' | 'MANUFACTURED' | 'INSTALLATION_SCHEDULED' | 'INSTALLED' | 'INVOICED' | 'CANCELLED' | 'BLOCKED';
 
 export type SalesOrder = {
   id: number;
@@ -170,7 +171,11 @@ export type SalesOrderSortField = 'created_at' | 'requested_delivery_date';
 export async function listSalesOrders(search = '', sortBy: SalesOrderSortField = 'created_at', ascending = false): Promise<SalesOrder[]> {
   const c = client();
   const cid = await companyId();
-  let q = c.from('sales_order').select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,total_amount,created_at,installation_latitude,installation_longitude,zone_id,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name))').eq('company_id', cid).order(sortBy, { ascending, nullsFirst: false }).order('id', { ascending: false });
+  let q = c.from('sales_order')
+    .select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,notes,total_amount,created_at,installation_latitude,installation_longitude,zone_id,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name)),lines:sales_order_line(id,line_no,description,quantity,product_id,specific_data)')
+    .eq('company_id', cid)
+    .order(sortBy, { ascending, nullsFirst: false })
+    .order('id', { ascending: false });
   const term = sanitizeSearchTerm(search);
   if (term) q = q.or(`code.ilike.%${term}%,reference.ilike.%${term}%`);
   const { data, error } = await q;
@@ -178,8 +183,101 @@ export async function listSalesOrders(search = '', sortBy: SalesOrderSortField =
   return (data || []).map((row: any) => {
     const customer = mapPartyCustomer(row.customer);
     const quotation = one(row.quotation);
-    return { ...row, quotation_code: quotation?.code, customer_name: customer.name } as SalesOrder;
+    const lines = (row.lines || []).sort((a: any, b: any) => (a.line_no ?? 0) - (b.line_no ?? 0));
+    return { ...row, quotation_code: quotation?.code, customer_name: customer.name, lines } as SalesOrder;
   });
+}
+
+export function isOrderBlocked(order: { status: string; notes?: string | null }): boolean {
+  return order.status === 'BLOCKED' || Boolean(order.notes && order.notes.includes('[BLOQUEADO'));
+}
+
+export function getOrderBlockReason(order: { notes?: string | null }, comments?: SalesOrderComment[]): string | null {
+  if (order.notes) {
+    const match = order.notes.match(/\[BLOQUEADO(?::\s*([^\]]+))?\]/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  if (comments && comments.length > 0) {
+    const blockComment = [...comments].reverse().find(c => c.text.includes('[BLOQUEO') || c.text.includes('[BLOQUEADO'));
+    if (blockComment) {
+      return blockComment.text.replace(/\[BLOQUEO[^\]]*\]\s*/i, '').trim();
+    }
+  }
+  return null;
+}
+
+export async function blockSalesOrder(
+  id: number,
+  reason: string,
+): Promise<{ success: boolean; reason: string }> {
+  const c = client();
+  const cid = await companyId();
+  const trimmedReason = reason.trim();
+  const tag = `[BLOQUEADO: ${trimmedReason}]`;
+  
+  const current = await getSalesOrder(id);
+  const existingNotes = current?.notes || '';
+  const newNotes = existingNotes ? `${existingNotes}\n${tag}` : tag;
+
+  // Try updating status to 'BLOCKED'
+  const { error: statusError } = await c.from('sales_order').update({
+    status: 'BLOCKED',
+    notes: newNotes,
+    updated_at: new Date().toISOString(),
+  }).eq('company_id', cid).eq('id', id);
+
+  if (statusError) {
+    // If status check constraint fails in database, update notes with tag
+    const { error: noteError } = await c.from('sales_order').update({
+      notes: newNotes,
+      updated_at: new Date().toISOString(),
+    }).eq('company_id', cid).eq('id', id);
+    if (noteError) throw new CoreRepositoryError(noteError.message);
+  }
+
+  // Audit trail comment
+  try {
+    await createSalesOrderComment(id, `[BLOQUEO DE FABRICACIÓN] ${trimmedReason}`, false);
+  } catch {
+    // Non-blocking
+  }
+
+  return { success: true, reason: trimmedReason };
+}
+
+export async function unblockSalesOrder(
+  id: number,
+  unblockNote?: string,
+  targetStatus: SalesOrderStatus = 'PENDING_MANUFACTURING'
+): Promise<void> {
+  const c = client();
+  const cid = await companyId();
+  const current = await getSalesOrder(id);
+  
+  // Clean up any [BLOQUEADO...] tags from notes
+  const newNotes = (current?.notes || '').replace(/\[BLOQUEADO(?::\s*[^\]]+)?\]\s*\n?/g, '').trim() || null;
+  
+  const updatePayload: any = {
+    notes: newNotes,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (current?.status === 'BLOCKED') {
+    updatePayload.status = targetStatus;
+  }
+
+  const { error } = await c.from('sales_order').update(updatePayload).eq('company_id', cid).eq('id', id);
+  if (error) throw new CoreRepositoryError(error.message);
+
+  // Audit trail comment
+  try {
+    const text = unblockNote?.trim() ? `[DESBLOQUEO DE FABRICACIÓN] ${unblockNote.trim()}` : '[DESBLOQUEO DE FABRICACIÓN] Desbloqueado';
+    await createSalesOrderComment(id, text, false);
+  } catch {
+    // Non-blocking
+  }
 }
 
 export async function createSalesOrderFromQuotation(

@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, Settings2, BarChart3, ArrowRightLeft, CalendarClock, UserCog, SlidersHorizontal, Map, CreditCard, Handshake, HardHat, Layers, Palette, Wrench } from "lucide-react";
+import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, Settings2, BarChart3, ArrowRightLeft, CalendarClock, UserCog, SlidersHorizontal, Map, CreditCard, Handshake, HardHat, Layers, Palette, Wrench, ClipboardCheck } from "lucide-react";
 export type NavItem = { label: string; to: string; icon?: ReactNode };
 export type NavSection = { label: string; items: NavItem[] };
 export const navSections: NavSection[] = [
@@ -16,7 +16,7 @@ export const navSections: NavSection[] = [
  {label:"Almacén",items:[{label:"Almacenes",to:"/almacen/almacenes",icon:<Warehouse size={16}/>},{label:"Existencias",to:"/almacen/existencias",icon:<Package size={16}/>},{label:"Movimientos",to:"/almacen/movimientos",icon:<ReceiptText size={16}/>},{label:"Transferencias",to:"/almacen/transferencias",icon:<ArrowRightLeft size={16}/>},{label:"Reservas",to:"/almacen/reservas",icon:<CalendarClock size={16}/>} ]},
  {label:"Gestión",items:[{label:"Mediciones",to:"/gestion/mediciones",icon:<Ruler size={16}/>},{label:"Montajes",to:"/gestion/montajes",icon:<Hammer size={16}/>},{label:"Cuadrillas",to:"/gestion/cuadrillas",icon:<HardHat size={16}/>},{label:"Mapa",to:"/gestion/mapa",icon:<Map size={16}/>},{label:"CRM",to:"/gestion/crm",icon:<Users size={16}/>} ]},
  {label:"Facturación",items:[{label:"Albaranes",to:"/facturacion/albaranes",icon:<ReceiptText size={16}/>},{label:"Facturas",to:"/facturacion/facturas",icon:<FileText size={16}/>},{label:"Cobros",to:"/facturacion/cobros",icon:<ReceiptText size={16}/>} ]},
- {label:"Producción",items:[{label:"Hojas de trabajo",to:"/produccion/hojas",icon:<Factory size={16}/>},{label:"OTD",to:"/produccion/otd",icon:<Settings size={16}/>} ]},
+ {label:"Producción",items:[{label:"Control de fabricación",to:"/produccion/fabricacion",icon:<ClipboardCheck size={16}/>},{label:"Hojas de trabajo",to:"/produccion/hojas",icon:<Factory size={16}/>},{label:"OTD",to:"/produccion/otd",icon:<Settings size={16}/>} ]},
  {label:"Informes",items:[{label:"Informes",to:"/informes",icon:<BarChart3 size={16}/>} ]},
  {label:"Configuración",items:[{label:"Usuarios",to:"/configuracion/usuarios",icon:<UserCog size={16}/>},{label:"Tipos de medida",to:"/configuracion/tipos-medida",icon:<SlidersHorizontal size={16}/>},{label:"Tipos de montaje",to:"/configuracion/tipos-montaje",icon:<Wrench size={16}/>},{label:"Formas de pago",to:"/configuracion/formas-pago",icon:<CreditCard size={16}/>},{label:"Condiciones de pago",to:"/configuracion/condiciones-pago",icon:<Handshake size={16}/>},{label:"Configuración",to:"/configuracion",icon:<Settings size={16}/>} ]},
 ];

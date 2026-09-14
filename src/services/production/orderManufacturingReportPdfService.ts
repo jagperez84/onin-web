@@ -1,8 +1,11 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { WorkSheet } from './workSheetService';
+import { getWorkSheetsBySalesOrderLine, type WorkSheet } from './workSheetService';
 import type { LonaConfectionWorkSheet } from './lonaConfectionService';
-import type { ComponentConsumptionWorkSheet } from './componentConsumptionService';
+import { getLonaConfectionWorkSheetBySalesOrderLine } from './lonaConfectionQueryService';
+import { getComponentConsumptionWorkSheetBySalesOrderLine, type ComponentConsumptionWorkSheet } from './componentConsumptionService';
+import { getSalesOrder, type SalesOrder } from '../sales/salesOrderService';
+import { CoreRepositoryError } from '../core/coreRepository';
 
 const fmtDate = (value: string) => new Date(value).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -247,4 +250,42 @@ export function downloadOrderManufacturingReportPdf(input: {
   }
 
   pdf.save(`INFORME-FABRICACION-${orderCode.replace(/\//g, '-')}.pdf`);
+}
+
+/**
+ * Carga todos los documentos de fabricación asociados a un pedido y descarga el dossier consolidado en PDF.
+ */
+export async function generateAndDownloadOrderDossier(orderId: number): Promise<void> {
+  const order = await getSalesOrder(orderId);
+  if (!order) throw new CoreRepositoryError('Pedido no encontrado');
+
+  const lines = (order.lines || []).map((l: any) => {
+    const snapshot = (l.specific_data?.configuration_snapshot || l.specific_data?.otd_snapshot) as any;
+    return {
+      id: Number(l.id),
+      lineNo: Number(l.line_no) || 1,
+      description: l.description || null,
+      otdCode: snapshot?.otd_code || null,
+    };
+  });
+
+  const [cutSheetsArrays, lonaSheetsArray, componentSheetsArray] = await Promise.all([
+    Promise.all(lines.map(line => getWorkSheetsBySalesOrderLine(line.id).catch(() => []))),
+    Promise.all(lines.map(line => getLonaConfectionWorkSheetBySalesOrderLine(line.id).catch(() => null))),
+    Promise.all(lines.map(line => getComponentConsumptionWorkSheetBySalesOrderLine(line.id).catch(() => null))),
+  ]);
+
+  const cutSheets: WorkSheet[] = cutSheetsArrays.flat();
+  const lonaSheets: LonaConfectionWorkSheet[] = lonaSheetsArray.filter((s): s is LonaConfectionWorkSheet => Boolean(s));
+  const componentSheets: ComponentConsumptionWorkSheet[] = componentSheetsArray.filter((s): s is ComponentConsumptionWorkSheet => Boolean(s));
+
+  downloadOrderManufacturingReportPdf({
+    orderCode: order.code,
+    reference: order.reference,
+    customerName: order.customer_name,
+    lines,
+    cutSheets,
+    lonaSheets,
+    componentSheets,
+  });
 }

@@ -33,3 +33,31 @@ export async function listSalesOrderComments(salesOrderId: number): Promise<Sale
     createdAt: row.created_at,
   }));
 }
+
+export async function createSalesOrderComment(
+  salesOrderId: number,
+  text: string,
+  isPublic = false,
+  salesOrderLineId: number | null = null
+): Promise<SalesOrderComment> {
+  const c = client();
+  const { data, error } = await c
+    .from('sales_order_comment')
+    .insert({
+      sales_order_id: salesOrderId,
+      sales_order_line_id: salesOrderLineId,
+      text: text.trim(),
+      is_public: isPublic,
+    })
+    .select('id,sales_order_id,sales_order_line_id,text,is_public,created_at')
+    .single();
+  if (error) throw new CoreRepositoryError(error.message);
+  return {
+    id: Number(data.id),
+    salesOrderId: Number(data.sales_order_id),
+    salesOrderLineId: data.sales_order_line_id == null ? null : Number(data.sales_order_line_id),
+    text: data.text,
+    isPublic: Boolean(data.is_public),
+    createdAt: data.created_at,
+  };
+}
