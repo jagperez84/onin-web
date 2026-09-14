@@ -158,6 +158,43 @@ describe('resolveProductUnitPrice', () => {
     expect(result.price).toBe(100);
   });
 
+  it('cuando la característica no tiene ningún escalón definido, usa el PVP plano en vez de marcar el precio como pendiente', () => {
+    const scales = [baseScale({ id: 1, characteristic_id: 20, dimension_1: 2000, price: 999 })];
+    const result = resolveProductUnitPrice({
+      product: baseProduct({ scaled_by_characteristic: true }),
+      characteristic: baseCharacteristic({ id: 10, pvp: 75 }),
+      scales,
+      dimension1: 1500,
+    });
+    expect(result.missing).toBe(false);
+    expect(result.source).toBe('characteristic');
+    expect(result.price).toBe(75);
+  });
+
+  it('cuando la característica no tiene escalón ni PVP propio, cae al precio base del artículo', () => {
+    const result = resolveProductUnitPrice({
+      product: baseProduct({ scaled_by_characteristic: true, sales_price: 42 }),
+      characteristic: baseCharacteristic({ id: 10, pvp: null }),
+      scales: [],
+      dimension1: 1500,
+    });
+    expect(result.missing).toBe(false);
+    expect(result.source).toBe('base');
+    expect(result.price).toBe(42);
+  });
+
+  it('si la característica sí tiene escalón definido pero ninguno cubre la dimensión pedida, el precio sigue pendiente (no cae al plano)', () => {
+    const scales = [baseScale({ id: 1, characteristic_id: 10, dimension_1: 1000, price: 100 })];
+    const result = resolveProductUnitPrice({
+      product: baseProduct({ scaled_by_characteristic: true }),
+      characteristic: baseCharacteristic({ id: 10, pvp: 75 }),
+      scales,
+      dimension1: 5000,
+    });
+    expect(result.missing).toBe(true);
+    expect(result.price).toBe(0);
+  });
+
   it('un escalón con atributos exigidos no aplica si los valores seleccionados no coinciden', () => {
     const scales = [
       baseScale({

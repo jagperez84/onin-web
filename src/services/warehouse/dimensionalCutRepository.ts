@@ -16,6 +16,7 @@ export async function executeManualDimensionalCut(input: {
   companyId: number;
   productId: number;
   characteristicId: number | null;
+  colorId?: number | null;
   requiredLength: number;
   selections: DimensionalCutSelection[];
   reference?: string | null;
@@ -37,6 +38,7 @@ export async function executeManualDimensionalCut(input: {
     })),
     p_reference: input.reference ?? null,
     p_notes: input.notes ?? null,
+    p_color_id: input.colorId ?? null,
   });
 
   if (error) throw new CoreRepositoryError(error.message);

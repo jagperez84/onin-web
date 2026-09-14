@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Edit3, Plus, Save, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Edit3, Palette, Plus, Save, Trash2, Undo2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   getProduct,
@@ -12,6 +12,13 @@ import {
   type ProductCharacteristic,
   type ProductStatus,
 } from "../../services/catalog/productRepository";
+import { listColors, type Color } from "../../services/catalog/colorRepository";
+import {
+  listCharacteristicColors,
+  addCharacteristicColor,
+  removeCharacteristicColor,
+  type CharacteristicColor,
+} from "../../services/catalog/characteristicColorRepository";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import "./product.css";
@@ -42,6 +49,12 @@ export function ProductCharacteristics() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [colorPanelFor, setColorPanelFor] = useState<ProductCharacteristic | null>(null);
+  const [companyColors, setCompanyColors] = useState<Color[]>([]);
+  const [assignedColors, setAssignedColors] = useState<CharacteristicColor[]>([]);
+  const [colorToAdd, setColorToAdd] = useState<string>("");
+  const [colorPanelError, setColorPanelError] = useState("");
+  const [colorPanelBusy, setColorPanelBusy] = useState(false);
 
   useEffect(() => {
     getActiveCompanies()
@@ -161,6 +174,72 @@ export function ProductCharacteristics() {
       );
     }
   }
+
+  async function openColorPanel(row: ProductCharacteristic) {
+    setColorPanelFor(row);
+    setColorPanelError("");
+    setColorToAdd("");
+    try {
+      const [colors, assigned] = await Promise.all([
+        companyId ? listColors(companyId) : Promise.resolve([]),
+        listCharacteristicColors(row.id),
+      ]);
+      setCompanyColors(colors);
+      setAssignedColors(assigned);
+    } catch (e) {
+      setColorPanelError(
+        e instanceof Error ? e.message : "No se pudieron cargar los colores.",
+      );
+    }
+  }
+
+  function closeColorPanel() {
+    setColorPanelFor(null);
+    setAssignedColors([]);
+    setColorPanelError("");
+  }
+
+  async function addColorToCharacteristic() {
+    if (!colorPanelFor || !colorToAdd) return;
+    setColorPanelBusy(true);
+    setColorPanelError("");
+    try {
+      await addCharacteristicColor(colorPanelFor.id, Number(colorToAdd));
+      setAssignedColors(await listCharacteristicColors(colorPanelFor.id));
+      setColorToAdd("");
+    } catch (e) {
+      setColorPanelError(
+        e instanceof Error ? e.message : "No se pudo asociar el color.",
+      );
+    } finally {
+      setColorPanelBusy(false);
+    }
+  }
+
+  async function removeColorFromCharacteristic(cc: CharacteristicColor) {
+    if (
+      !(await confirmDialog({
+        title: `¿Quitar el color ${cc.color?.name ?? ""} de esta característica?`,
+        danger: true,
+      }))
+    )
+      return;
+    setColorPanelBusy(true);
+    try {
+      await removeCharacteristicColor(cc.id);
+      if (colorPanelFor) setAssignedColors(await listCharacteristicColors(colorPanelFor.id));
+    } catch (e) {
+      setColorPanelError(
+        e instanceof Error ? e.message : "No se pudo quitar el color.",
+      );
+    } finally {
+      setColorPanelBusy(false);
+    }
+  }
+
+  const availableColorsToAdd = companyColors.filter(
+    (color) => !assignedColors.some((ac) => ac.color_id === color.id),
+  );
 
   if (loading)
     return <div className="loading-block">Cargando características…</div>;
@@ -413,6 +492,15 @@ export function ProductCharacteristics() {
                               <Edit3 size={15} />
                             </button>
                           )}
+                          {!deleted && (
+                            <button
+                              className="icon-action"
+                              title="Colores"
+                              onClick={() => openColorPanel(row)}
+                            >
+                              <Palette size={15} />
+                            </button>
+                          )}
                           {deleted ? (
                             <button
                               className="icon-action"
@@ -440,6 +528,97 @@ export function ProductCharacteristics() {
           </table>
         </div>
       </section>
+      {colorPanelFor && (
+        <div className="modal-backdrop" onClick={closeColorPanel}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Colores de {colorPanelFor.code}</h3>
+                <p>
+                  Todos los colores comparten el escalado de precio de esta
+                  característica; cada uno tiene su propia referencia de stock.
+                </p>
+              </div>
+              <button className="close-btn" onClick={closeColorPanel} aria-label="Cerrar">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {colorPanelError && <div className="inline-error">{colorPanelError}</div>}
+              {assignedColors.length === 0 ? (
+                <div className="empty-state">
+                  <strong>Sin colores asociados</strong>
+                  <span>Esta característica no diferencia stock por color todavía.</span>
+                </div>
+              ) : (
+                <div className="table-panel">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assignedColors.map((cc) => (
+                        <tr key={cc.id}>
+                          <td>{cc.color?.code ?? "—"}</td>
+                          <td>{cc.color?.name ?? "—"}</td>
+                          <td>
+                            <div className="item-actions">
+                              <button
+                                className="icon-action danger"
+                                title="Quitar"
+                                disabled={colorPanelBusy}
+                                onClick={() => removeColorFromCharacteristic(cc)}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="form-group">
+                <label>Añadir color</label>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <select value={colorToAdd} onChange={(e) => setColorToAdd(e.target.value)}>
+                    <option value="">Selecciona un color…</option>
+                    {availableColorsToAdd.map((color) => (
+                      <option key={color.id} value={color.id}>
+                        {color.code} · {color.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!colorToAdd || colorPanelBusy}
+                    onClick={addColorToCharacteristic}
+                  >
+                    <Plus size={15} /> Añadir
+                  </button>
+                </div>
+                {availableColorsToAdd.length === 0 && companyColors.length > 0 && (
+                  <small>Ya se han asociado todos los colores disponibles.</small>
+                )}
+                {companyColors.length === 0 && (
+                  <small>No hay colores dados de alta. Créalos en Configuración → Colores.</small>
+                )}
+              </div>
+            </div>
+            <div className="modal-actions-footer">
+              <button className="secondary-button" onClick={closeColorPanel}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
