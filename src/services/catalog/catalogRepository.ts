@@ -17,6 +17,12 @@ export type CatalogRow = {
   // enrollable (ver sus constantes DEFAULT_*).
   roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
   standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
+  // Unidad base y gestión de stock por defecto de la familia (kind='families'):
+  // plantilla que se copia a las columnas propias del artículo al elegir familia
+  // (ProductV2.tsx), no una resolución dinámica — el artículo puede divergir después.
+  base_unit_id?:number|null; stock_enabled?:boolean; stock_minimum?:number|null; allow_negative_stock?:boolean;
+  include_measurements_in_stock?:boolean; include_stock_by_color?:boolean;
+  scaled?:boolean; scaled_by_characteristic?:boolean; smooth_cut?:boolean;
 };
 
 type CatalogInput = {
@@ -27,6 +33,9 @@ type CatalogInput = {
   configuration_enabled?:boolean; characteristics_enabled?:boolean;
   roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
   standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
+  base_unit_id?:number|null; stock_enabled?:boolean; stock_minimum?:number|null; allow_negative_stock?:boolean;
+  include_measurements_in_stock?:boolean; include_stock_by_color?:boolean;
+  scaled?:boolean; scaled_by_characteristic?:boolean; smooth_cut?:boolean;
 };
 
 function client(){
@@ -59,6 +68,15 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.product_type_id=input.product_type_id??null;
    base.measurement_type_id=input.measurement_type_id??null;
    base.line_behavior_id=input.line_behavior_id??null;
+   base.base_unit_id=input.base_unit_id??null;
+   base.stock_enabled=!!input.stock_enabled;
+   base.stock_minimum=input.stock_minimum??0;
+   base.allow_negative_stock=!!input.allow_negative_stock;
+   base.include_measurements_in_stock=!!input.include_measurements_in_stock;
+   base.include_stock_by_color=!!input.include_stock_by_color;
+   base.scaled=!!input.scaled;
+   base.scaled_by_characteristic=input.scaled?!!input.scaled_by_characteristic:false;
+   base.smooth_cut=!!input.smooth_cut;
  }
  if(kind==='lineBehaviors') {
    base.description=input.description?.trim()||null;

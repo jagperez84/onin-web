@@ -615,10 +615,29 @@ function ProductEditor({
                 onChange={(e) => {
                   const familyId = e.target.value ? Number(e.target.value) : null;
                   const family = refs?.families.find((f) => f.id === familyId);
+                  // Unidad base y gestión de stock: la familia actúa como plantilla por
+                  // defecto solo al dar de alta un artículo nuevo (aquí, mientras sigue en
+                  // borrador). Un artículo ya guardado puede haber personalizado estos
+                  // valores de forma deliberada y distinta a su familia — cambiarla en un
+                  // artículo existente no debe resetear su configuración de stock/precio.
+                  const isNewArticle = productId === null || draftMode;
                   const next = {
                     ...form,
                     family_id: familyId,
                     product_type_id: family?.product_type_id ?? null,
+                    ...(isNewArticle
+                      ? {
+                          base_unit_id: family?.base_unit_id ?? null,
+                          stock_enabled: family?.stock_enabled ?? false,
+                          stock_minimum: family?.stock_minimum ?? 0,
+                          allow_negative_stock: family?.allow_negative_stock ?? false,
+                          include_measurements_in_stock: family?.include_measurements_in_stock ?? false,
+                          include_stock_by_color: family?.include_stock_by_color ?? false,
+                          scaled: family?.scaled ?? false,
+                          scaled_by_characteristic: family?.scaled_by_characteristic ?? false,
+                          smooth_cut: family?.smooth_cut ?? false,
+                        }
+                      : {}),
                   };
                   setForm(next);
                   // En modo borrador el artículo ya existe en BD (fila provisional):

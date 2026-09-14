@@ -227,6 +227,15 @@ const emptyForm = {
   product_type_id: null as number | null,
   measurement_type_id: null as number | null,
   line_behavior_id: null as number | null,
+  base_unit_id: null as number | null,
+  stock_enabled: false,
+  stock_minimum: 0,
+  allow_negative_stock: false,
+  include_measurements_in_stock: false,
+  include_stock_by_color: false,
+  scaled: false,
+  scaled_by_characteristic: false,
+  smooth_cut: false,
 };
 type FormState = typeof emptyForm;
 
@@ -323,6 +332,15 @@ function FamilyEditor({
         product_type_id: detail.product_type_id ?? null,
         measurement_type_id: detail.measurement_type_id ?? null,
         line_behavior_id: detail.line_behavior_id ?? null,
+        base_unit_id: detail.base_unit_id ?? null,
+        stock_enabled: !!detail.stock_enabled,
+        stock_minimum: detail.stock_minimum ?? 0,
+        allow_negative_stock: !!detail.allow_negative_stock,
+        include_measurements_in_stock: !!detail.include_measurements_in_stock,
+        include_stock_by_color: !!detail.include_stock_by_color,
+        scaled: !!detail.scaled,
+        scaled_by_characteristic: !!detail.scaled_by_characteristic,
+        smooth_cut: !!detail.smooth_cut,
       });
       setAssignments(assigned);
       setAvailable(avail);
@@ -364,6 +382,15 @@ function FamilyEditor({
         product_type_id: form.product_type_id,
         measurement_type_id: form.measurement_type_id,
         line_behavior_id: form.line_behavior_id,
+        base_unit_id: form.base_unit_id,
+        stock_enabled: form.stock_enabled,
+        stock_minimum: form.stock_minimum,
+        allow_negative_stock: form.allow_negative_stock,
+        include_measurements_in_stock: form.include_measurements_in_stock,
+        include_stock_by_color: form.include_stock_by_color,
+        scaled: form.scaled,
+        scaled_by_characteristic: form.scaled_by_characteristic,
+        smooth_cut: form.smooth_cut,
       });
       if (familyId === null && saved?.id) {
         onSaved(saved.id);
@@ -659,6 +686,21 @@ function FamilyEditor({
               </select>
             </label>
             <label>
+              Unidad base
+              <select
+                value={form.base_unit_id ?? ""}
+                disabled={readOnly}
+                onChange={(e) => setForm({ ...form, base_unit_id: e.target.value ? Number(e.target.value) : null })}
+              >
+                <option value="">Sin unidad</option>
+                {units.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.code} · {x.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
               Tipo de medida
               <select
                 value={form.measurement_type_id ?? ""}
@@ -818,6 +860,118 @@ function FamilyEditor({
               </button>
             </div>
           )}
+        </section>
+
+        <section className="panel product-profile-anchor">
+          <div className="panel-head">
+            <div>
+              <h2>Gestión de stock</h2>
+              <p>
+                Valores por defecto que se copiarán a los artículos nuevos de esta
+                familia; cada artículo puede seguir ajustándolos después.
+              </p>
+            </div>
+          </div>
+          <div className="form-grid">
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.stock_enabled}
+                disabled={readOnly}
+                onChange={(e) => setForm({ ...form, stock_enabled: e.target.checked })}
+              />
+              <span>
+                <strong>Actualizar stock</strong>
+                <small>El artículo participa en la gestión de existencias.</small>
+              </span>
+            </label>
+            <label>
+              Stock mínimo
+              <input
+                type="number"
+                step="1"
+                min="0"
+                readOnly={readOnly || !form.stock_enabled}
+                value={form.stock_minimum ?? 0}
+                onChange={(e) => setForm({ ...form, stock_minimum: Number(e.target.value) })}
+              />
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.allow_negative_stock}
+                disabled={readOnly || !form.stock_enabled}
+                onChange={(e) => setForm({ ...form, allow_negative_stock: e.target.checked })}
+              />
+              <span>
+                <strong>Permitir stock negativo</strong>
+                <small>Disponible sólo cuando se gestiona stock.</small>
+              </span>
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.include_measurements_in_stock}
+                disabled={readOnly || !form.stock_enabled}
+                onChange={(e) => setForm({ ...form, include_measurements_in_stock: e.target.checked })}
+              />
+              <span>
+                <strong>Incluir medidas en stock</strong>
+              </span>
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.include_stock_by_color}
+                disabled={readOnly || !form.stock_enabled}
+                onChange={(e) => setForm({ ...form, include_stock_by_color: e.target.checked })}
+              />
+              <span>
+                <strong>Incluir stock por color</strong>
+              </span>
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.scaled}
+                disabled={readOnly}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    scaled: e.target.checked,
+                    scaled_by_characteristic: e.target.checked ? form.scaled_by_characteristic : false,
+                  })
+                }
+              />
+              <span>
+                <strong>Escalado</strong>
+                <small>Las relaciones de escalado se habilitan inmediatamente al activar esta opción.</small>
+              </span>
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.scaled_by_characteristic}
+                disabled={readOnly || !form.scaled}
+                onChange={(e) => setForm({ ...form, scaled_by_characteristic: e.target.checked })}
+              />
+              <span>
+                <strong>Escalado por característica</strong>
+                <small>Requiere escalado.</small>
+              </span>
+            </label>
+            <label className="check-card">
+              <input
+                type="checkbox"
+                checked={form.smooth_cut}
+                disabled={readOnly}
+                onChange={(e) => setForm({ ...form, smooth_cut: e.target.checked })}
+              />
+              <span>
+                <strong>Corte liso</strong>
+              </span>
+            </label>
+          </div>
         </section>
 
         {familyId === null ? (
