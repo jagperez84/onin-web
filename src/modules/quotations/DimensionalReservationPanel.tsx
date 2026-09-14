@@ -71,6 +71,7 @@ export function DimensionalReservationPanel({
             data.characteristic_id == null
               ? null
               : Number(data.characteristic_id),
+          colorId: null,
           quantity: Number(data.quantity),
           dimensionValues: Array.isArray(data.dimension_values)
             ? data.dimension_values.map(Number)
@@ -112,6 +113,7 @@ export function DimensionalReservationPanel({
         status: "ACTIVE" as const,
         productId,
         characteristicId,
+        colorId: null,
         quantity,
         dimensionValues,
       };

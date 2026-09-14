@@ -14,6 +14,7 @@ import {
   calculateOtdRuntime,
   buildOtdConfigurationSnapshot,
   listActiveOtds,
+  getOtdColorOptions,
   type OtdRuntimeData,
   type OtdCalculationResult,
   type OtdConfigurationSnapshot,
@@ -72,6 +73,8 @@ export function OtdLineConfiguratorModal({
   const [loadingRuntime, setLoadingRuntime] = useState(false);
   const [runtimeError, setRuntimeError] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [colorSelections, setColorSelections] = useState<Record<string, number>>({});
+  const [masterColorId, setMasterColorId] = useState<number | null>(null);
   const [quantity, setQuantity] = useState<number>(initialQuantity || 1);
   const [notes, setNotes] = useState<string>("");
 
@@ -98,6 +101,8 @@ export function OtdLineConfiguratorModal({
         setRuntimeData(null);
         setCustomComponents([]);
         setValues({});
+        setColorSelections({});
+        setMasterColorId(null);
         setRuntimeError("");
         setLoadingOtdList(true);
         listActiveOtds()
@@ -202,8 +207,23 @@ export function OtdLineConfiguratorModal({
             },
           );
           setCustomComponents(initialDefs);
+
+          const initialColorSelections: Record<string, number> = {};
+          initialSnapshot.components.forEach((c: any, idx: number) => {
+            const compId = initialDefs[idx]?.id;
+            if (compId != null && c.color_id != null) {
+              initialColorSelections[String(compId)] = Number(c.color_id);
+            }
+          });
+          setColorSelections(initialColorSelections);
+          const firstSnapshotColorId = initialSnapshot.components.find(
+            (c: any) => c.color_id != null,
+          )?.color_id;
+          setMasterColorId(firstSnapshotColorId != null ? Number(firstSnapshotColorId) : null);
         } else {
           setCustomComponents(data.components);
+          setColorSelections({});
+          setMasterColorId(null);
         }
       })
       .catch((err) => {
@@ -238,7 +258,7 @@ export function OtdLineConfiguratorModal({
   const calculation = useMemo<OtdCalculationResult | null>(() => {
     if (!effectiveRuntimeData) return null;
     try {
-      return calculateOtdRuntime(effectiveRuntimeData, values);
+      return calculateOtdRuntime(effectiveRuntimeData, values, colorSelections);
     } catch (err: any) {
       console.error("Error calculando OTD runtime:", err);
       return {
@@ -254,7 +274,7 @@ export function OtdLineConfiguratorModal({
         errors: [err?.message || "Error en el cálculo paramétrico"],
       };
     }
-  }, [effectiveRuntimeData, values]);
+  }, [effectiveRuntimeData, values, colorSelections]);
 
   // Live snapshot
   const snapshot = useMemo<OtdConfigurationSnapshot | null>(() => {
@@ -347,6 +367,34 @@ export function OtdLineConfiguratorModal({
       ...prev,
       [code]: val,
     }));
+  };
+
+  const handleColorChange = (componentId: string, colorId: number | null) => {
+    setColorSelections((prev) => {
+      const next = { ...prev };
+      if (colorId == null) delete next[componentId];
+      else next[componentId] = colorId;
+      return next;
+    });
+  };
+
+  // Atajo de oficina: fija el mismo color en cada componente cuya característica
+  // resuelta lo admita; los componentes con una característica distinta (o sin
+  // ese color entre los suyos) no se tocan y siguen pidiendo su propia elección.
+  const handleMasterColorChange = (colorId: number | null) => {
+    setMasterColorId(colorId);
+    if (colorId == null || !runtimeData || !calculation) return;
+    setColorSelections((prev) => {
+      const next = { ...prev };
+      for (const comp of calculation.components) {
+        if (!comp.characteristic_id) continue;
+        const options = runtimeData.colorsByCharacteristic.get(comp.characteristic_id) ?? [];
+        if (options.some((o) => o.id === colorId)) {
+          next[String(comp.id)] = colorId;
+        }
+      }
+      return next;
+    });
   };
 
   const handleResetToDefaults = () => {
@@ -552,6 +600,8 @@ export function OtdLineConfiguratorModal({
                 values={values}
                 quantity={quantity}
                 notes={notes}
+                masterColorId={masterColorId}
+                onMasterColorChange={handleMasterColorChange}
                 onValueChange={handleValueChange}
                 onQuantityChange={setQuantity}
                 onNotesChange={setNotes}
@@ -563,6 +613,8 @@ export function OtdLineConfiguratorModal({
                 runtimeData={runtimeData}
                 customComponents={customComponents}
                 quantity={quantity}
+                colorSelections={colorSelections}
+                onColorChange={handleColorChange}
                 onOpenAddNewComponent={handleOpenAddNewComponent}
                 onOpenEditComponent={handleOpenEditComponent}
                 onToggleComponentActive={handleToggleComponentActive}

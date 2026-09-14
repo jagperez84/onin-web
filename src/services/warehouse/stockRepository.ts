@@ -7,12 +7,14 @@ export type StockBalance = {
   warehouse_id: number;
   product_id: number;
   characteristic_id: number | null;
+  color_id: number | null;
   quantity: number;
   reserved_quantity: number;
   updated_at: string;
   warehouse?: { code: string; name: string } | null;
   product?: { code: string; commercial_description: string | null; stock_minimum: number; base_unit_id: number | null } | null;
   characteristic?: { code: string; description: string | null } | null;
+  color?: { code: string; name: string } | null;
 };
 
 export type StockItemTraceability = {
@@ -38,6 +40,7 @@ export type StockMovement = {
   product_id: number;
   movement_type_id: number;
   characteristic_id: number | null;
+  color_id: number | null;
   quantity: number;
   movement_date: string;
   reference: string | null;
@@ -48,6 +51,7 @@ export type StockMovement = {
   warehouse?: { code: string; name: string } | null;
   product?: { code: string; commercial_description: string | null } | null;
   characteristic?: { code: string; description: string | null } | null;
+  color?: { code: string; name: string } | null;
 };
 
 export type StockReservation = {
@@ -56,6 +60,7 @@ export type StockReservation = {
   warehouse_id: number;
   product_id: number;
   characteristic_id: number | null;
+  color_id: number | null;
   quantity: number;
   reference: string | null;
   notes: string | null;
@@ -65,6 +70,7 @@ export type StockReservation = {
   warehouse?: { code: string; name: string } | null;
   product?: { code: string; commercial_description: string | null } | null;
   characteristic?: { code: string; description: string | null } | null;
+  color?: { code: string; name: string } | null;
 };
 
 export type StockProduct = {
@@ -93,6 +99,9 @@ export type ProfileStockPiece = {
   characteristicId: number | null;
   characteristicCode: string | null;
   characteristicName?: string | null;
+  colorId: number | null;
+  colorCode: string | null;
+  colorName?: string | null;
   warehouseId: number;
   warehouseCode: string;
   warehouseName: string;
@@ -252,6 +261,8 @@ export async function listProfileStockPieces(input: {
   productCode?: string;
   characteristicId?: number | null;
   characteristicCode?: string | null;
+  colorId?: number | null;
+  colorCode?: string | null;
   requiredLength: number;
 }): Promise<ProfileStockPiece[]> {
   const c = client();
@@ -281,7 +292,7 @@ export async function listProfileStockPieces(input: {
   // candidatos válidos para el corte.
   const { data, error } = await c
     .from('warehouse_stock_item')
-    .select('characteristic_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_characteristic(code,description)')
+    .select('characteristic_id,color_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_characteristic(code,description),color:color(code,name)')
     .eq('product_id', productId)
     .eq('status', 'AVAILABLE')
     .limit(2000);
@@ -294,6 +305,9 @@ export async function listProfileStockPieces(input: {
     characteristicId: number | null;
     characteristicCode: string | null;
     characteristicName: string | null;
+    colorId: number | null;
+    colorCode: string | null;
+    colorName: string | null;
     length: number;
     dimensionValues: number[];
     quantity: number;
@@ -311,8 +325,10 @@ export async function listProfileStockPieces(input: {
 
     const characteristicCode = r.characteristic?.code ?? null;
     const characteristicName = r.characteristic?.description || r.characteristic?.code || null;
+    const colorCode = r.color?.code ?? null;
+    const colorName = r.color?.name ?? null;
 
-    const key = [warehouseId, r.characteristic_id ?? '', length].join('|');
+    const key = [warehouseId, r.characteristic_id ?? '', r.color_id ?? '', length].join('|');
     const existing = groups.get(key);
     const quantity = Number(r.quantity || 0);
     if (existing) {
@@ -325,6 +341,9 @@ export async function listProfileStockPieces(input: {
         characteristicId: r.characteristic_id == null ? null : Number(r.characteristic_id),
         characteristicCode,
         characteristicName,
+        colorId: r.color_id == null ? null : Number(r.color_id),
+        colorCode,
+        colorName,
         length,
         dimensionValues: dims,
         quantity
@@ -341,6 +360,10 @@ export async function listProfileStockPieces(input: {
   const reqCharCode = (typeof input.characteristicCode === 'string' && input.characteristicCode.trim().length > 0)
     ? input.characteristicCode.trim().toLowerCase()
     : null;
+  const reqColorId = input.colorId != null && Number(input.colorId) > 0 ? Number(input.colorId) : null;
+  const reqColorCode = (typeof input.colorCode === 'string' && input.colorCode.trim().length > 0)
+    ? input.colorCode.trim().toLowerCase()
+    : null;
 
   const filtered = allPieces.filter(piece => {
     const pieceCharId = piece.characteristicId != null ? Number(piece.characteristicId) : null;
@@ -350,17 +373,29 @@ export async function listProfileStockPieces(input: {
     if (reqCharId !== null || reqCharCode !== null) {
       // Must match requested characteristic exactly
       if (reqCharId !== null && pieceCharId !== null && pieceCharId === reqCharId) {
-        return true;
+        // match
+      } else if (
+        reqCharCode !== null &&
+        ((pieceCharCode && pieceCharCode === reqCharCode) || (pieceCharName && pieceCharName === reqCharCode))
+      ) {
+        // match
+      } else {
+        return false;
       }
-      if (reqCharCode !== null) {
-        if (pieceCharCode && pieceCharCode === reqCharCode) return true;
-        if (pieceCharName && pieceCharName === reqCharCode) return true;
-      }
-      return false;
-    } else {
+    } else if (pieceCharId !== null || pieceCharCode !== null) {
       // Must NOT have any characteristic
-      return pieceCharId === null && pieceCharCode === null;
+      return false;
     }
+
+    const pieceColorId = piece.colorId != null ? Number(piece.colorId) : null;
+    const pieceColorCode = piece.colorCode ? piece.colorCode.trim().toLowerCase() : null;
+
+    if (reqColorId !== null || reqColorCode !== null) {
+      if (reqColorId !== null && pieceColorId !== null && pieceColorId === reqColorId) return true;
+      if (reqColorCode !== null && pieceColorCode && pieceColorCode === reqColorCode) return true;
+      return false;
+    }
+    return pieceColorId === null && pieceColorCode === null;
   });
 
   return filtered.sort((a, b) => a.length - b.length).map(x => ({
@@ -369,6 +404,9 @@ export async function listProfileStockPieces(input: {
     characteristicId: x.characteristicId,
     characteristicCode: x.characteristicCode,
     characteristicName: x.characteristicName,
+    colorId: x.colorId,
+    colorCode: x.colorCode,
+    colorName: x.colorName,
     warehouseId: x.warehouseId,
     warehouseCode: x.warehouseCode,
     warehouseName: x.warehouseName,
@@ -386,7 +424,7 @@ export async function listStockBalances(companyId: number, warehouseId?: number,
   if (warehouseIds.length === 0) return [];
   const { data, error } = await c
     .from('warehouse_stock')
-    .select('id,warehouse_id,product_id,characteristic_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_characteristic(code,description)')
+    .select('id,warehouse_id,product_id,characteristic_id,color_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_characteristic(code,description),color:color(code,name)')
     .in('warehouse_id', warehouseId ? [warehouseId] : warehouseIds)
     .order('updated_at', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
@@ -399,7 +437,7 @@ export async function listStockMovements(companyId: number, filters: { warehouse
   const c = client();
   let q = c
     .from('stock_movement')
-    .select('id,company_id,warehouse_id,product_id,movement_type_id,characteristic_id,quantity,movement_date,reference,notes,transfer_group_id,dimension_values,movement_type:stock_movement_type(code,name,direction),warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_characteristic(code,description)')
+    .select('id,company_id,warehouse_id,product_id,movement_type_id,characteristic_id,color_id,quantity,movement_date,reference,notes,transfer_group_id,dimension_values,movement_type:stock_movement_type(code,name,direction),warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_characteristic(code,description),color:color(code,name)')
     .eq('company_id', companyId)
     .order('movement_date', { ascending: false })
     .order('id', { ascending: false });
@@ -426,6 +464,7 @@ export async function registerStockMovement(input: {
   quantity: number;
   movementTypeCode: string;
   characteristicId?: number | null;
+  colorId?: number | null;
   dimensionValues?: Record<string, unknown> | null;
   reference?: string;
   notes?: string;
@@ -445,7 +484,8 @@ export async function registerStockMovement(input: {
     p_reference: input.reference ?? null,
     p_notes: input.notes ?? null,
     p_movement_date: input.movementDate ? new Date(input.movementDate).toISOString() : new Date().toISOString(),
-    p_transfer_group_id: null
+    p_transfer_group_id: null,
+    p_color_id: input.colorId ?? null
   });
 
   if (error) {
@@ -479,7 +519,12 @@ export async function registerStockMovement(input: {
       } else {
         qStock = qStock.is('characteristic_id', null);
       }
-      
+      if (input.colorId) {
+        qStock = qStock.eq('color_id', input.colorId);
+      } else {
+        qStock = qStock.is('color_id', null);
+      }
+
       const { data: stockRow, error: sErr } = await qStock.maybeSingle();
       if (sErr) throw new CoreRepositoryError(sErr.message);
 
@@ -499,6 +544,7 @@ export async function registerStockMovement(input: {
             warehouse_id: input.warehouseId,
             product_id: input.productId,
             characteristic_id: input.characteristicId ?? null,
+            color_id: input.colorId ?? null,
             quantity: Math.max(0, signedQty),
             reserved_quantity: 0
           });
@@ -514,6 +560,7 @@ export async function registerStockMovement(input: {
           product_id: input.productId,
           movement_type_id: mType.id,
           characteristic_id: input.characteristicId ?? null,
+          color_id: input.colorId ?? null,
           quantity: input.quantity,
           movement_date: input.movementDate ? new Date(input.movementDate).toISOString() : new Date().toISOString(),
           reference: input.reference ?? null,
@@ -546,6 +593,7 @@ export async function registerStockTransfer(input: {
   productId: number;
   quantity: number;
   characteristicId?: number | null;
+  colorId?: number | null;
   reference?: string;
   notes?: string;
   movementDate?: string;
@@ -560,7 +608,8 @@ export async function registerStockTransfer(input: {
     p_characteristic_id: input.characteristicId ?? null,
     p_reference: input.reference ?? null,
     p_notes: input.notes ?? null,
-    p_movement_date: input.movementDate ? new Date(input.movementDate).toISOString() : new Date().toISOString()
+    p_movement_date: input.movementDate ? new Date(input.movementDate).toISOString() : new Date().toISOString(),
+    p_color_id: input.colorId ?? null
   });
   if (error) throw new CoreRepositoryError(error.message);
   return String(data);
@@ -570,7 +619,7 @@ export async function listStockReservations(companyId: number, status = 'ACTIVE'
   const c = client();
   const { data, error } = await c
     .from('stock_reservation')
-    .select('id,company_id,warehouse_id,product_id,characteristic_id,quantity,reference,notes,status,created_at,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_characteristic(code,description)')
+    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,reference,notes,status,created_at,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_characteristic(code,description),color:color(code,name)')
     .eq('company_id', companyId)
     .eq('status', status)
     .order('created_at', { ascending: false });
@@ -584,6 +633,7 @@ export async function reserveStock(input: {
   productId: number;
   quantity: number;
   characteristicId?: number | null;
+  colorId?: number | null;
   reference?: string;
   notes?: string;
 }): Promise<number> {
@@ -595,7 +645,8 @@ export async function reserveStock(input: {
     p_quantity: input.quantity,
     p_characteristic_id: input.characteristicId ?? null,
     p_reference: input.reference ?? null,
-    p_notes: input.notes ?? null
+    p_notes: input.notes ?? null,
+    p_color_id: input.colorId ?? null
   });
   if (error) throw new CoreRepositoryError(error.message);
   return Number(data);

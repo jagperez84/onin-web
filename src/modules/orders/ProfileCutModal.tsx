@@ -151,6 +151,8 @@ export function ProfileCutModal({
       productCode: need.profile,
       characteristicId: need.characteristicId,
       characteristicCode: need.characteristicCode,
+      colorId: need.colorId,
+      colorCode: need.colorCode,
       requiredLength: need.length
     });
     const pieces: StockPiece[] = rows.map(row => ({ ...row, selected: false, selectedQuantity: 0 }));
@@ -191,6 +193,8 @@ export function ProfileCutModal({
           productCode: need.profile,
           characteristicId: need.characteristicId,
           characteristicCode: need.characteristicCode,
+          colorId: need.colorId,
+          colorCode: need.colorCode,
           requiredLength: need.length
         });
         const pieces = rows
@@ -255,6 +259,9 @@ export function ProfileCutModal({
           characteristicId: selectedPieces[0]?.characteristicId ?? need.characteristicId ?? null,
           characteristicCode: need.characteristicCode ?? selectedPieces[0]?.characteristicCode ?? null,
           characteristicName: need.characteristic,
+          colorId: selectedPieces[0]?.colorId ?? need.colorId ?? null,
+          colorCode: need.colorCode ?? selectedPieces[0]?.colorCode ?? null,
+          colorName: need.colorName ?? selectedPieces[0]?.colorName ?? null,
           requiredLength: need.length,
           quantity: need.quantity,
           selections: selectedPieces.map(piece => ({
@@ -290,7 +297,7 @@ export function ProfileCutModal({
   }, {});
 
   const pieceKey = (piece: StockPiece) =>
-    `${piece.warehouseId}-${piece.length}-${piece.characteristicId ?? piece.characteristicCode ?? 'default'}`;
+    `${piece.warehouseId}-${piece.length}-${piece.characteristicId ?? piece.characteristicCode ?? 'default'}-${piece.colorId ?? piece.colorCode ?? 'default'}`;
 
   const toggleManualPiece = (id: string) => {
     setManualSelections(prev => {
@@ -473,7 +480,9 @@ export function ProfileCutModal({
                 <div className="sales-order-review-row completed-sheet-row" key={ws.id}>
                   <div>
                     <strong style={{ color: 'var(--primary)', display: 'block', fontSize: '13.5px' }}>
-                      {ws.code} · {ws.product_code} ({ws.characteristic_name || 'Sin característica'})
+                      {ws.code} · {ws.product_code} (
+                      {ws.characteristic_name || 'Sin característica'}
+                      {ws.color_name ? ` · ${ws.color_name}` : ''})
                     </strong>
                     <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
                       Necesidad: {ws.quantity} ud. × {uSheet(ws.required_length, ws)}
@@ -641,7 +650,10 @@ export function ProfileCutModal({
                     </div>
                     <div>
                       <span>Característica</span>
-                      <strong>{activeNeed.characteristic}</strong>
+                      <strong>
+                        {activeNeed.characteristic}
+                        {activeNeed.colorName ? ` · ${activeNeed.colorName}` : ''}
+                      </strong>
                     </div>
                   </div>
                 )}
@@ -798,7 +810,10 @@ export function ProfileCutModal({
                                 </span>
                                 <span>
                                   <strong>{u(piece.length, activeNeedIndex)}</strong>
-                                  <small>{piece.characteristicName || piece.characteristicCode || 'Sin característica'}</small>
+                                  <small>
+                                    {piece.characteristicName || piece.characteristicCode || 'Sin característica'}
+                                    {piece.colorName ? ` · ${piece.colorName}` : ''}
+                                  </small>
                                 </span>
                                 <span className="stock-piece-quantity" onClick={e => e.stopPropagation()}>
                                   <span className="stock-piece-quantity-label">Unidades</span>

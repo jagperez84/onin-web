@@ -21,6 +21,8 @@ export type OtdBreakdownPanelProps = {
   runtimeData: OtdRuntimeData;
   customComponents: OtdComponentDef[];
   quantity: number;
+  colorSelections?: Record<string, number>;
+  onColorChange?: (componentId: string, colorId: number | null) => void;
   onOpenAddNewComponent: () => void;
   onOpenEditComponent: (index: number) => void;
   onToggleComponentActive: (index: number) => void;
@@ -33,6 +35,8 @@ export function OtdBreakdownPanel({
   runtimeData,
   customComponents,
   quantity,
+  colorSelections = {},
+  onColorChange,
   onOpenAddNewComponent,
   onOpenEditComponent,
   onToggleComponentActive,
@@ -399,6 +403,10 @@ export function OtdBreakdownPanel({
               {calculation.components.map((c, ci) => {
                 const compDef = customComponents[ci];
                 const isInactive = compDef && !compDef.active;
+                const availableColors = c.characteristic_id
+                  ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
+                  : [];
+                const componentKey = String(c.id ?? ci);
 
                 return (
                   <div
@@ -500,6 +508,37 @@ export function OtdBreakdownPanel({
                           </span>
                         )}
                       </div>
+                      {availableColors.length > 0 && (
+                        <div style={{ marginTop: "4px" }}>
+                          <select
+                            value={colorSelections[componentKey] ?? ""}
+                            onChange={(e) =>
+                              onColorChange?.(
+                                componentKey,
+                                e.target.value ? Number(e.target.value) : null,
+                              )
+                            }
+                            style={{
+                              fontSize: "11.5px",
+                              padding: "3px 6px",
+                              borderRadius: "5px",
+                              border: colorSelections[componentKey]
+                                ? "1px solid #cbd5e1"
+                                : "1px solid #f59e0b",
+                              background: colorSelections[componentKey]
+                                ? "#ffffff"
+                                : "#fffbeb",
+                            }}
+                          >
+                            <option value="">Selecciona color…</option>
+                            {availableColors.map((color) => (
+                              <option key={color.id} value={color.id}>
+                                {color.code} · {color.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div
                         style={{
                           color: "#64748b",
