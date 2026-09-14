@@ -48,7 +48,6 @@ import {
   listAttributeColors,
   type AttributeColor,
 } from "../../services/catalog/attributeColorRepository";
-import { QuotationLineBehavior } from "../quotations/QuotationLineBehavior";
 
 const KIND: CatalogKind = "families";
 type Status = "active" | "inactive" | "deleted" | "all";
@@ -75,7 +74,6 @@ function FamilyList() {
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [lineBehaviors, setLineBehaviors] = useState<CatalogRow[]>([]);
-  const [mountingTypes, setMountingTypes] = useState<CatalogRow[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Status>("active");
   const [loading, setLoading] = useState(true);
@@ -97,14 +95,12 @@ function FamilyList() {
     setLoading(true);
     setError("");
     try {
-      const [families, behaviors, mountings] = await Promise.all([
+      const [families, behaviors] = await Promise.all([
         listCatalog(KIND, companyId, search, status),
         listCatalog("lineBehaviors", companyId),
-        listCatalog("mountingTypes", companyId),
       ]);
       setRows(families);
       setLineBehaviors(behaviors);
-      setMountingTypes(mountings);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar el listado.");
     } finally {
@@ -159,21 +155,19 @@ function FamilyList() {
             <tr>
               <th>Código</th>
               <th>Nombre</th>
-              <th>Confeccionable</th>
-              <th>Recortable</th>
+              <th>Tipo de corte</th>
               <th>Comportamiento de línea</th>
-              <th>Tipo de montaje</th>
               <th>Estado</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7}>Cargando…</td>
+                <td colSpan={5}>Cargando…</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={5}>
                   <div className="empty-state">
                     <strong>No hay familias</strong>
                     <span>Prueba otra búsqueda o crea una nueva familia.</span>
@@ -184,7 +178,7 @@ function FamilyList() {
               rows.map((r) => {
                 const deleted = !!r.deleted_at;
                 const behavior = lineBehaviors.find((b) => b.id === r.line_behavior_id);
-                const mounting = mountingTypes.find((m) => m.id === r.mounting_type_id);
+                const cutMode = r.confectionable ? "Confeccionable" : r.recuttable ? "Recortable" : "—";
                 return (
                   <tr key={r.id} className="clickable-row">
                     <td>
@@ -205,10 +199,8 @@ function FamilyList() {
                         {r.name}
                       </button>
                     </td>
-                    <td>{r.confectionable ? "Sí" : "No"}</td>
-                    <td>{r.recuttable ? "Sí" : "No"}</td>
+                    <td>{cutMode}</td>
                     <td>{behavior ? `${behavior.code} · ${behavior.name}` : "—"}</td>
-                    <td>{mounting ? `${mounting.code} · ${mounting.name}` : "—"}</td>
                     <td>
                       <span className={`status ${deleted ? "inactive" : r.active ? "active" : "inactive"}`}>
                         {deleted ? "Marcada para borrado" : r.active ? "Activa" : "Inactiva"}
@@ -235,7 +227,6 @@ const emptyForm = {
   product_type_id: null as number | null,
   measurement_type_id: null as number | null,
   line_behavior_id: null as number | null,
-  mounting_type_id: null as number | null,
 };
 type FormState = typeof emptyForm;
 
@@ -259,7 +250,7 @@ function FamilyEditor({
   const [productTypes, setProductTypes] = useState<CatalogRow[]>([]);
   const [measurementTypes, setMeasurementTypes] = useState<MeasurementType[]>([]);
   const [lineBehaviors, setLineBehaviors] = useState<CatalogRow[]>([]);
-  const [mountingTypes, setMountingTypes] = useState<CatalogRow[]>([]);
+  const [units, setUnits] = useState<CatalogRow[]>([]);
 
   // Características de la familia
   const [assignments, setAssignments] = useState<FamilyAttributeAssignment[]>([]);
@@ -296,16 +287,16 @@ function FamilyEditor({
   async function load() {
     if (!companyId) return;
     setError("");
-    const [types, mTypes, behaviors, mountings] = await Promise.all([
+    const [types, mTypes, behaviors, unitRows] = await Promise.all([
       listCatalog("types", companyId),
       listMeasurementTypes(companyId),
       listCatalog("lineBehaviors", companyId),
-      listCatalog("mountingTypes", companyId),
+      listCatalog("units", companyId),
     ]);
     setProductTypes(types);
     setMeasurementTypes(mTypes);
     setLineBehaviors(behaviors);
-    setMountingTypes(mountings);
+    setUnits(unitRows);
 
     if (familyId === null) {
       setRow(null);
@@ -332,7 +323,6 @@ function FamilyEditor({
         product_type_id: detail.product_type_id ?? null,
         measurement_type_id: detail.measurement_type_id ?? null,
         line_behavior_id: detail.line_behavior_id ?? null,
-        mounting_type_id: detail.mounting_type_id ?? null,
       });
       setAssignments(assigned);
       setAvailable(avail);
@@ -374,7 +364,6 @@ function FamilyEditor({
         product_type_id: form.product_type_id,
         measurement_type_id: form.measurement_type_id,
         line_behavior_id: form.line_behavior_id,
-        mounting_type_id: form.mounting_type_id,
       });
       if (familyId === null && saved?.id) {
         onSaved(saved.id);
@@ -582,6 +571,12 @@ function FamilyEditor({
   const readOnly = !editing;
   const deleted = !!row?.deleted_at;
   const selectedBehavior = lineBehaviors.find((b) => b.id === form.line_behavior_id) ?? null;
+  const selectedMeasurementType = measurementTypes.find((m) => m.id === form.measurement_type_id) ?? null;
+  const unitLabel = (unitId: number | null | undefined) => {
+    if (unitId == null) return "Sin unidad";
+    const u = units.find((x) => x.id === unitId);
+    return u ? `${u.code} · ${u.name}` : "Sin unidad";
+  };
 
   if (loading) return <div className="loading-block">Cargando familia…</div>;
 
@@ -678,6 +673,35 @@ function FamilyEditor({
                 ))}
               </select>
             </label>
+            {selectedMeasurementType && (
+              <div className="wide characteristic-inline-editor">
+                <div className="form-section-title">Dimensiones que heredarán los artículos</div>
+                {selectedMeasurementType.dimensions.length === 0 ? (
+                  <p className="form-help">Este tipo de medida no tiene dimensiones definidas.</p>
+                ) : (
+                  <div className="table-panel">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Dimensión</th>
+                          <th>Unidad</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedMeasurementType.dimensions.map((d) => (
+                          <tr key={d.dimension_number}>
+                            <td>{d.dimension_number}</td>
+                            <td>{d.name || d.code}</td>
+                            <td>{unitLabel(d.unit_id)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
             <label>
               Comportamiento de línea
               <select
@@ -696,73 +720,55 @@ function FamilyEditor({
               </select>
             </label>
             {selectedBehavior && (
-              <div className="wide">
-                <span className="form-help">Capacidades que heredarán los artículos de esta familia:</span>
-                <QuotationLineBehavior
-                  behavior={{
-                    id: selectedBehavior.id,
-                    company_id: selectedBehavior.company_id,
-                    code: selectedBehavior.code,
-                    name: selectedBehavior.name,
-                    description: selectedBehavior.description ?? null,
-                    quantity_enabled: !!selectedBehavior.quantity_enabled,
-                    price_enabled: !!selectedBehavior.price_enabled,
-                    discount_enabled: !!selectedBehavior.discount_enabled,
-                    dimensions_enabled: !!selectedBehavior.dimensions_enabled,
-                    configuration_enabled: !!selectedBehavior.configuration_enabled,
-                    characteristics_enabled: !!selectedBehavior.characteristics_enabled,
-                  }}
-                />
+              <div className="wide characteristic-inline-editor">
+                <div className="form-section-title">Configuración que heredarán los artículos de esta familia</div>
+                <div className="check-grid">
+                  <label className="inline-check">
+                    <input type="checkbox" checked={!!selectedBehavior.quantity_enabled} disabled readOnly />
+                    <span>Cantidad</span>
+                  </label>
+                  <label className="inline-check">
+                    <input type="checkbox" checked={!!selectedBehavior.price_enabled} disabled readOnly />
+                    <span>Precio</span>
+                  </label>
+                  <label className="inline-check">
+                    <input type="checkbox" checked={!!selectedBehavior.discount_enabled} disabled readOnly />
+                    <span>Descuento</span>
+                  </label>
+                  <label className="inline-check">
+                    <input type="checkbox" checked={!!selectedBehavior.dimensions_enabled} disabled readOnly />
+                    <span>Dimensiones</span>
+                  </label>
+                  <label className="inline-check">
+                    <input type="checkbox" checked={!!selectedBehavior.configuration_enabled} disabled readOnly />
+                    <span>Configuración</span>
+                  </label>
+                  <label className="inline-check">
+                    <input type="checkbox" checked={!!selectedBehavior.characteristics_enabled} disabled readOnly />
+                    <span>Características</span>
+                  </label>
+                </div>
               </div>
             )}
             <label>
-              Tipo de montaje
+              Tipo de corte
               <select
-                value={form.mounting_type_id ?? ""}
+                value={form.confectionable ? "CONFECTIONABLE" : form.recuttable ? "RECUTTABLE" : ""}
                 disabled={readOnly}
-                onChange={(e) =>
-                  setForm({ ...form, mounting_type_id: e.target.value ? Number(e.target.value) : null })
-                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm({
+                    ...form,
+                    confectionable: val === "CONFECTIONABLE",
+                    recuttable: val === "RECUTTABLE",
+                    minimum_remainder: val === "" ? null : form.minimum_remainder,
+                  });
+                }}
               >
-                <option value="">Sin tipo de montaje</option>
-                {mountingTypes.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.code} · {x.name}
-                  </option>
-                ))}
+                <option value="">Ninguno</option>
+                <option value="CONFECTIONABLE">Confeccionable</option>
+                <option value="RECUTTABLE">Recortable</option>
               </select>
-            </label>
-            <label className="wide inline-check">
-              <input
-                type="checkbox"
-                checked={form.confectionable}
-                disabled={readOnly}
-                onChange={(e) => {
-                  const val = e.target.checked;
-                  setForm({
-                    ...form,
-                    confectionable: val,
-                    minimum_remainder: !val && !form.recuttable ? null : form.minimum_remainder,
-                  });
-                }}
-              />
-              <span>Confeccionable</span>
-            </label>
-            <label className="wide inline-check">
-              <input
-                type="checkbox"
-                checked={form.recuttable}
-                disabled={readOnly}
-                onChange={(e) => {
-                  const val = e.target.checked;
-                  setForm({
-                    ...form,
-                    recuttable: val,
-                    minimum_remainder: !form.confectionable && !val ? null : form.minimum_remainder,
-                  });
-                }}
-              />
-              <span>Recortable</span>
             </label>
             {(form.confectionable || form.recuttable) && (
               <label className="wide">
