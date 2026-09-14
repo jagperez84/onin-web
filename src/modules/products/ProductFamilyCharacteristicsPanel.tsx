@@ -31,12 +31,14 @@ import { getProductLineDefinition } from "../../services/catalog/productDefiniti
 type Props = {
   productId: number;
   readOnly: boolean;
+  refreshKey?: number;
   onError: (message: string) => void;
 };
 
 export function ProductFamilyCharacteristicsPanel({
   productId,
   readOnly,
+  refreshKey,
   onError,
 }: Props) {
   const [companyId, setCompanyId] = useState<number | null>(null);
@@ -78,7 +80,7 @@ export function ProductFamilyCharacteristicsPanel({
   }, [onError]);
   useEffect(() => {
     if (companyId) void load(companyId);
-  }, [companyId, productId]);
+  }, [companyId, productId, refreshKey]);
   useEffect(() => {
     if (readOnly) {
       setSelected(null);

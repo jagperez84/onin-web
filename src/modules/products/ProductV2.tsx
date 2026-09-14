@@ -34,6 +34,7 @@ type ReferenceData = Awaited<ReturnType<typeof getProductReferences>>;
 type ProductV2Props = {
   onEditModeChange?: (editing: boolean) => void;
   onScaledChange?: (scaled: boolean) => void;
+  onProductChanged?: () => void;
 };
 
 const emptyProduct = (): ProductForm => ({
@@ -86,6 +87,7 @@ function ProductStatusBadge({
 export function ProductV2({
   onEditModeChange,
   onScaledChange,
+  onProductChanged,
 }: ProductV2Props) {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -166,6 +168,7 @@ export function ProductV2({
         onSaved={() => navigate("/ventas/articulos")}
         onEditModeChange={onEditModeChange}
         onScaledChange={onScaledChange}
+        onProductChanged={onProductChanged}
       />
     );
   return (
@@ -314,6 +317,7 @@ function ProductEditor({
   onSaved,
   onEditModeChange,
   onScaledChange,
+  onProductChanged,
 }: {
   companyId: number | null;
   productId: number | null;
@@ -324,6 +328,7 @@ function ProductEditor({
   onSaved: () => void;
   onEditModeChange?: (editing: boolean) => void;
   onScaledChange?: (scaled: boolean) => void;
+  onProductChanged?: () => void;
 }) {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
@@ -610,11 +615,27 @@ function ProductEditor({
                 onChange={(e) => {
                   const familyId = e.target.value ? Number(e.target.value) : null;
                   const family = refs?.families.find((f) => f.id === familyId);
-                  setForm((prev) => ({
-                    ...prev,
+                  const next = {
+                    ...form,
                     family_id: familyId,
                     product_type_id: family?.product_type_id ?? null,
-                  }));
+                  };
+                  setForm(next);
+                  // En modo borrador el artículo ya existe en BD (fila provisional):
+                  // se persiste la familia al vuelo para que los paneles de
+                  // "heredado" (dimensiones, características) que leen de BD por
+                  // productId reflejen la selección sin esperar a Guardar.
+                  if (draftMode && companyId && productId) {
+                    updateProduct(companyId, productId, next)
+                      .then(() => onProductChanged?.())
+                      .catch((err) =>
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "No se pudo actualizar la familia del borrador.",
+                        ),
+                      );
+                  }
                 }}
               >
                 <option value="">Sin familia</option>
