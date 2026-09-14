@@ -50,8 +50,6 @@ const emptyProduct = (): ProductForm => ({
   active: true,
   notes: "",
   price_increment: 0,
-  upc: 0,
-  ptc: 0,
   stock_minimum: 0,
   minimum_remainder: null,
   smooth_cut: false,
@@ -760,26 +758,6 @@ function ProductEditor({
                 onChange={(e) =>
                   update("price_increment", Number(e.target.value))
                 }
-              />
-            </label>
-            <label>
-              UPC
-              <input
-                type="number"
-                step="0.01"
-                readOnly={readOnly}
-                value={form.upc ?? 0}
-                onChange={(e) => update("upc", Number(e.target.value))}
-              />
-            </label>
-            <label>
-              PTC
-              <input
-                type="number"
-                step="0.01"
-                readOnly={readOnly}
-                value={form.ptc ?? 0}
-                onChange={(e) => update("ptc", Number(e.target.value))}
               />
             </label>
           </div>

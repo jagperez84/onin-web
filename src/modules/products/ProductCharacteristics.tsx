@@ -26,8 +26,6 @@ import "./product.css";
 const emptyForm = {
   code: "",
   description: "",
-  upc: null as number | null,
-  ptc: null as number | null,
   pvp: null as number | null,
   price_increment: 0,
   stock_minimum: 0,
@@ -98,8 +96,6 @@ export function ProductCharacteristics() {
     setForm({
       code: row.code,
       description: row.description ?? "",
-      upc: row.upc,
-      ptc: row.ptc,
       pvp: row.pvp,
       price_increment: row.price_increment,
       stock_minimum: row.stock_minimum,
@@ -320,34 +316,6 @@ export function ProductCharacteristics() {
               />
             </label>
             <label>
-              UPC
-              <input
-                type="number"
-                step="0.01"
-                value={form.upc ?? ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    upc: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-            </label>
-            <label>
-              PTC
-              <input
-                type="number"
-                step="0.01"
-                value={form.ptc ?? ""}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    ptc: e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
-              />
-            </label>
-            <label>
               PVP
               <input
                 type="number"
@@ -440,8 +408,6 @@ export function ProductCharacteristics() {
               <tr>
                 <th>Código</th>
                 <th>Descripción</th>
-                <th>UPC</th>
-                <th>PTC</th>
                 <th>PVP</th>
                 <th>Estado</th>
                 <th></th>
@@ -450,7 +416,7 @@ export function ProductCharacteristics() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={5}>
                     <div className="empty-state">
                       No hay características para este artículo.
                     </div>
@@ -463,8 +429,6 @@ export function ProductCharacteristics() {
                     <tr key={row.id}>
                       <td>{row.code}</td>
                       <td>{row.description || "—"}</td>
-                      <td>{row.upc ?? "—"}</td>
-                      <td>{row.ptc ?? "—"}</td>
                       <td>
                         {row.pvp == null
                           ? "—"

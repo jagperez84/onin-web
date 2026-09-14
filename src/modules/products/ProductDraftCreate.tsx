@@ -20,8 +20,6 @@ const draftDefaults: ProductForm = {
   active: false,
   notes: "",
   price_increment: 0,
-  upc: 0,
-  ptc: 0,
   stock_minimum: 0,
   minimum_remainder: null,
   smooth_cut: false,

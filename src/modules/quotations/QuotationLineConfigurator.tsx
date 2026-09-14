@@ -35,6 +35,7 @@ import type {
   QuotationLineDraft,
 } from "../../services/sales/quotationCreationRepository";
 import { formatEuro } from "../../services/catalog/productPricingService";
+import { effectiveLineBehavior } from "./QuotationLineBehavior";
 import "./quotation-configurator.css";
 
 export type QuotationLineConfiguratorProps = {
@@ -324,6 +325,8 @@ export function QuotationLineConfigurator({
   ]);
 
   if (!isOpen) return null;
+
+  const behavior = effectiveLineBehavior(masterConfig?.lineBehavior ?? null);
 
   const availableProducts =
     productsList && productsList.length > 0 ? productsList : internalProducts;
@@ -930,8 +933,12 @@ export function QuotationLineConfigurator({
                         </div>
                       )}
 
-                      {/* Attributes */}
-                      {masterConfig.attributes.length > 0 ? (
+                      {/* Attributes — el comportamiento de línea de la familia decide si esta línea gestiona características */}
+                      {!behavior.characteristics_enabled ? (
+                        <p style={{ color: "var(--muted)", fontSize: "13px" }}>
+                          El comportamiento de línea de este artículo no gestiona características.
+                        </p>
+                      ) : masterConfig.attributes.length > 0 ? (
                         <div className="config-form-grid">
                           {masterConfig.attributes.map((attr) => {
                             const currentDraft = attributeDrafts.find(
@@ -1073,7 +1080,7 @@ export function QuotationLineConfigurator({
                         </span>
                       </div>
 
-                      {masterConfig.dimensions.length > 0 && (
+                      {behavior.dimensions_enabled && masterConfig.dimensions.length > 0 && (
                         <div className="config-form-grid">
                           {masterConfig.dimensions.map((dim, idx) => {
                             const val = dimensionValues[dim.code] ?? "";
@@ -1128,23 +1135,26 @@ export function QuotationLineConfigurator({
                         className="config-form-grid"
                         style={{ marginTop: "10px" }}
                       >
-                        <div className="config-form-group">
-                          <label>
-                            Cantidad de la línea (
-                            {masterConfig.baseUnit?.code || "ud"})
-                          </label>
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="1"
-                            value={quantity}
-                            onChange={(e) =>
-                              setQuantity(
-                                Math.max(0.01, Number(e.target.value)),
-                              )
-                            }
-                          />
-                        </div>
+                        {behavior.quantity_enabled && (
+                          <div className="config-form-group">
+                            <label>
+                              Cantidad de la línea (
+                              {masterConfig.baseUnit?.code || "ud"})
+                            </label>
+                            <input
+                              type="number"
+                              min="0.01"
+                              step="1"
+                              value={quantity}
+                              onChange={(e) =>
+                                setQuantity(
+                                  Math.max(0.01, Number(e.target.value)),
+                                )
+                              }
+                            />
+                          </div>
+                        )}
+                        {behavior.discount_enabled && (
                         <div className="config-form-group">
                           <label>Descuento comercial (%)</label>
                           <input
@@ -1158,6 +1168,7 @@ export function QuotationLineConfigurator({
                             }
                           />
                         </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1172,48 +1183,54 @@ export function QuotationLineConfigurator({
                         </span>
                       </div>
 
-                      <table className="pricing-steps-table">
-                        <tbody>
-                          {previewSnapshot.pricing.explainable_steps.map(
-                            (step, idx) => (
-                              <tr
-                                key={idx}
-                                className={
-                                  step.highlight ? "highlight-row" : undefined
-                                }
-                              >
-                                <td>
-                                  {step.label}
-                                  {step.badge && (
-                                    <span className="pricing-badge">
-                                      {step.badge}
-                                    </span>
-                                  )}
-                                  {step.description && (
-                                    <div
-                                      style={{
-                                        fontSize: "11px",
-                                        color: "var(--muted)",
-                                        marginTop: "2px",
-                                      }}
-                                    >
-                                      {step.description}
-                                    </div>
-                                  )}
-                                </td>
-                                <td
-                                  style={{
-                                    textAlign: "right",
-                                    fontVariantNumeric: "tabular-nums",
-                                  }}
+                      {behavior.price_enabled ? (
+                        <table className="pricing-steps-table">
+                          <tbody>
+                            {previewSnapshot.pricing.explainable_steps.map(
+                              (step, idx) => (
+                                <tr
+                                  key={idx}
+                                  className={
+                                    step.highlight ? "highlight-row" : undefined
+                                  }
                                 >
-                                  {step.formatted}
-                                </td>
-                              </tr>
-                            ),
-                          )}
-                        </tbody>
-                      </table>
+                                  <td>
+                                    {step.label}
+                                    {step.badge && (
+                                      <span className="pricing-badge">
+                                        {step.badge}
+                                      </span>
+                                    )}
+                                    {step.description && (
+                                      <div
+                                        style={{
+                                          fontSize: "11px",
+                                          color: "var(--muted)",
+                                          marginTop: "2px",
+                                        }}
+                                      >
+                                        {step.description}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td
+                                    style={{
+                                      textAlign: "right",
+                                      fontVariantNumeric: "tabular-nums",
+                                    }}
+                                  >
+                                    {step.formatted}
+                                  </td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p style={{ color: "var(--muted)", fontSize: "13px" }}>
+                          El comportamiento de línea de este artículo no gestiona precio para esta línea.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -1228,6 +1245,12 @@ export function QuotationLineConfigurator({
                         </span>
                       </div>
 
+                      {!behavior.configuration_enabled ? (
+                        <p style={{ color: "var(--muted)", fontSize: "13px" }}>
+                          El comportamiento de línea de este artículo no gestiona despiece, cortes ni stock para esta línea.
+                        </p>
+                      ) : (
+                      <>
                       <div className="sub-tabs-bar">
                         <button
                           type="button"
@@ -1648,6 +1671,8 @@ export function QuotationLineConfigurator({
                             </p>
                           )}
                         </div>
+                      )}
+                      </>
                       )}
                     </div>
                   )}
