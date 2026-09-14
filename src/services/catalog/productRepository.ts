@@ -32,8 +32,8 @@ export type Product = {
   id:number; company_id:number; code:string; technical_description:string|null; commercial_description:string|null;
   family_id:number|null; product_type_id:number|null; measurement_type_id?:number|null; base_unit_id:number|null;
   sales_price:number|null; purchase_price:number|null; stock_enabled:boolean; allow_negative_stock:boolean;
-  active:boolean; notes:string|null; cod_arb:string|null; price_increment:number; upc:number; ptc:number; stock_minimum:number;
-  discarded_size:number|null; minimum_remainder:number|null; smooth_cut:boolean; monochrome:boolean; usage_status:string;
+  active:boolean; notes:string|null; price_increment:number; upc:number; ptc:number; stock_minimum:number;
+  minimum_remainder:number|null; smooth_cut:boolean; usage_status:string;
   iva_percent:number|null; default_supplier_party_id:number|null; include_measurements_in_stock:boolean; include_stock_by_color:boolean;
   scaled:boolean; scaled_by_characteristic:boolean; deleted_at:string|null; deleted_by:string|null;
 };
@@ -138,8 +138,8 @@ export async function createProductDraft(companyId:number):Promise<number>{
   const draftCode=`__DRAFT__${Date.now()}_${Math.floor(Math.random()*100000)}`;
   const input:ProductForm={
     code:draftCode,technical_description:'',commercial_description:'',family_id:null,product_type_id:null,base_unit_id:null,
-    sales_price:null,purchase_price:null,stock_enabled:false,allow_negative_stock:false,active:true,notes:'',cod_arb:null,
-    price_increment:0,upc:0,ptc:0,stock_minimum:0,discarded_size:null,minimum_remainder:null,smooth_cut:false,monochrome:false,
+    sales_price:null,purchase_price:null,stock_enabled:false,allow_negative_stock:false,active:true,notes:'',
+    price_increment:0,upc:0,ptc:0,stock_minimum:0,minimum_remainder:null,smooth_cut:false,
     usage_status:'DRAFT',iva_percent:null,default_supplier_party_id:null,include_measurements_in_stock:false,include_stock_by_color:false,
     scaled:false,scaled_by_characteristic:false,deleted_at:null,deleted_by:null,
   };

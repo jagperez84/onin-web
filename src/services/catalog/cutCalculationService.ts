@@ -110,7 +110,6 @@ export type CutCalculationInput = {
   } | null;
   productCutSettings?: {
     minimum_remainder?: number | null;
-    discarded_size?: number | null;
     smooth_cut?: boolean;
   };
   characteristicColor?: string | null;

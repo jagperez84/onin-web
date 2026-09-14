@@ -49,15 +49,12 @@ const emptyProduct = (): ProductForm => ({
   allow_negative_stock: false,
   active: true,
   notes: "",
-  cod_arb: null,
   price_increment: 0,
   upc: 0,
   ptc: 0,
   stock_minimum: 0,
-  discarded_size: null,
   minimum_remainder: null,
   smooth_cut: false,
-  monochrome: false,
   usage_status: "ACTIVE",
   iva_percent: null,
   default_supplier_party_id: null,
@@ -903,17 +900,6 @@ function ProductEditor({
               />
               <span>
                 <strong>Corte liso</strong>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.monochrome}
-                disabled={readOnly}
-                onChange={(e) => update("monochrome", e.target.checked)}
-              />
-              <span>
-                <strong>Monocromo</strong>
               </span>
             </label>
           </div>
