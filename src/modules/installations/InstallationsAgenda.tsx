@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, GripVertical } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CloudRain, GripVertical, Wind } from 'lucide-react';
 import {
   DndContext,
   PointerSensor,
@@ -26,6 +26,7 @@ import {
   type OrderAwaitingInstallation,
 } from '../../services/production/installationService';
 import { listInstallationCrews, type InstallationCrew } from '../../services/production/installationCrewService';
+import { fetchDailyForecast, isWeatherRisk, locationKey, WEATHER_RISK_WIND_KMH, type DayForecast } from '../../services/geo/weatherService';
 import { MapCanvas, type CanvasPoint, type CanvasRoute } from '../map/MapCanvas';
 import '../map/map-view.css';
 import './installations-agenda.css';
@@ -236,6 +237,19 @@ function HourRuler() {
   );
 }
 
+/** Aviso de tiempo — solo se pinta cuando hay riesgo real (lluvia o viento fuerte); si el día pinta bien, no hay nada que mostrar. */
+function WeatherBadge({ forecast }: { forecast: DayForecast }) {
+  const rain = Math.round(forecast.precipitationProbabilityMax ?? 0);
+  const wind = Math.round(forecast.windSpeedMaxKmh ?? 0);
+  const windIsWorse = wind >= WEATHER_RISK_WIND_KMH && wind > rain;
+  return (
+    <span className="weather-badge" title={`Previsión: ${rain}% de probabilidad de lluvia, viento hasta ${wind} km/h`}>
+      {windIsWorse ? <Wind size={11} /> : <CloudRain size={11} />}
+      {windIsWorse ? `${wind} km/h` : `${rain}%`}
+    </span>
+  );
+}
+
 export function InstallationsAgenda() {
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [weekStart, setWeekStart] = useState(startOfWeekStr());
@@ -247,6 +261,7 @@ export function InstallationsAgenda() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [forecastByKey, setForecastByKey] = useState<Map<string, DayForecast>>(new Map());
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -284,6 +299,24 @@ export function InstallationsAgenda() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId]);
 
+  async function loadForecastFor(points: { lat: number; lon: number }[], from: string, to: string) {
+    if (points.length === 0) return;
+    const fetched = await fetchDailyForecast(points, from, to);
+    if (fetched.size === 0) return;
+    setForecastByKey((prev) => {
+      const next = new Map(prev);
+      for (const [key, value] of fetched) next.set(key, value);
+      return next;
+    });
+  }
+
+  function coordsOf(list: { installation: Installation }[]): { lat: number; lon: number }[] {
+    return list
+      .map((a) => a.installation)
+      .filter((i) => i.latitude != null && i.longitude != null)
+      .map((i) => ({ lat: i.latitude as number, lon: i.longitude as number }));
+  }
+
   // Una entrada por cada día que ocupa un montaje: la fecha planificada si aún no
   // empezó, o una por cada jornada de trabajo registrada si ya lleva varias visitas.
   const appearances: DayAppearance[] = useMemo(() => {
@@ -320,6 +353,11 @@ export function InstallationsAgenda() {
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysStr(weekStart, i)), [weekStart]);
   const weekEnd = days[6];
   const weekAppearances = useMemo(() => appearances.filter((a) => a.date >= weekStart && a.date <= weekEnd), [appearances, weekStart, weekEnd]);
+  useEffect(() => {
+    if (selectedDay) return; // en modo día se encarga el otro efecto, con rango más ajustado
+    void loadForecastFor(coordsOf(weekAppearances), weekStart, weekEnd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart, weekEnd, selectedDay, allInstallations]);
   // Un montaje que ya tiene alguna jornada registrada no está "sin fecha" aunque
   // scheduledDate quedara vacío — sus jornadas son las fechas reales que importan.
   const undatedInstallations = useMemo(() => allInstallations.filter((i) => !i.scheduledDate && i.sessions.length === 0), [allInstallations]);
@@ -340,6 +378,24 @@ export function InstallationsAgenda() {
   }
 
   const dayAppearances = useMemo(() => (selectedDay ? appearances.filter((a) => a.date === selectedDay) : []), [appearances, selectedDay]);
+  useEffect(() => {
+    if (!selectedDay) return;
+    void loadForecastFor(coordsOf(dayAppearances), selectedDay, selectedDay);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay, allInstallations]);
+  function forecastFor(inst: Installation, date: string): DayForecast | undefined {
+    if (inst.latitude == null || inst.longitude == null) return undefined;
+    return forecastByKey.get(`${locationKey(inst.latitude, inst.longitude)}|${date}`);
+  }
+  /** El peor aviso entre las paradas de una cuadrilla ese día — basta con una parada mal para avisar. */
+  function worstForecast(items: DayAppearance[]): DayForecast | null {
+    let worst: DayForecast | null = null;
+    for (const a of items) {
+      const f = forecastFor(a.installation, a.date);
+      if (isWeatherRisk(f) && (!worst || (f?.precipitationProbabilityMax ?? 0) > (worst.precipitationProbabilityMax ?? 0))) worst = f ?? null;
+    }
+    return worst;
+  }
   const dayGroups = useMemo(
     () =>
       lanes.map((lane) => {
@@ -562,11 +618,14 @@ export function InstallationsAgenda() {
                   <div className="agenda-day-track-head">&nbsp;</div>
                   <HourRuler />
                 </div>
-                {dayGroups.map(({ lane, timed, untimed }) => (
+                {dayGroups.map(({ lane, items, timed, untimed }) => {
+                  const risk = worstForecast(items);
+                  return (
                   <div key={lane.key} className="agenda-day-lane-column">
                     <div className="agenda-day-track-head">
                       {lane.color && <span className="zone-dot" style={{ background: lane.color, display: 'inline-block' }} />}
                       {lane.label}
+                      {risk && <WeatherBadge forecast={risk} />}
                     </div>
                     <DayLaneDrop id={`cell:${lane.key}:${selectedDay}`}>
                       <div
@@ -625,7 +684,8 @@ export function InstallationsAgenda() {
                       {timed.length === 0 && untimed.length === 0 && <span className="agenda-empty-hint">Sin visitas este día.</span>}
                     </DayLaneDrop>
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="agenda-day-map">
                 <MapCanvas points={dayMapPoints} routes={dayMapRoutes} />
@@ -635,17 +695,21 @@ export function InstallationsAgenda() {
             <div className="agenda-grid-scroll">
               <div className="agenda-grid">
                 <div className="agenda-grid-corner" />
-                {days.map((d) => (
-                  <button
-                    type="button"
-                    key={d}
-                    className={`agenda-day-head ${d === todayStr() ? 'is-today' : ''}`}
-                    onClick={() => setSelectedDay(d)}
-                    title="Ver el mapa y el orden de ruta de este día"
-                  >
-                    {formatDay(d)}
-                  </button>
-                ))}
+                {days.map((d) => {
+                  const risk = worstForecast(weekAppearances.filter((a) => a.date === d));
+                  return (
+                    <button
+                      type="button"
+                      key={d}
+                      className={`agenda-day-head ${d === todayStr() ? 'is-today' : ''}`}
+                      onClick={() => setSelectedDay(d)}
+                      title={risk ? `Aviso de tiempo: ${Math.round(risk.precipitationProbabilityMax ?? 0)}% de lluvia, viento hasta ${Math.round(risk.windSpeedMaxKmh ?? 0)} km/h` : 'Ver el mapa y el orden de ruta de este día'}
+                    >
+                      {formatDay(d)}
+                      {risk && <CloudRain size={11} className="agenda-day-head-weather" />}
+                    </button>
+                  );
+                })}
                 {lanes.map((lane) => (
                   <Fragment key={lane.key}>
                     <div className="agenda-lane-label">
