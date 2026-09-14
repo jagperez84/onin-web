@@ -1,11 +1,13 @@
 import { ReactNode } from "react";
-import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3, ArrowRightLeft, CalendarClock, UserCog, SlidersHorizontal, Map, CreditCard, Handshake, HardHat } from "lucide-react";
+import { Users, Package, FileText, Warehouse, Ruler, Hammer, ReceiptText, ShoppingCart, Factory, Settings, BarChart3, ArrowRightLeft, CalendarClock, UserCog, SlidersHorizontal, Map, CreditCard, Handshake, HardHat, Layers, Palette } from "lucide-react";
 export type NavItem = { label: string; to: string; icon?: ReactNode };
 export type NavSection = { label: string; items: NavItem[] };
 export const navSections: NavSection[] = [
  { label:"Ventas", items:[
   {label:"Clientes",to:"/ventas/clientes",icon:<Users size={16}/>},
   {label:"Artículos",to:"/ventas/articulos",icon:<Package size={16}/>},
+  {label:"Familias",to:"/ventas/articulos/familias",icon:<Layers size={16}/>},
+  {label:"Características",to:"/ventas/articulos/caracteristicas",icon:<Palette size={16}/>},
   {label:"Presupuestos",to:"/ventas/presupuestos",icon:<FileText size={16}/>},
   {label:"Pedidos",to:"/ventas/pedidos",icon:<FileText size={16}/>},
  ]},

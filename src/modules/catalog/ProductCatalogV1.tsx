@@ -1,64 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Edit3,
-  Palette,
-  Plus,
-  RotateCcw,
-  Save,
-  Search,
-  Trash2,
-  Undo2,
-  X,
-} from "lucide-react";
+import { Edit3, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   listCatalog,
-  listAttributeValues,
-  markAttributeValueForDeletion,
-  restoreAttributeValue,
-  upsertAttributeValue,
   markCatalogForDeletion,
   restoreCatalog,
   upsertCatalog,
-  type AttributeValue,
   type CatalogKind,
   type CatalogRow,
   type FallbackProfileEstimate,
 } from "../../services/catalog/catalogRepository";
-import {
-  listAttributeColors,
-  addAttributeColor,
-  removeAttributeColor,
-  getAttributeColorCounts,
-  type AttributeColor,
-} from "../../services/catalog/attributeColorRepository";
-import {
-  listMeasurementTypes,
-  type MeasurementType,
-} from "../../services/catalog/measurementTypeRepository";
-import {
-  listFamilyAttributeAssignments,
-  listAvailableFamilyAttributes,
-  assignFamilyAttribute,
-  updateFamilyAttributeAssignment,
-  removeFamilyAttributeAssignment,
-  getFamilyAttributesCounts,
-  listFamilyAttributeScales,
-  createFamilyAttributeScale,
-  updateFamilyAttributeScale,
-  markFamilyAttributeScaleForDeletion,
-  listFamilyAttributeColorExclusions,
-  excludeFamilyAttributeColor,
-  includeFamilyAttributeColor,
-  type FamilyAttributeAssignment,
-  type FamilyAttributeRef,
-  type FamilyAttributeScale,
-  type FamilyAttributeColorExclusion,
-} from "../../services/catalog/familyAttributeRepository";
 import "./catalog.css";
 
-type GroupKey = "product" | "behavior" | "auxiliary";
+type GroupKey = "behavior" | "auxiliary";
 type CatalogConfig = {
   key: CatalogKind;
   label: string;
@@ -68,26 +23,11 @@ type CatalogConfig = {
 };
 const CONFIGS: CatalogConfig[] = [
   {
-    key: "families",
-    label: "Familias",
-    singular: "Familia",
-    description:
-      "Define la clasificación comercial y la configuración base que heredarán los artículos.",
-    group: "product",
-  },
-  {
     key: "types",
     label: "Tipos de producto",
     singular: "Tipo de producto",
     description: "Clasificación funcional del artículo.",
-    group: "product",
-  },
-  {
-    key: "attributes",
-    label: "Características",
-    singular: "Característica",
-    description: "Datos configurables que pueden asociarse a los artículos.",
-    group: "product",
+    group: "auxiliary",
   },
   {
     key: "lineBehaviors",
@@ -129,11 +69,6 @@ const CONFIGS: CatalogConfig[] = [
 ];
 const GROUPS: Array<{ key: GroupKey; label: string; description: string }> = [
   {
-    key: "product",
-    label: "Artículos",
-    description: "Maestros que definen qué es un artículo.",
-  },
-  {
     key: "behavior",
     label: "Comportamiento de línea",
     description:
@@ -151,14 +86,6 @@ type FormState = {
   name: string;
   description: string;
   active: boolean;
-  confectionable: boolean;
-  recuttable: boolean;
-  minimum_remainder: number | null;
-  product_type_id: number | null;
-  measurement_type_id: number | null;
-  mounting_type_id: number | null;
-  line_behavior_id: number | null;
-  data_type: string;
   quantity_enabled: boolean;
   price_enabled: boolean;
   discount_enabled: boolean;
@@ -180,14 +107,6 @@ const emptyForm: FormState = {
   name: "",
   description: "",
   active: true,
-  confectionable: false,
-  recuttable: false,
-  minimum_remainder: null,
-  product_type_id: null,
-  measurement_type_id: null,
-  mounting_type_id: null,
-  line_behavior_id: null,
-  data_type: "TEXT",
   quantity_enabled: true,
   price_enabled: true,
   discount_enabled: true,
@@ -217,18 +136,11 @@ const behaviorFields = [
 type BehaviorKey = (typeof behaviorFields)[number][0];
 const isBehaviorEnabled = (row: CatalogRow, key: BehaviorKey) =>
   row[key] === true;
-const emptyValue = {
-  id: undefined as number | undefined,
-  code: "",
-  name: "",
-  active: true,
-  sort_order: 0,
-};
 
 export function ProductCatalogV1() {
   const [companyId, setCompanyId] = useState<number | null>(null);
-  const [kind, setKind] = useState<CatalogKind>("families");
-  const [group, setGroup] = useState<GroupKey>("product");
+  const [kind, setKind] = useState<CatalogKind>("types");
+  const [group, setGroup] = useState<GroupKey>("auxiliary");
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [search, setSearch] = useState("");
   const [state, setState] = useState<"active" | "inactive" | "deleted" | "all">(
@@ -240,75 +152,12 @@ export function ProductCatalogV1() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [selectedAttribute, setSelectedAttribute] = useState<CatalogRow | null>(
-    null,
-  );
-  const [attributeValues, setAttributeValues] = useState<AttributeValue[]>([]);
-  const [valueForm, setValueForm] = useState(emptyValue);
-  const [attributeColorCounts, setAttributeColorCounts] = useState<Record<number, number>>({});
-  const [selectedAttributeForColors, setSelectedAttributeForColors] = useState<CatalogRow | null>(null);
-  const [attributeColors, setAttributeColors] = useState<AttributeColor[]>([]);
-  const [companyColorOptions, setCompanyColorOptions] = useState<CatalogRow[]>([]);
-  const [colorToAddId, setColorToAddId] = useState("");
-  const [colorPanelBusy, setColorPanelBusy] = useState(false);
-  const [colorPanelError, setColorPanelError] = useState("");
-  const [references, setReferences] = useState<{
-    productTypes: CatalogRow[];
-    measurementTypes: MeasurementType[];
-    mountingTypes: CatalogRow[];
-    lineBehaviors: CatalogRow[];
-  }>({
-    productTypes: [],
-    measurementTypes: [],
-    mountingTypes: [],
-    lineBehaviors: [],
-  });
-
-  // Family characteristics state
-  const [familyAttributes, setFamilyAttributes] = useState<
-    FamilyAttributeAssignment[]
-  >([]);
-  const [availableFamilyAttributes, setAvailableFamilyAttributes] = useState<
-    FamilyAttributeRef[]
-  >([]);
-  const [selectedFamilyAttrId, setSelectedFamilyAttrId] = useState<
-    number | null
-  >(null);
-  const [familyAttrRequired, setFamilyAttrRequired] = useState(false);
-  const [savingFamilyAttr, setSavingFamilyAttr] = useState(false);
-  const [familyAttrCounts, setFamilyAttrCounts] = useState<
-    Record<number, number>
-  >({});
-
-  // Colores y precio de una característica dentro de la familia (fase 2)
-  const [familyAttrPriceModalFor, setFamilyAttrPriceModalFor] =
-    useState<FamilyAttributeAssignment | null>(null);
-  const [familyAttrColorOptions, setFamilyAttrColorOptions] = useState<
-    AttributeColor[]
-  >([]);
-  const [familyAttrExclusions, setFamilyAttrExclusions] = useState<
-    FamilyAttributeColorExclusion[]
-  >([]);
-  const [familyAttrScaled, setFamilyAttrScaled] = useState(false);
-  const [familyAttrPvp, setFamilyAttrPvp] = useState("");
-  const [familyAttrScales, setFamilyAttrScales] = useState<
-    FamilyAttributeScale[]
-  >([]);
-  const [familyScaleForm, setFamilyScaleForm] = useState<{
-    editing: number | null;
-    dimension_1: string;
-    dimension_2: string;
-    price: string;
-  } | null>(null);
-  const [familyAttrModalBusy, setFamilyAttrModalBusy] = useState(false);
-  const [familyAttrModalError, setFamilyAttrModalError] = useState("");
 
   const visibleConfigs = useMemo(
     () => CONFIGS.filter((c) => c.group === group),
     [group],
   );
   const current = CONFIGS.find((c) => c.key === kind) ?? CONFIGS[0];
-  const family = kind === "families";
   const behavior = kind === "lineBehaviors";
 
   useEffect(() => {
@@ -334,25 +183,6 @@ export function ProductCatalogV1() {
     try {
       const data = await listCatalog(kind, companyId, search, state);
       setRows(data);
-      if (family) {
-        const [productTypes, measurementTypes, attrCounts] = await Promise.all([
-          listCatalog("types", companyId),
-          listMeasurementTypes(companyId),
-          getFamilyAttributesCounts(),
-        ]);
-        setReferences((r) => ({ ...r, productTypes, measurementTypes }));
-        setFamilyAttrCounts(attrCounts);
-      } else if (behavior) {
-        setReferences((r) => ({ ...r, lineBehaviors: data }));
-      }
-      if (kind === "attributes") {
-        setAttributeColorCounts(await getAttributeColorCounts());
-      } else {
-        setSelectedAttribute(null);
-        setAttributeValues([]);
-        setSelectedAttributeForColors(null);
-        setAttributeColors([]);
-      }
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "No se pudo cargar el catálogo.",
@@ -367,274 +197,14 @@ export function ProductCatalogV1() {
     setGroup(next);
     setKind(first.key);
     setEditing(false);
-    setSelectedAttribute(null);
-    setSelectedAttributeForColors(null);
     setSearch("");
   }
 
   function startNew() {
     setForm({ ...emptyForm });
     setUseDefaultEstimates(true);
-    setFamilyAttributes([]);
-    setAvailableFamilyAttributes([]);
-    setSelectedFamilyAttrId(null);
-    setFamilyAttrRequired(false);
     setEditing(true);
     setError("");
-  }
-
-  async function loadFamilyAttributes(familyId: number) {
-    if (!companyId) return;
-    try {
-      const [assigned, available] = await Promise.all([
-        listFamilyAttributeAssignments(familyId),
-        listAvailableFamilyAttributes(companyId, familyId),
-      ]);
-      setFamilyAttributes(assigned);
-      setAvailableFamilyAttributes(available);
-      setSelectedFamilyAttrId(null);
-      setFamilyAttrRequired(false);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "No se pudieron cargar las características de la familia.",
-      );
-    }
-  }
-
-  async function addFamilyAttr(familyId: number) {
-    if (!selectedFamilyAttrId) return;
-    setSavingFamilyAttr(true);
-    setError("");
-    try {
-      await assignFamilyAttribute(
-        familyId,
-        selectedFamilyAttrId,
-        familyAttrRequired,
-        familyAttributes.length,
-      );
-      await loadFamilyAttributes(familyId);
-      const counts = await getFamilyAttributesCounts();
-      setFamilyAttrCounts(counts);
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "No se pudo asignar la característica.",
-      );
-    } finally {
-      setSavingFamilyAttr(false);
-    }
-  }
-
-  async function toggleFamilyAttrRequired(fa: FamilyAttributeAssignment) {
-    try {
-      await updateFamilyAttributeAssignment(fa.assignment_id, {
-        required: !fa.required,
-      });
-      if (fa.family_id) {
-        await loadFamilyAttributes(fa.family_id);
-      }
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "No se pudo actualizar la característica.",
-      );
-    }
-  }
-
-  async function removeFamilyAttr(fa: FamilyAttributeAssignment) {
-    if (
-      !(await confirmDialog({
-        title: `¿Quitar la característica "${fa.name}" de esta familia?`,
-        danger: true,
-      }))
-    )
-      return;
-    try {
-      await removeFamilyAttributeAssignment(fa.assignment_id);
-      if (fa.family_id) {
-        await loadFamilyAttributes(fa.family_id);
-        const counts = await getFamilyAttributesCounts();
-        setFamilyAttrCounts(counts);
-      }
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "No se pudo quitar la característica.",
-      );
-    }
-  }
-
-  async function openFamilyAttrPriceModal(fa: FamilyAttributeAssignment) {
-    setFamilyAttrPriceModalFor(fa);
-    setFamilyAttrScaled(fa.scaled);
-    setFamilyAttrPvp(fa.pvp == null ? "" : String(fa.pvp));
-    setFamilyScaleForm(null);
-    setFamilyAttrModalError("");
-    try {
-      const [colors, exclusions, scales] = await Promise.all([
-        listAttributeColors(fa.id),
-        listFamilyAttributeColorExclusions(fa.assignment_id),
-        listFamilyAttributeScales(fa.assignment_id),
-      ]);
-      setFamilyAttrColorOptions(colors);
-      setFamilyAttrExclusions(exclusions);
-      setFamilyAttrScales(scales);
-    } catch (e) {
-      setFamilyAttrModalError(
-        e instanceof Error ? e.message : "No se pudo cargar la información.",
-      );
-    }
-  }
-
-  function closeFamilyAttrPriceModal() {
-    setFamilyAttrPriceModalFor(null);
-    setFamilyAttrColorOptions([]);
-    setFamilyAttrExclusions([]);
-    setFamilyAttrScales([]);
-    setFamilyScaleForm(null);
-    setFamilyAttrModalError("");
-  }
-
-  async function toggleFamilyAttrColor(colorId: number) {
-    if (!familyAttrPriceModalFor) return;
-    const existing = familyAttrExclusions.find((x) => x.color_id === colorId);
-    setFamilyAttrModalBusy(true);
-    setFamilyAttrModalError("");
-    try {
-      if (existing) await includeFamilyAttributeColor(existing.id);
-      else await excludeFamilyAttributeColor(familyAttrPriceModalFor.assignment_id, colorId);
-      setFamilyAttrExclusions(
-        await listFamilyAttributeColorExclusions(familyAttrPriceModalFor.assignment_id),
-      );
-    } catch (e) {
-      setFamilyAttrModalError(
-        e instanceof Error ? e.message : "No se pudo actualizar el color.",
-      );
-    } finally {
-      setFamilyAttrModalBusy(false);
-    }
-  }
-
-  async function refreshFamilyAttrRow() {
-    if (familyAttrPriceModalFor?.family_id) {
-      await loadFamilyAttributes(familyAttrPriceModalFor.family_id);
-    }
-  }
-
-  async function toggleFamilyAttrScaled(next: boolean) {
-    if (!familyAttrPriceModalFor) return;
-    setFamilyAttrModalBusy(true);
-    setFamilyAttrModalError("");
-    try {
-      await updateFamilyAttributeAssignment(familyAttrPriceModalFor.assignment_id, {
-        scaled: next,
-      });
-      setFamilyAttrScaled(next);
-      await refreshFamilyAttrRow();
-    } catch (e) {
-      setFamilyAttrModalError(
-        e instanceof Error ? e.message : "No se pudo cambiar el tipo de precio.",
-      );
-    } finally {
-      setFamilyAttrModalBusy(false);
-    }
-  }
-
-  async function saveFamilyAttrPvp() {
-    if (!familyAttrPriceModalFor) return;
-    const value = familyAttrPvp.trim() === "" ? null : Number(familyAttrPvp);
-    if (value != null && (!Number.isFinite(value) || value < 0)) {
-      setFamilyAttrModalError("El precio debe ser un número válido.");
-      return;
-    }
-    setFamilyAttrModalBusy(true);
-    setFamilyAttrModalError("");
-    try {
-      await updateFamilyAttributeAssignment(familyAttrPriceModalFor.assignment_id, {
-        pvp: value,
-      });
-      await refreshFamilyAttrRow();
-    } catch (e) {
-      setFamilyAttrModalError(
-        e instanceof Error ? e.message : "No se pudo guardar el precio.",
-      );
-    } finally {
-      setFamilyAttrModalBusy(false);
-    }
-  }
-
-  function startFamilyScale(row?: FamilyAttributeScale) {
-    setFamilyScaleForm({
-      editing: row?.id ?? 0,
-      dimension_1: row ? String(row.dimension_1) : "",
-      dimension_2: row?.dimension_2 != null ? String(row.dimension_2) : "",
-      price: row ? String(row.price) : "",
-    });
-  }
-
-  async function saveFamilyScale() {
-    if (!familyAttrPriceModalFor || !familyScaleForm) return;
-    const dimension_1 = Number(familyScaleForm.dimension_1);
-    const dimension_2 =
-      familyScaleForm.dimension_2.trim() === "" ? null : Number(familyScaleForm.dimension_2);
-    const price = Number(familyScaleForm.price);
-    if (!Number.isFinite(dimension_1) || dimension_1 < 0) {
-      setFamilyAttrModalError("La dimensión 1 debe ser un número válido.");
-      return;
-    }
-    if (dimension_2 != null && (!Number.isFinite(dimension_2) || dimension_2 < 0)) {
-      setFamilyAttrModalError("La dimensión 2 debe ser un número válido.");
-      return;
-    }
-    setFamilyAttrModalBusy(true);
-    setFamilyAttrModalError("");
-    try {
-      if (familyScaleForm.editing === 0) {
-        await createFamilyAttributeScale(familyAttrPriceModalFor.assignment_id, {
-          dimension_1,
-          dimension_2,
-          price,
-        });
-      } else if (familyScaleForm.editing !== null) {
-        await updateFamilyAttributeScale(familyScaleForm.editing, {
-          dimension_1,
-          dimension_2,
-          price,
-        });
-      }
-      setFamilyAttrScales(
-        await listFamilyAttributeScales(familyAttrPriceModalFor.assignment_id),
-      );
-      setFamilyScaleForm(null);
-    } catch (e) {
-      setFamilyAttrModalError(
-        e instanceof Error ? e.message : "No se pudo guardar el escalado.",
-      );
-    } finally {
-      setFamilyAttrModalBusy(false);
-    }
-  }
-
-  async function removeFamilyScale(id: number) {
-    if (!familyAttrPriceModalFor) return;
-    if (!(await confirmDialog({ title: "¿Eliminar este tramo de escalado?", danger: true })))
-      return;
-    setFamilyAttrModalBusy(true);
-    try {
-      await markFamilyAttributeScaleForDeletion(id);
-      setFamilyAttrScales(
-        await listFamilyAttributeScales(familyAttrPriceModalFor.assignment_id),
-      );
-    } catch (e) {
-      setFamilyAttrModalError(
-        e instanceof Error ? e.message : "No se pudo eliminar el tramo.",
-      );
-    } finally {
-      setFamilyAttrModalBusy(false);
-    }
   }
 
   function startEdit(r: CatalogRow) {
@@ -645,14 +215,6 @@ export function ProductCatalogV1() {
       name: r.name,
       description: r.description ?? "",
       active: r.active,
-      confectionable: !!r.confectionable,
-      recuttable: !!r.recuttable,
-      minimum_remainder: r.minimum_remainder ?? null,
-      product_type_id: r.product_type_id ?? null,
-      measurement_type_id: r.measurement_type_id ?? null,
-      mounting_type_id: r.mounting_type_id ?? null,
-      line_behavior_id: r.line_behavior_id ?? null,
-      data_type: r.data_type ?? "TEXT",
       quantity_enabled: r.quantity_enabled !== false,
       price_enabled: r.price_enabled !== false,
       discount_enabled: r.discount_enabled !== false,
@@ -671,14 +233,6 @@ export function ProductCatalogV1() {
     setUseDefaultEstimates((r.fallback_profile_estimates ?? null) == null);
     setEditing(true);
     setError("");
-    if (family && r.id) {
-      loadFamilyAttributes(r.id);
-    } else {
-      setFamilyAttributes([]);
-      setAvailableFamilyAttributes([]);
-      setSelectedFamilyAttrId(null);
-      setFamilyAttrRequired(false);
-    }
   }
 
   function patchEstimate(index: number, patch: Partial<FallbackProfileEstimate>) {
@@ -706,124 +260,11 @@ export function ProductCatalogV1() {
       const payload: FormState = behavior
         ? { ...form, fallback_profile_estimates: useDefaultEstimates ? null : form.fallback_profile_estimates ?? [] }
         : form;
-      const saved = await upsertCatalog(kind, companyId, payload);
-      if (!form.id && saved?.id && family) {
-        setForm((prev) => ({ ...prev, id: saved.id }));
-        await load();
-        await loadFamilyAttributes(saved.id);
-      } else {
-        setEditing(false);
-        await load();
-      }
+      await upsertCatalog(kind, companyId, payload);
+      setEditing(false);
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo guardar.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function selectAttribute(r: CatalogRow) {
-    setSelectedAttributeForColors(null);
-    setSelectedAttribute(r);
-    setValueForm({ ...emptyValue });
-    try {
-      setAttributeValues(await listAttributeValues(r.id));
-      setError("");
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "No se pudieron cargar los valores.",
-      );
-    }
-  }
-
-  async function selectAttributeColors(r: CatalogRow) {
-    setSelectedAttribute(null);
-    setSelectedAttributeForColors(r);
-    setColorToAddId("");
-    setColorPanelError("");
-    try {
-      const [colors, available] = await Promise.all([
-        listAttributeColors(r.id),
-        companyId ? listCatalog("colors", companyId) : Promise.resolve([]),
-      ]);
-      setAttributeColors(colors);
-      setCompanyColorOptions(available);
-    } catch (e) {
-      setColorPanelError(
-        e instanceof Error ? e.message : "No se pudieron cargar los colores.",
-      );
-    }
-  }
-
-  function closeAttributeColors() {
-    setSelectedAttributeForColors(null);
-    setAttributeColors([]);
-    setColorPanelError("");
-  }
-
-  async function addColorToAttribute() {
-    if (!selectedAttributeForColors || !colorToAddId) return;
-    setColorPanelBusy(true);
-    setColorPanelError("");
-    try {
-      await addAttributeColor(selectedAttributeForColors.id, Number(colorToAddId));
-      setAttributeColors(await listAttributeColors(selectedAttributeForColors.id));
-      setAttributeColorCounts(await getAttributeColorCounts());
-      setColorToAddId("");
-    } catch (e) {
-      setColorPanelError(
-        e instanceof Error ? e.message : "No se pudo asociar el color.",
-      );
-    } finally {
-      setColorPanelBusy(false);
-    }
-  }
-
-  async function removeColorFromAttribute(ac: AttributeColor) {
-    if (
-      !(await confirmDialog({
-        title: `¿Quitar el color ${ac.color?.name ?? ""} de esta característica?`,
-        danger: true,
-      }))
-    )
-      return;
-    setColorPanelBusy(true);
-    try {
-      await removeAttributeColor(ac.id);
-      if (selectedAttributeForColors) {
-        setAttributeColors(await listAttributeColors(selectedAttributeForColors.id));
-      }
-      setAttributeColorCounts(await getAttributeColorCounts());
-    } catch (e) {
-      setColorPanelError(
-        e instanceof Error ? e.message : "No se pudo quitar el color.",
-      );
-    } finally {
-      setColorPanelBusy(false);
-    }
-  }
-
-  const availableColorsToAdd = companyColorOptions.filter(
-    (color) => !attributeColors.some((ac) => ac.color_id === color.id),
-  );
-
-  async function saveValue() {
-    if (!selectedAttribute) return;
-    if (!valueForm.code.trim() || !valueForm.name.trim()) {
-      setError("Código y nombre del valor son obligatorios.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      await upsertAttributeValue({
-        ...valueForm,
-        attribute_id: selectedAttribute.id,
-      });
-      setValueForm({ ...emptyValue });
-      setAttributeValues(await listAttributeValues(selectedAttribute.id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar el valor.");
     } finally {
       setSaving(false);
     }
@@ -859,46 +300,16 @@ export function ProductCatalogV1() {
     }
   }
 
-  async function removeValue(id: number) {
-    if (!(await confirmDialog({ title: "¿Marcar este valor para borrado?", danger: true })))
-      return;
-    try {
-      await markAttributeValueForDeletion(id);
-      if (selectedAttribute)
-        setAttributeValues(await listAttributeValues(selectedAttribute.id));
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "No se pudo marcar para borrado.",
-      );
-    }
-  }
-
-  async function restoreValue(id: number) {
-    try {
-      await restoreAttributeValue(id);
-      if (selectedAttribute)
-        setAttributeValues(await listAttributeValues(selectedAttribute.id));
-    } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "No se pudo recuperar el valor.",
-      );
-    }
-  }
-
-  const typeName = (id?: number | null) =>
-    references.productTypes.find((x) => x.id === id)?.name ?? "—";
-  const measurementTypeName = (id?: number | null) =>
-    references.measurementTypes.find((x) => x.id === id)?.name ?? "—";
-
   return (
     <div className="module-page catalog-page">
       <div className="page-head">
         <div>
           <div className="eyebrow">VENTAS / ARTÍCULOS</div>
-          <h1>Configuración de artículos</h1>
+          <h1>Catálogos auxiliares</h1>
           <p>
-            Maestros y reglas que definen cómo se comportan los artículos y sus
-            líneas de presupuesto.
+            Maestros y reglas de comportamiento reutilizables por artículos y
+            líneas de presupuesto. Familias y Características tienen su propia
+            pantalla, accesible desde el listado de Artículos.
           </p>
         </div>
         <button className="primary-button" onClick={startNew}>
@@ -935,8 +346,6 @@ export function ProductCatalogV1() {
               onClick={() => {
                 setKind(c.key);
                 setEditing(false);
-                setSelectedAttribute(null);
-                setSelectedAttributeForColors(null);
                 setSearch("");
               }}
             >
@@ -971,9 +380,7 @@ export function ProductCatalogV1() {
         </button>
       </div>
 
-      <div
-        className={`catalog-layout ${editing || (kind === "attributes" && (selectedAttribute || selectedAttributeForColors)) ? "has-editor" : ""}`}
-      >
+      <div className={`catalog-layout ${editing ? "has-editor" : ""}`}>
         <section className="panel">
           <div className="panel-head">
             <div>
@@ -990,23 +397,7 @@ export function ProductCatalogV1() {
                   <tr>
                     <th>Código</th>
                     <th>Nombre</th>
-                    {family && (
-                      <>
-                        <th>Tipo producto</th>
-                        <th>Tipo de medida</th>
-                        <th>Características</th>
-                        <th>Confeccionable</th>
-                        <th>Recortable</th>
-                        <th>Resto mínimo</th>
-                      </>
-                    )}
                     {behavior && <th>Capacidades</th>}
-                    {kind === "attributes" && (
-                      <>
-                        <th>Tipo</th>
-                        <th>Colores</th>
-                      </>
-                    )}
                     <th>Estado</th>
                     <th></th>
                   </tr>
@@ -1022,54 +413,8 @@ export function ProductCatalogV1() {
                       <tr key={r.id}>
                         <td>{r.code}</td>
                         <td>{r.name}</td>
-                        {family && (
-                          <>
-                            <td>{typeName(r.product_type_id)}</td>
-                            <td>
-                              {measurementTypeName(r.measurement_type_id)}
-                            </td>
-                            <td>
-                              <button
-                                type="button"
-                                className="secondary-button compact"
-                                onClick={() => startEdit(r)}
-                                title="Gestionar características de esta familia"
-                              >
-                                {familyAttrCounts[r.id] ?? 0}{" "}
-                                {familyAttrCounts[r.id] === 1
-                                  ? "característica"
-                                  : "características"}
-                              </button>
-                            </td>
-                            <td>{r.confectionable ? "Sí" : "No"}</td>
-                            <td>{r.recuttable ? "Sí" : "No"}</td>
-                            <td>
-                              {(r.confectionable || r.recuttable) &&
-                              r.minimum_remainder != null
-                                ? r.minimum_remainder
-                                : "—"}
-                            </td>
-                          </>
-                        )}
                         {behavior && (
                           <td>{caps || "Sin capacidades adicionales"}</td>
-                        )}
-                        {kind === "attributes" && (
-                          <>
-                            <td>{r.data_type ?? "TEXT"}</td>
-                            <td>
-                              <button
-                                type="button"
-                                className="secondary-button compact"
-                                onClick={() => selectAttributeColors(r)}
-                                title="Gestionar colores de esta característica"
-                              >
-                                <Palette size={13} />
-                                {attributeColorCounts[r.id] ?? 0}{" "}
-                                {attributeColorCounts[r.id] === 1 ? "color" : "colores"}
-                              </button>
-                            </td>
-                          </>
                         )}
                         <td>
                           <span
@@ -1091,14 +436,6 @@ export function ProductCatalogV1() {
                                 onClick={() => startEdit(r)}
                               >
                                 <Edit3 size={15} />
-                              </button>
-                            )}
-                            {kind === "attributes" && !deleted && (
-                              <button
-                                className="secondary-button compact"
-                                onClick={() => selectAttribute(r)}
-                              >
-                                Valores
                               </button>
                             )}
                             {deleted ? (
@@ -1125,7 +462,7 @@ export function ProductCatalogV1() {
                   })}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={family ? 9 : behavior ? 5 : 6} className="empty">
+                      <td colSpan={behavior ? 5 : 4} className="empty">
                         No hay registros para este estado.
                       </td>
                     </tr>
@@ -1326,384 +663,6 @@ export function ProductCatalogV1() {
                 </>
               )}
 
-              {family && (
-                <>
-                  <label>
-                    Tipo de producto
-                    <select
-                      value={form.product_type_id ?? ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          product_type_id: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        })
-                      }
-                    >
-                      <option value="">Sin tipo</option>
-                      {references.productTypes.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.code} · {x.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Tipo de medida
-                    <select
-                      value={form.measurement_type_id ?? ""}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          measurement_type_id: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        })
-                      }
-                    >
-                      <option value="">Sin tipo de medida</option>
-                      {references.measurementTypes.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.code} · {x.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="wide inline-check">
-                    <input
-                      type="checkbox"
-                      checked={form.confectionable}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        setForm({
-                          ...form,
-                          confectionable: val,
-                          minimum_remainder:
-                            !val && !form.recuttable
-                              ? null
-                              : form.minimum_remainder,
-                        });
-                      }}
-                    />
-                    <span>Confeccionable</span>
-                  </label>
-
-                  <label className="wide inline-check">
-                    <input
-                      type="checkbox"
-                      checked={form.recuttable}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        setForm({
-                          ...form,
-                          recuttable: val,
-                          minimum_remainder:
-                            !form.confectionable && !val
-                              ? null
-                              : form.minimum_remainder,
-                        });
-                      }}
-                    />
-                    <span>Recortable</span>
-                  </label>
-
-                  {(form.confectionable || form.recuttable) && (
-                    <label className="wide">
-                      Resto mínimo
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={form.minimum_remainder ?? ""}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            minimum_remainder:
-                              e.target.value === ""
-                                ? null
-                                : Number(e.target.value),
-                          })
-                        }
-                        placeholder="0.00"
-                      />
-                    </label>
-                  )}
-
-                  {/* Sección de Características de la Familia */}
-                  <div
-                    className="wide"
-                    style={{
-                      marginTop: "14px",
-                      borderTop: "1px solid var(--border)",
-                      paddingTop: "14px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      <div>
-                        <div
-                          className="form-section-title"
-                          style={{ fontSize: "13px", margin: 0 }}
-                        >
-                          Características de la familia
-                        </div>
-                        <p className="form-help" style={{ margin: "2px 0 0" }}>
-                          Relaciona características (atributos) que los
-                          artículos de esta familia podrán tener.
-                        </p>
-                      </div>
-                      {form.id && (
-                        <span
-                          style={{
-                            fontSize: "12px",
-                            fontWeight: 600,
-                            color: "var(--primary)",
-                            background: "var(--canvas-stripe)",
-                            padding: "2px 8px",
-                            borderRadius: "12px",
-                          }}
-                        >
-                          {familyAttributes.length}{" "}
-                          {familyAttributes.length === 1
-                            ? "característica"
-                            : "características"}
-                        </span>
-                      )}
-                    </div>
-
-                    {!form.id ? (
-                      <div
-                        style={{
-                          background: "#f8fafc",
-                          border: "1px dashed #cbd5e1",
-                          padding: "12px",
-                          borderRadius: "7px",
-                          fontSize: "12px",
-                          color: "#64748b",
-                        }}
-                      >
-                        Guarda la familia para poder asignarle y gestionar sus
-                        características.
-                      </div>
-                    ) : (
-                      <>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            alignItems: "flex-end",
-                            marginBottom: "10px",
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <label style={{ flex: "1 1 180px", margin: 0 }}>
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                color: "#64748b",
-                                fontWeight: 600,
-                                display: "block",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              Añadir característica
-                            </span>
-                            <select
-                              value={selectedFamilyAttrId ?? ""}
-                              onChange={(e) =>
-                                setSelectedFamilyAttrId(
-                                  e.target.value
-                                    ? Number(e.target.value)
-                                    : null,
-                                )
-                              }
-                              style={{ width: "100%" }}
-                            >
-                              <option value="">
-                                Seleccionar característica…
-                              </option>
-                              {availableFamilyAttributes.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                  {a.code} · {a.name} ({a.data_type})
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <label
-                            className="inline-check"
-                            style={{
-                              paddingBottom: "8px",
-                              margin: 0,
-                              cursor: "pointer",
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={familyAttrRequired}
-                              onChange={(e) =>
-                                setFamilyAttrRequired(e.target.checked)
-                              }
-                            />
-                            <span style={{ fontSize: "12px", fontWeight: 600 }}>
-                              Obligatorio
-                            </span>
-                          </label>
-
-                          <button
-                            type="button"
-                            className="primary-button"
-                            disabled={!selectedFamilyAttrId || savingFamilyAttr}
-                            onClick={() => form.id && addFamilyAttr(form.id)}
-                            style={{ whiteSpace: "nowrap", height: "36px" }}
-                          >
-                            <Plus size={14} />{" "}
-                            {savingFamilyAttr ? "Asignando…" : "Asignar"}
-                          </button>
-                        </div>
-
-                        <div
-                          className="catalog-table-wrap"
-                          style={{ maxHeight: "220px", overflowY: "auto" }}
-                        >
-                          <table
-                            className="catalog-table"
-                            style={{ minWidth: "100%" }}
-                          >
-                            <thead>
-                              <tr>
-                                <th style={{ width: "35px" }}>#</th>
-                                <th>Código</th>
-                                <th>Característica</th>
-                                <th>Tipo</th>
-                                <th style={{ textAlign: "center" }}>
-                                  Obligatorio
-                                </th>
-                                <th>Precio / Colores</th>
-                                <th style={{ width: "40px" }}></th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {familyAttributes.length === 0 ? (
-                                <tr>
-                                  <td
-                                    colSpan={7}
-                                    style={{
-                                      textAlign: "center",
-                                      padding: "14px",
-                                      color: "#64748b",
-                                      fontSize: "12px",
-                                    }}
-                                  >
-                                    No hay características asignadas a esta
-                                    familia.
-                                  </td>
-                                </tr>
-                              ) : (
-                                familyAttributes.map((fa, idx) => (
-                                  <tr key={fa.assignment_id}>
-                                    <td>{idx + 1}</td>
-                                    <td style={{ fontWeight: 600 }}>
-                                      {fa.code}
-                                    </td>
-                                    <td>{fa.name}</td>
-                                    <td>
-                                      <span
-                                        style={{
-                                          fontSize: "11px",
-                                          background: "#efeee9",
-                                          padding: "2px 6px",
-                                          borderRadius: "4px",
-                                        }}
-                                      >
-                                        {fa.data_type}
-                                      </span>
-                                    </td>
-                                    <td style={{ textAlign: "center" }}>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          toggleFamilyAttrRequired(fa)
-                                        }
-                                        className={`status ${fa.required ? "active" : "inactive"}`}
-                                        style={{
-                                          cursor: "pointer",
-                                          border: "none",
-                                          background: "transparent",
-                                          padding: "2px 6px",
-                                          fontWeight: 600,
-                                        }}
-                                        title="Haz clic para alternar Obligatorio / Opcional"
-                                      >
-                                        {fa.required ? "Sí" : "No"}
-                                      </button>
-                                    </td>
-                                    <td>
-                                      <button
-                                        type="button"
-                                        className="secondary-button compact"
-                                        onClick={() => openFamilyAttrPriceModal(fa)}
-                                        title="Gestionar colores y precio de esta característica en la familia"
-                                      >
-                                        <Palette size={13} />
-                                        {fa.scaled
-                                          ? "Escalado"
-                                          : fa.pvp != null
-                                            ? `${fa.pvp.toFixed(2)} €`
-                                            : "Sin precio"}
-                                      </button>
-                                    </td>
-                                    <td>
-                                      <button
-                                        type="button"
-                                        className="icon-action danger"
-                                        style={{
-                                          width: "28px",
-                                          height: "28px",
-                                        }}
-                                        title="Quitar característica de la familia"
-                                        onClick={() => removeFamilyAttr(fa)}
-                                      >
-                                        <Trash2 size={13} />
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {kind === "attributes" && (
-                <label>
-                  Tipo de dato
-                  <select
-                    value={form.data_type}
-                    onChange={(e) =>
-                      setForm({ ...form, data_type: e.target.value })
-                    }
-                  >
-                    <option value="TEXT">Texto</option>
-                    <option value="NUMBER">Número</option>
-                    <option value="BOOLEAN">Booleano</option>
-                    <option value="OPTION">Opción</option>
-                  </select>
-                </label>
-              )}
-
               <label>
                 Estado
                 <select
@@ -1735,438 +694,7 @@ export function ProductCatalogV1() {
             </div>
           </aside>
         )}
-
-        {kind === "attributes" && selectedAttribute && (
-          <aside className="panel catalog-editor">
-            <div className="panel-head">
-              <div>
-                <h2>Valores</h2>
-                <p>
-                  {selectedAttribute.code} · {selectedAttribute.name}
-                </p>
-              </div>
-              <button
-                className="icon-action"
-                onClick={() => setSelectedAttribute(null)}
-                title="Cerrar"
-              >
-                <X size={17} />
-              </button>
-            </div>
-            <div className="form-grid">
-              <label>
-                Código
-                <input
-                  value={valueForm.code}
-                  onChange={(e) =>
-                    setValueForm({ ...valueForm, code: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Nombre
-                <input
-                  value={valueForm.name}
-                  onChange={(e) =>
-                    setValueForm({ ...valueForm, name: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                Orden
-                <input
-                  type="number"
-                  value={valueForm.sort_order}
-                  onChange={(e) =>
-                    setValueForm({
-                      ...valueForm,
-                      sort_order: Number(e.target.value),
-                    })
-                  }
-                />
-              </label>
-            </div>
-            <div className="actions">
-              <button
-                className="primary-button"
-                disabled={saving}
-                onClick={saveValue}
-              >
-                <Save size={15} /> Guardar valor
-              </button>
-            </div>
-            <div className="table-panel">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Estado</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attributeValues.map((v) => (
-                    <tr key={v.id}>
-                      <td>{v.code}</td>
-                      <td>{v.name}</td>
-                      <td>
-                        {v.deleted_at
-                          ? "Marcado para borrado"
-                          : v.active
-                            ? "Activo"
-                            : "Inactivo"}
-                      </td>
-                      <td>
-                        <div className="item-actions">
-                          {v.deleted_at ? (
-                            <button
-                              className="icon-action"
-                              onClick={() => restoreValue(v.id)}
-                              title="Recuperar"
-                            >
-                              <Undo2 size={15} />
-                            </button>
-                          ) : (
-                            <button
-                              className="icon-action danger"
-                              onClick={() => removeValue(v.id)}
-                              title="Marcar para borrado"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </aside>
-        )}
-
-        {kind === "attributes" && selectedAttributeForColors && (
-          <aside className="panel catalog-editor">
-            <div className="panel-head">
-              <div>
-                <h2>Colores</h2>
-                <p>
-                  {selectedAttributeForColors.code} · {selectedAttributeForColors.name}
-                </p>
-              </div>
-              <button
-                className="icon-action"
-                onClick={closeAttributeColors}
-                title="Cerrar"
-              >
-                <X size={17} />
-              </button>
-            </div>
-            {colorPanelError && <div className="inline-error">{colorPanelError}</div>}
-            <p className="form-help">
-              Familia y artículo heredarán este conjunto de colores, pudiendo excluir los
-              que no apliquen en cada caso.
-            </p>
-            <div className="form-grid">
-              <label className="wide">
-                Añadir color
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <select
-                    value={colorToAddId}
-                    onChange={(e) => setColorToAddId(e.target.value)}
-                  >
-                    <option value="">Selecciona un color…</option>
-                    {availableColorsToAdd.map((color) => (
-                      <option key={color.id} value={color.id}>
-                        {color.code} · {color.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={!colorToAddId || colorPanelBusy}
-                    onClick={addColorToAttribute}
-                  >
-                    <Plus size={15} /> Añadir
-                  </button>
-                </div>
-              </label>
-            </div>
-            <div className="table-panel">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attributeColors.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="empty">
-                        Sin colores asociados a esta característica.
-                      </td>
-                    </tr>
-                  ) : (
-                    attributeColors.map((ac) => (
-                      <tr key={ac.id}>
-                        <td>{ac.color?.code ?? "—"}</td>
-                        <td>{ac.color?.name ?? "—"}</td>
-                        <td>
-                          <div className="item-actions">
-                            <button
-                              className="icon-action danger"
-                              title="Quitar"
-                              disabled={colorPanelBusy}
-                              onClick={() => removeColorFromAttribute(ac)}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </aside>
-        )}
       </div>
-
-      {familyAttrPriceModalFor && (
-        <div className="modal-backdrop" onClick={closeFamilyAttrPriceModal}>
-          <div className="modal-card lg" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h3>Colores y precio: {familyAttrPriceModalFor.name}</h3>
-                <p>
-                  Los artículos de esta familia heredarán estos colores y este
-                  precio, pudiendo sobrescribirlos.
-                </p>
-              </div>
-              <button
-                className="close-btn"
-                onClick={closeFamilyAttrPriceModal}
-                aria-label="Cerrar"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              {familyAttrModalError && (
-                <div className="inline-error">{familyAttrModalError}</div>
-              )}
-
-              <div className="form-section-title">Colores</div>
-              {familyAttrColorOptions.length === 0 ? (
-                <p className="form-help">
-                  Esta característica no tiene colores asociados a nivel de
-                  sistema (Configuración de artículos → Características).
-                </p>
-              ) : (
-                <>
-                  <div className="check-grid">
-                    {familyAttrColorOptions.map((ac) => {
-                      const excluded = familyAttrExclusions.some(
-                        (x) => x.color_id === ac.color_id,
-                      );
-                      return (
-                        <label key={ac.id} className="inline-check">
-                          <input
-                            type="checkbox"
-                            checked={!excluded}
-                            disabled={familyAttrModalBusy}
-                            onChange={() => toggleFamilyAttrColor(ac.color_id)}
-                          />
-                          <span>
-                            {ac.color?.code} · {ac.color?.name}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <p className="form-help">
-                    Desmarca los colores que no apliquen a esta familia.
-                  </p>
-                </>
-              )}
-
-              <div className="form-section-title" style={{ marginTop: "18px" }}>
-                Precio
-              </div>
-              <label className="inline-check">
-                <input
-                  type="checkbox"
-                  checked={familyAttrScaled}
-                  disabled={familyAttrModalBusy}
-                  onChange={(e) => toggleFamilyAttrScaled(e.target.checked)}
-                />
-                <span>Escalado por cantidad</span>
-              </label>
-
-              {!familyAttrScaled ? (
-                <div className="form-grid" style={{ marginTop: "10px" }}>
-                  <label className="wide">
-                    PVP
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={familyAttrPvp}
-                        onChange={(e) => setFamilyAttrPvp(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={familyAttrModalBusy}
-                        onClick={saveFamilyAttrPvp}
-                      >
-                        Guardar
-                      </button>
-                    </div>
-                  </label>
-                </div>
-              ) : (
-                <>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      margin: "10px 0",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      className="secondary-button compact"
-                      onClick={() => startFamilyScale()}
-                    >
-                      <Plus size={13} /> Añadir tramo
-                    </button>
-                  </div>
-                  {familyScaleForm && (
-                    <div className="form-grid" style={{ marginBottom: "10px" }}>
-                      <label>
-                        Dimensión 1
-                        <input
-                          type="number"
-                          value={familyScaleForm.dimension_1}
-                          onChange={(e) =>
-                            setFamilyScaleForm({
-                              ...familyScaleForm,
-                              dimension_1: e.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Dimensión 2 (opcional)
-                        <input
-                          type="number"
-                          value={familyScaleForm.dimension_2}
-                          onChange={(e) =>
-                            setFamilyScaleForm({
-                              ...familyScaleForm,
-                              dimension_2: e.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <label>
-                        Precio
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={familyScaleForm.price}
-                          onChange={(e) =>
-                            setFamilyScaleForm({
-                              ...familyScaleForm,
-                              price: e.target.value,
-                            })
-                          }
-                        />
-                      </label>
-                      <div className="actions wide">
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() => setFamilyScaleForm(null)}
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          className="primary-button"
-                          disabled={familyAttrModalBusy}
-                          onClick={saveFamilyScale}
-                        >
-                          <Save size={14} /> Guardar tramo
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="table-panel">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Dim. 1</th>
-                          <th>Dim. 2</th>
-                          <th>Precio</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {familyAttrScales.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="empty">
-                              Sin tramos definidos.
-                            </td>
-                          </tr>
-                        ) : (
-                          familyAttrScales.map((s) => (
-                            <tr key={s.id}>
-                              <td>{s.dimension_1}</td>
-                              <td>{s.dimension_2 ?? "—"}</td>
-                              <td>{s.price.toFixed(2)} €</td>
-                              <td>
-                                <div className="item-actions">
-                                  <button
-                                    className="icon-action"
-                                    title="Editar"
-                                    onClick={() => startFamilyScale(s)}
-                                  >
-                                    <Edit3 size={14} />
-                                  </button>
-                                  <button
-                                    className="icon-action danger"
-                                    title="Eliminar"
-                                    onClick={() => removeFamilyScale(s.id)}
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="modal-actions-footer">
-              <button className="secondary-button" onClick={closeFamilyAttrPriceModal}>
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
