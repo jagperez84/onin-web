@@ -65,6 +65,7 @@ export function OtdRuntime() {
     [],
   );
   const [values, setValues] = useState<Record<string, string>>({});
+  const [colorSelections, setColorSelections] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
@@ -190,8 +191,17 @@ export function OtdRuntime() {
 
   const calculation = useMemo<OtdCalculationResult | null>(() => {
     if (!effectiveRuntimeData) return null;
-    return calculateOtdRuntime(effectiveRuntimeData, values);
-  }, [effectiveRuntimeData, values]);
+    return calculateOtdRuntime(effectiveRuntimeData, values, colorSelections);
+  }, [effectiveRuntimeData, values, colorSelections]);
+
+  const handleColorChange = (componentId: string, colorId: number | null) => {
+    setColorSelections((prev) => {
+      const next = { ...prev };
+      if (colorId == null) delete next[componentId];
+      else next[componentId] = colorId;
+      return next;
+    });
+  };
 
   const snapshot = useMemo<OtdConfigurationSnapshot | null>(() => {
     if (!effectiveRuntimeData || !calculation) return null;
@@ -810,6 +820,10 @@ export function OtdRuntime() {
               {calculation?.components.map((c, idx) => {
                 const compDef = customComponents[idx];
                 const isInactive = compDef && !compDef.active;
+                const availableColors = c.characteristic_id
+                  ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
+                  : [];
+                const componentKey = String(c.id ?? idx);
 
                 return (
                   <div
@@ -845,6 +859,32 @@ export function OtdRuntime() {
                         )}
                       </div>
 
+                      {availableColors.length > 0 && (
+                        <div style={{ margin: "4px 0" }}>
+                          <select
+                            value={colorSelections[componentKey] ?? ""}
+                            onChange={(e) =>
+                              handleColorChange(
+                                componentKey,
+                                e.target.value ? Number(e.target.value) : null,
+                              )
+                            }
+                            className="runtime-select"
+                            style={{
+                              fontSize: "12px",
+                              padding: "3px 8px",
+                              width: "auto",
+                            }}
+                          >
+                            <option value="">Selecciona color…</option>
+                            {availableColors.map((color) => (
+                              <option key={color.id} value={color.id}>
+                                {color.code} · {color.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div className="comp-subtext">
                         {c.characteristic_name && (
                           <span>

@@ -79,6 +79,8 @@ export type OtdDimensionDef = {
 
 export type OtdScale = ProductScaleRow & { product_id: number };
 
+export type OtdColorOption = { id: number; code: string; name: string };
+
 export type OtdComponentDef = OtdComponentFormula & {
   id: number;
   otd_id: number;
@@ -110,6 +112,8 @@ export type OtdRuntimeData = {
   unitsMap: Map<number, Unit>;
   conversions: UnitConversion[];
   workUnit: Unit | null;
+  /** Colores agrupados bajo cada característica (característica id -> colores). Vacío o ausente si la característica no diferencia por color. */
+  colorsByCharacteristic: Map<number, OtdColorOption[]>;
   loadedAt: string;
 };
 
@@ -143,6 +147,9 @@ export type OtdCalculatedComponent = {
   characteristic_code: string | null;
   characteristic_name: string | null;
   characteristic_expression: string | null;
+  color_id: number | null;
+  color_code: string | null;
+  color_name: string | null;
   pricing_source: 'base' | 'characteristic' | 'scale' | 'scale_characteristic' | 'manual';
   scale_step_used: {
     dimension_1: number;
@@ -204,6 +211,9 @@ export type OtdSnapshotComponent = {
   characteristic_code: string | null;
   characteristic_name: string | null;
   characteristic_expression: string | null;
+  color_id: number | null;
+  color_code: string | null;
+  color_name: string | null;
   pricing_source: 'base' | 'characteristic' | 'scale' | 'scale_characteristic' | 'manual';
   scale_step_used: {
     dimension_1: number;
@@ -371,6 +381,25 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
     characteristics = (charsRes.data ?? []) as ProductCharacteristic[];
   }
 
+  const colorsByCharacteristic = new Map<number, OtdColorOption[]>();
+  const characteristicIdsForColors = [...new Set(characteristics.map(ch => Number(ch.id)))];
+  if (characteristicIdsForColors.length > 0) {
+    const { data: ccData } = await c
+      .from('characteristic_color')
+      .select('characteristic_id,color:color(id,code,name,active)')
+      .in('characteristic_id', characteristicIdsForColors)
+      .eq('active', true)
+      .is('deleted_at', null);
+    for (const row of (ccData ?? []) as any[]) {
+      const color = row.color;
+      if (!color || color.active === false) continue;
+      const chId = Number(row.characteristic_id);
+      const list = colorsByCharacteristic.get(chId) ?? [];
+      list.push({ id: Number(color.id), code: String(color.code), name: String(color.name) });
+      colorsByCharacteristic.set(chId, list);
+    }
+  }
+
   const productsMap = new Map<number, Product>(products.map(p => [Number(p.id), p]));
 
   const byProductScales = new Map<number, OtdScale[]>();
@@ -528,6 +557,7 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
     unitsMap,
     conversions: allConversions,
     workUnit,
+    colorsByCharacteristic,
     loadedAt: new Date().toISOString(),
   };
 }
@@ -629,7 +659,8 @@ export async function fetchProductForOtdComponent(productId: number): Promise<{
 
 export function calculateOtdRuntime(
   runtimeData: OtdRuntimeData,
-  rawValues: Record<string, string | number | boolean | null>
+  rawValues: Record<string, string | number | boolean | null>,
+  colorSelections: Record<string, number | null> = {}
 ): OtdCalculationResult {
   const { selections, variables, components, scales } = runtimeData;
   const errors: string[] = [];
@@ -840,6 +871,29 @@ export function calculateOtdRuntime(
         }
       }
 
+      // Resolución de color (fase de formulario OTD): si la característica resuelta
+      // agrupa colores (characteristic_color), el usuario debe elegir uno en el propio
+      // formulario para que el despiece sepa qué stock consumir. El precio no depende
+      // del color, solo de la característica, así que esto nunca cambia basePrice.
+      const availableColors = resolvedChar
+        ? runtimeData.colorsByCharacteristic.get(resolvedChar.id) ?? []
+        : [];
+      let resolvedColorId: number | null = null;
+      let resolvedColorCode: string | null = null;
+      let resolvedColorName: string | null = null;
+      if (availableColors.length > 0) {
+        const rawColorId = colorSelections[String(comp.id)];
+        const matched =
+          rawColorId != null ? availableColors.find(cl => cl.id === Number(rawColorId)) ?? null : null;
+        if (matched) {
+          resolvedColorId = matched.id;
+          resolvedColorCode = matched.code;
+          resolvedColorName = matched.name;
+        } else {
+          requiredMissing.push(`Color de ${comp.description || comp.code}`);
+        }
+      }
+
       // Pricing logic:
       // If OTD has its own scale, the component only increases the base price if it has price_increment > 0.
       // If OTD does not have its own scale (legacy mode), fallback to resolving article unit price.
@@ -931,6 +985,9 @@ export function calculateOtdRuntime(
         characteristic_code: resolvedChar?.code ?? null,
         characteristic_name: resolvedChar?.description ?? null,
         characteristic_expression: comp.characteristic_expression,
+        color_id: resolvedColorId,
+        color_code: resolvedColorCode,
+        color_name: resolvedColorName,
         pricing_source: pricingSource,
         scale_step_used: scaleStepUsed,
         base_price: basePrice,
@@ -963,6 +1020,9 @@ export function calculateOtdRuntime(
         characteristic_code: null,
         characteristic_name: null,
         characteristic_expression: comp.characteristic_expression,
+        color_id: null,
+        color_code: null,
+        color_name: null,
         pricing_source: 'manual',
         scale_step_used: null,
         base_price: 0,
@@ -1079,6 +1139,9 @@ export function buildOtdConfigurationSnapshot(
     characteristic_code: c.characteristic_code,
     characteristic_name: c.characteristic_name,
     characteristic_expression: c.characteristic_expression,
+    color_id: c.color_id,
+    color_code: c.color_code,
+    color_name: c.color_name,
     pricing_source: c.pricing_source,
     scale_step_used: c.scale_step_used,
     base_price: c.base_price,

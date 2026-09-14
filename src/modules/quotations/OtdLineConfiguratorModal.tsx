@@ -72,6 +72,7 @@ export function OtdLineConfiguratorModal({
   const [loadingRuntime, setLoadingRuntime] = useState(false);
   const [runtimeError, setRuntimeError] = useState("");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [colorSelections, setColorSelections] = useState<Record<string, number>>({});
   const [quantity, setQuantity] = useState<number>(initialQuantity || 1);
   const [notes, setNotes] = useState<string>("");
 
@@ -98,6 +99,7 @@ export function OtdLineConfiguratorModal({
         setRuntimeData(null);
         setCustomComponents([]);
         setValues({});
+        setColorSelections({});
         setRuntimeError("");
         setLoadingOtdList(true);
         listActiveOtds()
@@ -202,8 +204,18 @@ export function OtdLineConfiguratorModal({
             },
           );
           setCustomComponents(initialDefs);
+
+          const initialColorSelections: Record<string, number> = {};
+          initialSnapshot.components.forEach((c: any, idx: number) => {
+            const compId = initialDefs[idx]?.id;
+            if (compId != null && c.color_id != null) {
+              initialColorSelections[String(compId)] = Number(c.color_id);
+            }
+          });
+          setColorSelections(initialColorSelections);
         } else {
           setCustomComponents(data.components);
+          setColorSelections({});
         }
       })
       .catch((err) => {
@@ -238,7 +250,7 @@ export function OtdLineConfiguratorModal({
   const calculation = useMemo<OtdCalculationResult | null>(() => {
     if (!effectiveRuntimeData) return null;
     try {
-      return calculateOtdRuntime(effectiveRuntimeData, values);
+      return calculateOtdRuntime(effectiveRuntimeData, values, colorSelections);
     } catch (err: any) {
       console.error("Error calculando OTD runtime:", err);
       return {
@@ -254,7 +266,7 @@ export function OtdLineConfiguratorModal({
         errors: [err?.message || "Error en el cálculo paramétrico"],
       };
     }
-  }, [effectiveRuntimeData, values]);
+  }, [effectiveRuntimeData, values, colorSelections]);
 
   // Live snapshot
   const snapshot = useMemo<OtdConfigurationSnapshot | null>(() => {
@@ -347,6 +359,15 @@ export function OtdLineConfiguratorModal({
       ...prev,
       [code]: val,
     }));
+  };
+
+  const handleColorChange = (componentId: string, colorId: number | null) => {
+    setColorSelections((prev) => {
+      const next = { ...prev };
+      if (colorId == null) delete next[componentId];
+      else next[componentId] = colorId;
+      return next;
+    });
   };
 
   const handleResetToDefaults = () => {
@@ -563,6 +584,8 @@ export function OtdLineConfiguratorModal({
                 runtimeData={runtimeData}
                 customComponents={customComponents}
                 quantity={quantity}
+                colorSelections={colorSelections}
+                onColorChange={handleColorChange}
                 onOpenAddNewComponent={handleOpenAddNewComponent}
                 onOpenEditComponent={handleOpenEditComponent}
                 onToggleComponentActive={handleToggleComponentActive}
