@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
-import type { Color } from './colorRepository';
+
+export type ColorRef = { id: number; code: string; name: string; active: boolean };
 
 export type CharacteristicColor = {
   id: number;
@@ -8,7 +9,7 @@ export type CharacteristicColor = {
   color_id: number;
   active: boolean;
   deleted_at: string | null;
-  color?: Color | null;
+  color?: ColorRef | null;
 };
 
 function client() {

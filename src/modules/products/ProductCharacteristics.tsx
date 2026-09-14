@@ -12,7 +12,7 @@ import {
   type ProductCharacteristic,
   type ProductStatus,
 } from "../../services/catalog/productRepository";
-import { listColors, type Color } from "../../services/catalog/colorRepository";
+import { listCatalog, type CatalogRow } from "../../services/catalog/catalogRepository";
 import {
   listCharacteristicColors,
   addCharacteristicColor,
@@ -50,7 +50,7 @@ export function ProductCharacteristics() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [colorPanelFor, setColorPanelFor] = useState<ProductCharacteristic | null>(null);
-  const [companyColors, setCompanyColors] = useState<Color[]>([]);
+  const [companyColors, setCompanyColors] = useState<CatalogRow[]>([]);
   const [assignedColors, setAssignedColors] = useState<CharacteristicColor[]>([]);
   const [colorToAdd, setColorToAdd] = useState<string>("");
   const [colorPanelError, setColorPanelError] = useState("");
@@ -181,7 +181,7 @@ export function ProductCharacteristics() {
     setColorToAdd("");
     try {
       const [colors, assigned] = await Promise.all([
-        companyId ? listColors(companyId) : Promise.resolve([]),
+        companyId ? listCatalog("colors", companyId) : Promise.resolve([]),
         listCharacteristicColors(row.id),
       ]);
       setCompanyColors(colors);

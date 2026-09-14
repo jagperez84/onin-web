@@ -15,6 +15,23 @@ export type FamilyAttributeAssignment = FamilyAttributeRef & {
   sort_order: number;
   active: boolean;
   deleted_at: string | null;
+  scaled: boolean;
+  pvp: number | null;
+};
+
+export type FamilyAttributeScale = {
+  id: number;
+  family_attribute_id: number;
+  dimension_1: number;
+  dimension_2: number | null;
+  price: number;
+  deleted_at: string | null;
+};
+
+export type FamilyAttributeColorExclusion = {
+  id: number;
+  family_attribute_id: number;
+  color_id: number;
 };
 
 function client() {
@@ -26,7 +43,7 @@ export async function listFamilyAttributeAssignments(familyId: number): Promise<
   const c = client();
   const { data, error } = await c
     .from('product_family_attribute')
-    .select('id,family_id,attribute_id,required,sort_order,active,deleted_at,product_attribute!inner(id,code,name,data_type)')
+    .select('id,family_id,attribute_id,required,sort_order,active,deleted_at,scaled,pvp,product_attribute!inner(id,code,name,data_type)')
     .eq('family_id', familyId)
     .is('deleted_at', null)
     .order('sort_order')
@@ -50,6 +67,8 @@ export async function listFamilyAttributeAssignments(familyId: number): Promise<
     sort_order: r.sort_order ?? 0,
     active: !!r.active,
     deleted_at: r.deleted_at ?? null,
+    scaled: !!r.scaled,
+    pvp: r.pvp == null ? null : Number(r.pvp),
   }));
 }
 
@@ -90,7 +109,7 @@ export async function assignFamilyAttribute(familyId: number, attributeId: numbe
   if (error) throw new CoreRepositoryError(error.message);
 }
 
-export async function updateFamilyAttributeAssignment(id: number, input: { required?: boolean; sort_order?: number; active?: boolean }): Promise<void> {
+export async function updateFamilyAttributeAssignment(id: number, input: { required?: boolean; sort_order?: number; active?: boolean; scaled?: boolean; pvp?: number | null }): Promise<void> {
   const c = client();
   const { error } = await c.from('product_family_attribute').update(input).eq('id', id).is('deleted_at', null);
   if (error) throw new CoreRepositoryError(error.message);
@@ -105,6 +124,69 @@ export async function removeFamilyAttributeAssignment(id: number): Promise<void>
     .eq('id', id)
     .is('deleted_at', null);
 
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function listFamilyAttributeScales(familyAttributeId: number): Promise<FamilyAttributeScale[]> {
+  const c = client();
+  const { data, error } = await c
+    .from('product_family_attribute_scale')
+    .select('id,family_attribute_id,dimension_1,dimension_2,price,deleted_at')
+    .eq('family_attribute_id', familyAttributeId)
+    .is('deleted_at', null)
+    .order('dimension_1')
+    .order('dimension_2');
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data ?? []).map((r: any) => ({
+    id: Number(r.id),
+    family_attribute_id: Number(r.family_attribute_id),
+    dimension_1: Number(r.dimension_1),
+    dimension_2: r.dimension_2 == null ? null : Number(r.dimension_2),
+    price: Number(r.price),
+    deleted_at: r.deleted_at ?? null,
+  }));
+}
+
+export async function createFamilyAttributeScale(familyAttributeId: number, input: { dimension_1: number; dimension_2: number | null; price: number }): Promise<void> {
+  if (input.price <= 0) throw new CoreRepositoryError('El precio del escalado debe ser mayor que 0.');
+  const c = client();
+  const { error } = await c.from('product_family_attribute_scale').insert({ family_attribute_id: familyAttributeId, ...input });
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function updateFamilyAttributeScale(id: number, input: { dimension_1: number; dimension_2: number | null; price: number }): Promise<void> {
+  if (input.price <= 0) throw new CoreRepositoryError('El precio del escalado debe ser mayor que 0.');
+  const c = client();
+  const { error } = await c.from('product_family_attribute_scale').update(input).eq('id', id).is('deleted_at', null);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function markFamilyAttributeScaleForDeletion(id: number): Promise<void> {
+  const c = client();
+  const { error } = await c.from('product_family_attribute_scale').update({ deleted_at: new Date().toISOString() }).eq('id', id).is('deleted_at', null);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+/** Exclusiones de colores heredados de attribute_color para esta característica de familia. Ausencia = color disponible. */
+export async function listFamilyAttributeColorExclusions(familyAttributeId: number): Promise<FamilyAttributeColorExclusion[]> {
+  const c = client();
+  const { data, error } = await c
+    .from('product_family_attribute_color_exclusion')
+    .select('id,family_attribute_id,color_id')
+    .eq('family_attribute_id', familyAttributeId);
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data ?? []).map((r: any) => ({ id: Number(r.id), family_attribute_id: Number(r.family_attribute_id), color_id: Number(r.color_id) }));
+}
+
+export async function excludeFamilyAttributeColor(familyAttributeId: number, colorId: number): Promise<void> {
+  const c = client();
+  const { error } = await c.from('product_family_attribute_color_exclusion').insert({ family_attribute_id: familyAttributeId, color_id: colorId });
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
+export async function includeFamilyAttributeColor(exclusionId: number): Promise<void> {
+  const c = client();
+  const { error } = await c.from('product_family_attribute_color_exclusion').delete().eq('id', exclusionId);
   if (error) throw new CoreRepositoryError(error.message);
 }
 
