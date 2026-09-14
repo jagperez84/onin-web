@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Edit3, Palette, Plus, Save, Trash2, Undo2, X } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { Edit3, Palette, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import {
@@ -429,7 +429,8 @@ export function ProductFamilyCharacteristicsPanel({
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={`${row.attribute_id}-${row.source}`}>
+                <Fragment key={`${row.attribute_id}-${row.source}`}>
+                <tr>
                   <td>{row.sort_order + 1}</td>
                   <td>{row.code}</td>
                   <td>{row.name}</td>
@@ -456,7 +457,11 @@ export function ProductFamilyCharacteristicsPanel({
                         type="button"
                         className="secondary-button compact"
                         disabled={readOnly || modalBusy}
-                        onClick={() => openPriceModalFor(row)}
+                        onClick={() =>
+                          priceModalFor?.attribute_id === row.attribute_id
+                            ? closePriceModal()
+                            : openPriceModalFor(row)
+                        }
                         title={
                           row.source === "family"
                             ? "Heredado de la familia — personalizar en este artículo"
@@ -511,29 +516,15 @@ export function ProductFamilyCharacteristicsPanel({
                     )}
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {priceModalFor && (
-        <div className="modal-backdrop" onClick={closePriceModal}>
-          <div className="modal-card lg" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div>
-                <h3>Colores y precio: {priceModalFor.name}</h3>
-                <p>
-                  {priceModalFor.source === "family"
-                    ? "Se ha copiado el precio y los colores efectivos de la familia. A partir de ahora evolucionan de forma independiente."
-                    : "Precio y colores propios de este artículo."}
-                </p>
-              </div>
-              <button className="close-btn" onClick={closePriceModal} aria-label="Cerrar">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
+                {priceModalFor?.attribute_id === row.attribute_id && (
+                  <tr>
+                    <td colSpan={9}>
+                      <div className="characteristic-inline-editor">
+              <p className="form-help">
+                {priceModalFor.source === "family"
+                  ? "Se ha copiado el precio y los colores efectivos de la familia. A partir de ahora evolucionan de forma independiente."
+                  : "Precio y colores propios de este artículo."}
+              </p>
               {modalError && <div className="inline-error">{modalError}</div>}
 
               <div className="form-section-title">Colores</div>
@@ -717,15 +708,16 @@ export function ProductFamilyCharacteristicsPanel({
                   </div>
                 </>
               )}
-            </div>
-            <div className="modal-actions-footer">
-              <button className="secondary-button" onClick={closePriceModal}>
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

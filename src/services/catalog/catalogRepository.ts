@@ -92,6 +92,14 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
  if(res.error)throw new CoreRepositoryError(res.error.message);
  return res.data as CatalogRow | null;
 }
+export async function getCatalogRow(kind:CatalogKind,id:number):Promise<CatalogRow|null>{
+ const c=client();
+ const {data,error}=await c.from(tableFor[kind]).select('*').eq('id',id).maybeSingle();
+ if(error)throw new CoreRepositoryError(error.message);
+ if(!data)return null;
+ const row=data as CatalogRow;
+ return {...row,name:kind==='types'?String((row as any).description??''):row.name};
+}
 export async function markCatalogForDeletion(kind:CatalogKind,id:number):Promise<void>{await markForDeletion(tableFor[kind],id);}
 export async function restoreCatalog(kind:CatalogKind,id:number):Promise<void>{await restoreFromDeletion(tableFor[kind],id);}
 export async function listAttributeValues(attributeId:number,state:'active'|'inactive'|'deleted'|'all'='active'):Promise<AttributeValue[]>{
