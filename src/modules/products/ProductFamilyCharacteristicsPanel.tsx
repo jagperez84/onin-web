@@ -372,7 +372,7 @@ export function ProductFamilyCharacteristicsPanel({
                 <option value="">Seleccionar característica…</option>
                 {available.map((a) => (
                   <option key={a.id} value={a.id}>
-                    {a.code} · {a.name} ({a.data_type})
+                    {a.code} · {a.name}
                   </option>
                 ))}
               </select>
@@ -409,7 +409,6 @@ export function ProductFamilyCharacteristicsPanel({
               <th>Orden</th>
               <th>Código</th>
               <th>Característica</th>
-              <th>Tipo</th>
               <th>Origen</th>
               <th>Obligatoria</th>
               <th>Precio / Colores</th>
@@ -420,7 +419,7 @@ export function ProductFamilyCharacteristicsPanel({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={8}>
                   <div className="empty-state">
                     No hay características configuradas. Las de la familia
                     aparecerán aquí automáticamente.
@@ -434,7 +433,6 @@ export function ProductFamilyCharacteristicsPanel({
                   <td>{row.sort_order + 1}</td>
                   <td>{row.code}</td>
                   <td>{row.name}</td>
-                  <td>{row.data_type}</td>
                   <td>{row.source === "family" ? "Familia" : "Artículo"}</td>
                   <td>
                     {readOnly || row.excluded ? (
@@ -518,7 +516,7 @@ export function ProductFamilyCharacteristicsPanel({
                 </tr>
                 {priceModalFor?.attribute_id === row.attribute_id && (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={8}>
                       <div className="characteristic-inline-editor">
               <p className="form-help">
                 {priceModalFor.source === "family"

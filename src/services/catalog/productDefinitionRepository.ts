@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { resolveEffectiveDimensions } from './measurementTypeRepository';
-import { listProductCharacteristicConfiguration } from './productAttributeRepository';
+import { listProductCharacteristicConfiguration, listEffectiveAttributeColors } from './productAttributeRepository';
 
 export type ProductDimensionDefinition = {
   dimension_number: number;
@@ -16,12 +16,11 @@ export type ProductCharacteristicDefinition = {
   attribute_id: number;
   attribute_code: string;
   attribute_name: string;
-  data_type: string;
   required: boolean;
   sort_order: number;
   scaled: boolean;
   pvp: number | null;
-  values: { id: number; code: string; name: string; sort_order: number }[];
+  colors: { color_id: number; code: string; name: string }[];
 };
 
 export type ProductLineDefinition = {
@@ -73,36 +72,21 @@ export async function getProductLineDefinition(productId: number): Promise<Produ
   // en vez de una fusión propia que podía quedarse desactualizada frente a ellas.
   const effectiveAttrs = (await listProductCharacteristicConfiguration(productId)).filter(a => !a.excluded);
 
-  const attributeIds = effectiveAttrs.map(a => a.attribute_id).filter(Boolean);
-  let values: any[] = [];
-  if (attributeIds.length) {
-    const { data, error } = await c.from('product_attribute_value')
-      .select('id,attribute_id,code,name,sort_order')
-      .in('attribute_id', attributeIds)
-      .eq('active', true)
-      .is('deleted_at', null)
-      .order('sort_order')
-      .order('id');
-    if (error) throw new CoreRepositoryError(error.message);
-    values = data ?? [];
-  }
+  const colorsByAttribute = new Map<number, { color_id: number; code: string; name: string }[]>();
+  await Promise.all(effectiveAttrs.map(async a => {
+    colorsByAttribute.set(a.attribute_id, await listEffectiveAttributeColors(a.attribute_id, a.source, a.assignment_id));
+  }));
 
   const characteristics: ProductCharacteristicDefinition[] = effectiveAttrs.map(a => ({
     assignment_id: a.assignment_id,
     attribute_id: a.attribute_id,
     attribute_code: a.code,
     attribute_name: a.name,
-    data_type: a.data_type,
     required: a.required,
     sort_order: a.sort_order,
     scaled: a.scaled,
     pvp: a.pvp,
-    values: values.filter(v => Number(v.attribute_id) === a.attribute_id).map(v => ({
-      id: Number(v.id),
-      code: v.code,
-      name: v.name,
-      sort_order: Number(v.sort_order ?? 0),
-    })),
+    colors: colorsByAttribute.get(a.attribute_id) ?? [],
   }));
 
   return {

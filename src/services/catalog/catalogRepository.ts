@@ -9,7 +9,7 @@ export type CatalogRow = {
   id:number; company_id:number; code:string; name:string; active:boolean; deleted_at?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
   product_type_id?:number|null; measurement_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
-  data_type?:string; description?:string|null;
+  description?:string|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
   configuration_enabled?:boolean; characteristics_enabled?:boolean;
   // Parámetros de corte de una línea de comportamiento. Todos opcionales: si son
@@ -18,14 +18,13 @@ export type CatalogRow = {
   roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
   standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
 };
-export type AttributeValue = { id:number; attribute_id:number; code:string; name:string; active:boolean; deleted_at?:string|null; sort_order:number };
 
 type CatalogInput = {
   id?:number; code:string; name:string; active:boolean; description?:string|null;
   confectionable?:boolean; recuttable?:boolean; minimum_remainder?:number|null;
   product_type_id?:number|null; measurement_type_id?:number|null; mounting_type_id?:number|null; line_behavior_id?:number|null;
   quantity_enabled?:boolean; price_enabled?:boolean; discount_enabled?:boolean; dimensions_enabled?:boolean;
-  configuration_enabled?:boolean; characteristics_enabled?:boolean; data_type?:string;
+  configuration_enabled?:boolean; characteristics_enabled?:boolean;
   roll_width_m?:number|null; seam_allowance_width_m?:number|null; seam_allowance_height_m?:number|null;
   standard_bar_length_mm?:number|null; fallback_profile_estimates?:FallbackProfileEstimate[]|null;
 };
@@ -76,7 +75,6 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.standard_bar_length_mm=input.standard_bar_length_mm??null;
    base.fallback_profile_estimates=input.fallback_profile_estimates===undefined?null:input.fallback_profile_estimates;
  }
- if(kind==='attributes') base.data_type=input.data_type??'TEXT';
  let q=input.id?c.from(tableFor[kind]).update(base).eq('id',input.id).select().maybeSingle():c.from(tableFor[kind]).insert(base).select().maybeSingle();
  let res=await q;
  if(res.error && kind==='families' && res.error.message?.includes('measurement_type_id')) {
@@ -97,11 +95,3 @@ export async function getCatalogRow(kind:CatalogKind,id:number):Promise<CatalogR
 }
 export async function markCatalogForDeletion(kind:CatalogKind,id:number):Promise<void>{await markForDeletion(tableFor[kind],id);}
 export async function restoreCatalog(kind:CatalogKind,id:number):Promise<void>{await restoreFromDeletion(tableFor[kind],id);}
-export async function listAttributeValues(attributeId:number,state:'active'|'inactive'|'deleted'|'all'='active'):Promise<AttributeValue[]>{
- const c=client(); let q=c.from('product_attribute_value').select('id,attribute_id,code,name,active,deleted_at,sort_order').eq('attribute_id',attributeId).order('sort_order').order('code');
- if(state==='active')q=q.eq('active',true).is('deleted_at',null);if(state==='inactive')q=q.eq('active',false).is('deleted_at',null);if(state==='deleted')q=q.not('deleted_at','is',null);if(state==='all')q=q.order('deleted_at',{ascending:true,nullsFirst:true});
- const {data,error}=await q;if(error)throw new CoreRepositoryError(error.message);return(data??[]) as AttributeValue[];
-}
-export async function upsertAttributeValue(input:{id?:number;attribute_id:number;code:string;name:string;active:boolean;sort_order:number}):Promise<void>{const c=client();const payload={attribute_id:input.attribute_id,code:input.code.trim(),name:input.name.trim(),active:input.active,sort_order:input.sort_order,deleted_at:null,deleted_by:null};const q=input.id?c.from('product_attribute_value').update(payload).eq('id',input.id):c.from('product_attribute_value').insert(payload);const {error}=await q;if(error)throw new CoreRepositoryError(error.message)}
-export async function markAttributeValueForDeletion(id:number):Promise<void>{await markForDeletion('product_attribute_value',id)}
-export async function restoreAttributeValue(id:number):Promise<void>{await restoreFromDeletion('product_attribute_value',id)}

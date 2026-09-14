@@ -353,7 +353,13 @@ function ProductEditor({
       if (productId !== null) {
         const d = await getProduct(companyId, productId);
         setProduct(d.product);
-        setForm(toForm(d.product));
+        const formData = toForm(d.product);
+        // El tipo de producto lo define la familia — se resincroniza aquí por si el
+        // artículo tenía guardado un valor propio que ya hubiera divergido del de su
+        // familia (antes era editable de forma independiente).
+        const family = referenceData.families.find((f) => f.id === formData.family_id);
+        formData.product_type_id = family?.product_type_id ?? null;
+        setForm(formData);
         setEditing(draftMode || false);
       }
     } catch (e) {
@@ -601,12 +607,15 @@ function ProductEditor({
               <select
                 disabled={readOnly}
                 value={form.family_id ?? ""}
-                onChange={(e) =>
-                  update(
-                    "family_id",
-                    e.target.value ? Number(e.target.value) : null,
-                  )
-                }
+                onChange={(e) => {
+                  const familyId = e.target.value ? Number(e.target.value) : null;
+                  const family = refs?.families.find((f) => f.id === familyId);
+                  setForm((prev) => ({
+                    ...prev,
+                    family_id: familyId,
+                    product_type_id: family?.product_type_id ?? null,
+                  }));
+                }}
               >
                 <option value="">Sin familia</option>
                 {refs?.families.map((x) => (
@@ -618,23 +627,15 @@ function ProductEditor({
             </label>
             <label>
               Tipo de producto
-              <select
-                disabled={readOnly}
-                value={form.product_type_id ?? ""}
-                onChange={(e) =>
-                  update(
-                    "product_type_id",
-                    e.target.value ? Number(e.target.value) : null,
-                  )
+              <input
+                readOnly
+                value={
+                  refs?.types.find((x) => x.id === form.product_type_id)
+                    ? `${refs.types.find((x) => x.id === form.product_type_id)!.code} · ${refs.types.find((x) => x.id === form.product_type_id)!.name}`
+                    : "Sin tipo (heredado de la familia)"
                 }
-              >
-                <option value="">Sin tipo</option>
-                {refs?.types.map((x) => (
-                  <option key={x.id} value={x.id}>
-                    {x.code} · {x.name}
-                  </option>
-                ))}
-              </select>
+                title="El tipo de producto lo define la familia; el artículo lo hereda y no se puede cambiar aquí."
+              />
             </label>
             <label>
               Unidad base
