@@ -1386,6 +1386,24 @@ export type OtdSummary = {
   active: boolean;
 };
 
+/**
+ * Colores disponibles para la "entrada de oficina" de color del OTD: la unión,
+ * sin duplicados, de los colores de todas las características que puede llegar
+ * a resolver algún componente de este OTD. Elegir uno aquí es solo un atajo:
+ * se propone como valor por defecto en cada componente cuya característica
+ * resuelta admita ese mismo color, pero el usuario sigue pudiendo cambiarlo
+ * componente a componente.
+ */
+export function getOtdColorOptions(runtimeData: OtdRuntimeData): OtdColorOption[] {
+  const byId = new Map<number, OtdColorOption>();
+  for (const list of runtimeData.colorsByCharacteristic.values()) {
+    for (const color of list) {
+      if (!byId.has(color.id)) byId.set(color.id, color);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+}
+
 export async function listActiveOtds(): Promise<OtdSummary[]> {
   const c = client();
   const { data, error } = await c

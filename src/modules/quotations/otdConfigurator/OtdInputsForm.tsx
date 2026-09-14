@@ -1,12 +1,17 @@
 import React from "react";
-import { Ruler, Sliders } from "lucide-react";
-import type { OtdRuntimeData } from "../../../services/otd/otdCalculationService";
+import { Palette, Ruler, Sliders } from "lucide-react";
+import {
+  getOtdColorOptions,
+  type OtdRuntimeData,
+} from "../../../services/otd/otdCalculationService";
 
 export type OtdInputsFormProps = {
   runtimeData: OtdRuntimeData;
   values: Record<string, string>;
   quantity: number;
   notes: string;
+  masterColorId?: number | null;
+  onMasterColorChange?: (colorId: number | null) => void;
   onValueChange: (code: string, value: string) => void;
   onQuantityChange: (qty: number) => void;
   onNotesChange: (notes: string) => void;
@@ -17,6 +22,8 @@ export function OtdInputsForm({
   values,
   quantity,
   notes,
+  masterColorId = null,
+  onMasterColorChange,
   onValueChange,
   onQuantityChange,
   onNotesChange,
@@ -29,6 +36,8 @@ export function OtdInputsForm({
     (s) => !s.is_dimension && s.selection_type !== "NUMBER",
   );
 
+  const colorOptions = getOtdColorOptions(runtimeData);
+
   return (
     <div
       style={{
@@ -37,6 +46,70 @@ export function OtdInputsForm({
         gap: "18px",
       }}
     >
+      {/* Color Section: shortcut that defaults every eligible component's own
+          color selector; each component keeps its individual selector to
+          override it. Hidden entirely when no component's characteristic
+          groups any color. */}
+      {colorOptions.length > 0 && (
+        <div
+          style={{
+            background: "#f8fafc",
+            border: "1px solid #e4e2dc",
+            borderRadius: "10px",
+            padding: "16px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              marginBottom: "12px",
+              color: "#0f172a",
+            }}
+          >
+            <Palette size={16} style={{ color: "var(--primary)" }} />
+            <h4
+              style={{
+                margin: 0,
+                fontSize: "14px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.02em",
+              }}
+            >
+              Acabado / Color
+            </h4>
+          </div>
+          <select
+            value={masterColorId ?? ""}
+            onChange={(e) =>
+              onMasterColorChange?.(e.target.value ? Number(e.target.value) : null)
+            }
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "6px",
+              border: "1px solid #cbd5e1",
+              fontSize: "13px",
+              background: "#ffffff",
+              color: "#0f172a",
+            }}
+          >
+            <option value="">Sin color por defecto</option>
+            {colorOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} · {c.name}
+              </option>
+            ))}
+          </select>
+          <p style={{ fontSize: "11.5px", color: "#64748b", margin: "6px 0 0" }}>
+            Se aplica como valor por defecto a cada componente cuyo acabado admita ese
+            color; cada componente sigue teniendo su propio selector para cambiarlo.
+          </p>
+        </div>
+      )}
+
       {/* Dimensions Section */}
       {hasDimensions && (
         <div
