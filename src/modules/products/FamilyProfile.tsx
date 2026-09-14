@@ -48,6 +48,7 @@ import {
   listAttributeColors,
   type AttributeColor,
 } from "../../services/catalog/attributeColorRepository";
+import { QuotationLineBehavior } from "../quotations/QuotationLineBehavior";
 
 const KIND: CatalogKind = "families";
 type Status = "active" | "inactive" | "deleted" | "all";
@@ -580,6 +581,7 @@ function FamilyEditor({
 
   const readOnly = !editing;
   const deleted = !!row?.deleted_at;
+  const selectedBehavior = lineBehaviors.find((b) => b.id === form.line_behavior_id) ?? null;
 
   if (loading) return <div className="loading-block">Cargando familia…</div>;
 
@@ -693,6 +695,29 @@ function FamilyEditor({
                 ))}
               </select>
             </label>
+            {selectedBehavior && (
+              <div className="wide">
+                <span className="form-help">Capacidades que heredarán los artículos de esta familia:</span>
+                <QuotationLineBehavior
+                  behavior={{
+                    id: selectedBehavior.id,
+                    company_id: selectedBehavior.company_id,
+                    code: selectedBehavior.code,
+                    name: selectedBehavior.name,
+                    description: selectedBehavior.description ?? null,
+                    quantity_enabled: !!selectedBehavior.quantity_enabled,
+                    price_enabled: !!selectedBehavior.price_enabled,
+                    discount_enabled: !!selectedBehavior.discount_enabled,
+                    dimensions_enabled: !!selectedBehavior.dimensions_enabled,
+                    configuration_enabled: !!selectedBehavior.configuration_enabled,
+                    cut_calculation_enabled: !!selectedBehavior.cut_calculation_enabled,
+                    length_enabled: !!selectedBehavior.length_enabled,
+                    characteristics_enabled: !!selectedBehavior.characteristics_enabled,
+                    canvas_cut_enabled: !!selectedBehavior.canvas_cut_enabled,
+                  }}
+                />
+              </div>
+            )}
             <label>
               Tipo de montaje
               <select
