@@ -47,6 +47,54 @@ export async function listMeasurementTypes(companyId: number, search = ''): Prom
   return types.map(t => ({ ...t, dimensions: ((dimensions ?? []) as MeasurementDimension[]).filter(d => d.measurement_type_id === t.id) }));
 }
 
+/**
+ * Dimensiones efectivas de un tipo de medida: rellena con "Dimensión N" genéricas los
+ * números que faltan en measurement_type_dimension frente a dimension_count, para no
+ * perder silenciosamente una dimensión en tipos de medida que solo guardan el recuento.
+ * Única implementación — antes vivía duplicada en productConfigurationService.ts y en
+ * productDefinitionRepository.ts, y solo una de las dos copias sabía de esta regla.
+ */
+export async function resolveEffectiveDimensions(measurementTypeId: number | null): Promise<{ measurementType: (MeasurementType & { dimensions: MeasurementDimension[] }) | null; dimensions: MeasurementDimension[] }> {
+  if (measurementTypeId == null) return { measurementType: null, dimensions: [] };
+  const c = client();
+  const [typeRes, dimsRes] = await Promise.all([
+    c.from('measurement_type').select('*').eq('id', measurementTypeId).maybeSingle(),
+    c.from('measurement_type_dimension').select('*').eq('measurement_type_id', measurementTypeId).order('dimension_number'),
+  ]);
+  if (typeRes.error) throw new CoreRepositoryError(typeRes.error.message);
+  if (dimsRes.error) throw new CoreRepositoryError(dimsRes.error.message);
+  if (!typeRes.data) return { measurementType: null, dimensions: [] };
+  const dims: MeasurementDimension[] = (dimsRes.data ?? []).map((d: any) => ({
+    id: Number(d.id),
+    measurement_type_id: Number(d.measurement_type_id),
+    dimension_number: Number(d.dimension_number),
+    code: String(d.code || ''),
+    name: String(d.name || ''),
+    unit_id: d.unit_id == null ? null : Number(d.unit_id),
+    decimals: Number(d.decimals ?? 0),
+  }));
+  const dimensionCount = Number(typeRes.data.dimension_count ?? dims.length);
+  if (dims.length < dimensionCount) {
+    const existingNumbers = new Set(dims.map(d => d.dimension_number));
+    const fallbackUnitId = typeRes.data.result_unit_id == null ? null : Number(typeRes.data.result_unit_id);
+    const fallbackDecimals = Number(typeRes.data.result_decimals ?? 0);
+    for (let number = 1; number <= dimensionCount; number += 1) {
+      if (!existingNumbers.has(number)) {
+        dims.push({
+          measurement_type_id: Number(measurementTypeId),
+          dimension_number: number,
+          code: `DIMENSION_${number}`,
+          name: `Dimensión ${number}`,
+          unit_id: fallbackUnitId,
+          decimals: fallbackDecimals,
+        });
+      }
+    }
+    dims.sort((a, b) => a.dimension_number - b.dimension_number);
+  }
+  return { measurementType: { ...(typeRes.data as Omit<MeasurementType, 'dimensions'>), dimensions: dims }, dimensions: dims };
+}
+
 export async function upsertMeasurementType(companyId: number, input: MeasurementType): Promise<void> {
   const c = client();
   const dimensions = input.dimensions.slice(0, input.dimension_count).map((d, index) => ({
