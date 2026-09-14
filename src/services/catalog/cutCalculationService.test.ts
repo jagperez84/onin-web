@@ -297,6 +297,18 @@ describe('calculateCuts — generalización por línea de comportamiento', () =>
   });
 });
 
+describe('calculateCuts — confectionable/recortable son de la familia, no de la línea de comportamiento', () => {
+  it('con confectionable=true, genera corte de lona aunque falte la dimensión de alto', () => {
+    const result = calculateCuts(baseInput({ dimensions: { ancho: 3000 }, family: { confectionable: true } }));
+    expect(result.has_canvas_cuts).toBe(true);
+  });
+
+  it('sin confectionable y sin ambas dimensiones, no genera corte de lona', () => {
+    const result = calculateCuts(baseInput({ dimensions: { ancho: 3000 }, family: { confectionable: false } }));
+    expect(result.has_canvas_cuts).toBe(false);
+  });
+});
+
 describe('calculateCuts — resumen de desperdicio', () => {
   it('total_scrap_percentage es 0 cuando no hay cortes de perfil', () => {
     const result = calculateCuts(baseInput({ dimensions: {} }));

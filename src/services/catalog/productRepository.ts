@@ -8,8 +8,7 @@ export type FallbackProfileEstimate = { code:string; name:string; end_deduction_
 export type ProductLineBehavior = {
   id:number; company_id:number; code:string; name:string; description:string|null;
   quantity_enabled:boolean; price_enabled:boolean; discount_enabled:boolean;
-  dimensions_enabled:boolean; configuration_enabled:boolean; cut_calculation_enabled:boolean;
-  length_enabled:boolean; characteristics_enabled:boolean; canvas_cut_enabled:boolean;
+  dimensions_enabled:boolean; configuration_enabled:boolean; characteristics_enabled:boolean;
   // Parámetros de corte de esta línea de comportamiento. Todos opcionales: si son
   // null/undefined, cutCalculationService usa los valores históricos de toldo
   // enrollable (ver sus constantes DEFAULT_*).
@@ -33,15 +32,15 @@ export type Product = {
   id:number; company_id:number; code:string; technical_description:string|null; commercial_description:string|null;
   family_id:number|null; product_type_id:number|null; measurement_type_id?:number|null; base_unit_id:number|null;
   sales_price:number|null; purchase_price:number|null; stock_enabled:boolean; allow_negative_stock:boolean;
-  active:boolean; notes:string|null; cod_arb:string|null; price_increment:number; upc:number; ptc:number; stock_minimum:number;
-  discarded_size:number|null; minimum_remainder:number|null; smooth_cut:boolean; monochrome:boolean; usage_status:string;
+  active:boolean; notes:string|null; price_increment:number; stock_minimum:number;
+  minimum_remainder:number|null; smooth_cut:boolean; usage_status:string;
   iva_percent:number|null; default_supplier_party_id:number|null; include_measurements_in_stock:boolean; include_stock_by_color:boolean;
   scaled:boolean; scaled_by_characteristic:boolean; deleted_at:string|null; deleted_by:string|null;
 };
 export type ProductForm = Omit<Product,'id'|'company_id'>;
 export type ProductListRow = Product & { family:ProductFamilyRef|null; productType:ProductTypeRef|null; unit:ProductCatalogRef|null; supplier:ProductSupplierRef|null; familyBehavior:ProductFamilyBehavior|null };
 export type ProductCharacteristic = {
-  id:number; product_id:number; code:string; description:string|null; upc:number|null; ptc:number|null; pvp:number|null;
+  id:number; product_id:number; code:string; description:string|null; pvp:number|null;
   price_increment:number; stock_minimum:number; active:boolean; scaled:boolean; deleted_at:string|null; deleted_by:string|null;
 };
 
@@ -75,7 +74,7 @@ async function refs(companyId:number){
     c.from('product_type').select('id,code,description').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('unit').select('id,code,name').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('party_role').select('party_id').eq('role_code','SUPPLIER').eq('active',true),
-    c.from('product_line_behavior').select('id,company_id,code,name,description,quantity_enabled,price_enabled,discount_enabled,dimensions_enabled,configuration_enabled,cut_calculation_enabled,length_enabled,characteristics_enabled,canvas_cut_enabled').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
+    c.from('product_line_behavior').select('id,company_id,code,name,description,quantity_enabled,price_enabled,discount_enabled,dimensions_enabled,configuration_enabled,characteristics_enabled').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
   ]);
   for(const r of [f,t,u,s,b]) if(r.error) throw new CoreRepositoryError(r.error.message);
   const supplierIds=((s.data??[]) as {party_id:number}[]).map(x=>x.party_id);
@@ -139,8 +138,8 @@ export async function createProductDraft(companyId:number):Promise<number>{
   const draftCode=`__DRAFT__${Date.now()}_${Math.floor(Math.random()*100000)}`;
   const input:ProductForm={
     code:draftCode,technical_description:'',commercial_description:'',family_id:null,product_type_id:null,base_unit_id:null,
-    sales_price:null,purchase_price:null,stock_enabled:false,allow_negative_stock:false,active:true,notes:'',cod_arb:null,
-    price_increment:0,upc:0,ptc:0,stock_minimum:0,discarded_size:null,minimum_remainder:null,smooth_cut:false,monochrome:false,
+    sales_price:null,purchase_price:null,stock_enabled:false,allow_negative_stock:false,active:true,notes:'',
+    price_increment:0,stock_minimum:0,minimum_remainder:null,smooth_cut:false,
     usage_status:'DRAFT',iva_percent:null,default_supplier_party_id:null,include_measurements_in_stock:false,include_stock_by_color:false,
     scaled:false,scaled_by_characteristic:false,deleted_at:null,deleted_by:null,
   };
@@ -158,7 +157,7 @@ export async function restoreProduct(companyId:number,id:number):Promise<void>{
 }
 
 export async function listProductCharacteristics(productId:number,status:ProductStatus='active'):Promise<ProductCharacteristic[]>{
-  const c=client(); let q=c.from('product_characteristic').select('id,product_id,code,description,upc,ptc,pvp,price_increment,stock_minimum,active,scaled,deleted_at,deleted_by').eq('product_id',productId).order('code');
+  const c=client(); let q=c.from('product_characteristic').select('id,product_id,code,description,pvp,price_increment,stock_minimum,active,scaled,deleted_at,deleted_by').eq('product_id',productId).order('code');
   if(status==='active')q=q.eq('active',true).is('deleted_at',null);
   if(status==='inactive')q=q.eq('active',false).is('deleted_at',null);
   if(status==='deleted')q=q.not('deleted_at','is',null);

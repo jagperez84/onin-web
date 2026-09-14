@@ -49,15 +49,10 @@ const emptyProduct = (): ProductForm => ({
   allow_negative_stock: false,
   active: true,
   notes: "",
-  cod_arb: null,
   price_increment: 0,
-  upc: 0,
-  ptc: 0,
   stock_minimum: 0,
-  discarded_size: null,
   minimum_remainder: null,
   smooth_cut: false,
-  monochrome: false,
   usage_status: "ACTIVE",
   iva_percent: null,
   default_supplier_party_id: null,
@@ -185,9 +180,9 @@ export function ProductV2({
           <button
             className="secondary-button"
             type="button"
-            onClick={() => navigate("/ventas/articulos/catalogos")}
+            onClick={() => navigate("/ventas/articulos/configuracion")}
           >
-            <Package size={16} /> Catálogos
+            <Package size={16} /> Configuración
           </button>
           <button
             className="primary-button"
@@ -765,26 +760,6 @@ function ProductEditor({
                 }
               />
             </label>
-            <label>
-              UPC
-              <input
-                type="number"
-                step="0.01"
-                readOnly={readOnly}
-                value={form.upc ?? 0}
-                onChange={(e) => update("upc", Number(e.target.value))}
-              />
-            </label>
-            <label>
-              PTC
-              <input
-                type="number"
-                step="0.01"
-                readOnly={readOnly}
-                value={form.ptc ?? 0}
-                onChange={(e) => update("ptc", Number(e.target.value))}
-              />
-            </label>
           </div>
         </section>
         <section id="producto-stock" className="panel product-profile-anchor">
@@ -903,17 +878,6 @@ function ProductEditor({
               />
               <span>
                 <strong>Corte liso</strong>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.monochrome}
-                disabled={readOnly}
-                onChange={(e) => update("monochrome", e.target.checked)}
-              />
-              <span>
-                <strong>Monocromo</strong>
               </span>
             </label>
           </div>

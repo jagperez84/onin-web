@@ -48,6 +48,7 @@ import {
   listAttributeColors,
   type AttributeColor,
 } from "../../services/catalog/attributeColorRepository";
+import { QuotationLineBehavior } from "../quotations/QuotationLineBehavior";
 
 const KIND: CatalogKind = "families";
 type Status = "active" | "inactive" | "deleted" | "all";
@@ -74,6 +75,7 @@ function FamilyList() {
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [lineBehaviors, setLineBehaviors] = useState<CatalogRow[]>([]);
+  const [mountingTypes, setMountingTypes] = useState<CatalogRow[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<Status>("active");
   const [loading, setLoading] = useState(true);
@@ -95,12 +97,14 @@ function FamilyList() {
     setLoading(true);
     setError("");
     try {
-      const [families, behaviors] = await Promise.all([
+      const [families, behaviors, mountings] = await Promise.all([
         listCatalog(KIND, companyId, search, status),
         listCatalog("lineBehaviors", companyId),
+        listCatalog("mountingTypes", companyId),
       ]);
       setRows(families);
       setLineBehaviors(behaviors);
+      setMountingTypes(mountings);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo cargar el listado.");
     } finally {
@@ -158,17 +162,18 @@ function FamilyList() {
               <th>Confeccionable</th>
               <th>Recortable</th>
               <th>Comportamiento de línea</th>
+              <th>Tipo de montaje</th>
               <th>Estado</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6}>Cargando…</td>
+                <td colSpan={7}>Cargando…</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="empty-state">
                     <strong>No hay familias</strong>
                     <span>Prueba otra búsqueda o crea una nueva familia.</span>
@@ -179,6 +184,7 @@ function FamilyList() {
               rows.map((r) => {
                 const deleted = !!r.deleted_at;
                 const behavior = lineBehaviors.find((b) => b.id === r.line_behavior_id);
+                const mounting = mountingTypes.find((m) => m.id === r.mounting_type_id);
                 return (
                   <tr key={r.id} className="clickable-row">
                     <td>
@@ -202,6 +208,7 @@ function FamilyList() {
                     <td>{r.confectionable ? "Sí" : "No"}</td>
                     <td>{r.recuttable ? "Sí" : "No"}</td>
                     <td>{behavior ? `${behavior.code} · ${behavior.name}` : "—"}</td>
+                    <td>{mounting ? `${mounting.code} · ${mounting.name}` : "—"}</td>
                     <td>
                       <span className={`status ${deleted ? "inactive" : r.active ? "active" : "inactive"}`}>
                         {deleted ? "Marcada para borrado" : r.active ? "Activa" : "Inactiva"}
@@ -228,6 +235,7 @@ const emptyForm = {
   product_type_id: null as number | null,
   measurement_type_id: null as number | null,
   line_behavior_id: null as number | null,
+  mounting_type_id: null as number | null,
 };
 type FormState = typeof emptyForm;
 
@@ -251,6 +259,7 @@ function FamilyEditor({
   const [productTypes, setProductTypes] = useState<CatalogRow[]>([]);
   const [measurementTypes, setMeasurementTypes] = useState<MeasurementType[]>([]);
   const [lineBehaviors, setLineBehaviors] = useState<CatalogRow[]>([]);
+  const [mountingTypes, setMountingTypes] = useState<CatalogRow[]>([]);
 
   // Características de la familia
   const [assignments, setAssignments] = useState<FamilyAttributeAssignment[]>([]);
@@ -287,14 +296,16 @@ function FamilyEditor({
   async function load() {
     if (!companyId) return;
     setError("");
-    const [types, mTypes, behaviors] = await Promise.all([
+    const [types, mTypes, behaviors, mountings] = await Promise.all([
       listCatalog("types", companyId),
       listMeasurementTypes(companyId),
       listCatalog("lineBehaviors", companyId),
+      listCatalog("mountingTypes", companyId),
     ]);
     setProductTypes(types);
     setMeasurementTypes(mTypes);
     setLineBehaviors(behaviors);
+    setMountingTypes(mountings);
 
     if (familyId === null) {
       setRow(null);
@@ -321,6 +332,7 @@ function FamilyEditor({
         product_type_id: detail.product_type_id ?? null,
         measurement_type_id: detail.measurement_type_id ?? null,
         line_behavior_id: detail.line_behavior_id ?? null,
+        mounting_type_id: detail.mounting_type_id ?? null,
       });
       setAssignments(assigned);
       setAvailable(avail);
@@ -362,6 +374,7 @@ function FamilyEditor({
         product_type_id: form.product_type_id,
         measurement_type_id: form.measurement_type_id,
         line_behavior_id: form.line_behavior_id,
+        mounting_type_id: form.mounting_type_id,
       });
       if (familyId === null && saved?.id) {
         onSaved(saved.id);
@@ -568,6 +581,7 @@ function FamilyEditor({
 
   const readOnly = !editing;
   const deleted = !!row?.deleted_at;
+  const selectedBehavior = lineBehaviors.find((b) => b.id === form.line_behavior_id) ?? null;
 
   if (loading) return <div className="loading-block">Cargando familia…</div>;
 
@@ -675,6 +689,43 @@ function FamilyEditor({
               >
                 <option value="">Sin comportamiento asignado</option>
                 {lineBehaviors.map((x) => (
+                  <option key={x.id} value={x.id}>
+                    {x.code} · {x.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedBehavior && (
+              <div className="wide">
+                <span className="form-help">Capacidades que heredarán los artículos de esta familia:</span>
+                <QuotationLineBehavior
+                  behavior={{
+                    id: selectedBehavior.id,
+                    company_id: selectedBehavior.company_id,
+                    code: selectedBehavior.code,
+                    name: selectedBehavior.name,
+                    description: selectedBehavior.description ?? null,
+                    quantity_enabled: !!selectedBehavior.quantity_enabled,
+                    price_enabled: !!selectedBehavior.price_enabled,
+                    discount_enabled: !!selectedBehavior.discount_enabled,
+                    dimensions_enabled: !!selectedBehavior.dimensions_enabled,
+                    configuration_enabled: !!selectedBehavior.configuration_enabled,
+                    characteristics_enabled: !!selectedBehavior.characteristics_enabled,
+                  }}
+                />
+              </div>
+            )}
+            <label>
+              Tipo de montaje
+              <select
+                value={form.mounting_type_id ?? ""}
+                disabled={readOnly}
+                onChange={(e) =>
+                  setForm({ ...form, mounting_type_id: e.target.value ? Number(e.target.value) : null })
+                }
+              >
+                <option value="">Sin tipo de montaje</option>
+                {mountingTypes.map((x) => (
                   <option key={x.id} value={x.id}>
                     {x.code} · {x.name}
                   </option>

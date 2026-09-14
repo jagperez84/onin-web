@@ -13,10 +13,7 @@ const normalBehavior: ProductLineBehavior = {
   discount_enabled: true,
   dimensions_enabled: false,
   configuration_enabled: false,
-  cut_calculation_enabled: false,
-  length_enabled: false,
   characteristics_enabled: false,
-  canvas_cut_enabled: false,
 };
 
 export function effectiveLineBehavior(
@@ -30,10 +27,7 @@ export function QuotationLineBehavior({ behavior }: Props) {
   const advanced = [
     current.dimensions_enabled && "Dimensiones",
     current.configuration_enabled && "Configuración",
-    current.cut_calculation_enabled && "Cálculo de corte",
-    current.length_enabled && "Longitud",
     current.characteristics_enabled && "Características",
-    current.canvas_cut_enabled && "Corte de lona",
   ].filter(Boolean) as string[];
 
   if (!advanced.length) return null;

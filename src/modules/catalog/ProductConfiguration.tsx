@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Edit3, Plus, RotateCcw, Save, Search, Trash2, Undo2, X } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
@@ -13,13 +13,11 @@ import {
 } from "../../services/catalog/catalogRepository";
 import "./catalog.css";
 
-type GroupKey = "behavior" | "auxiliary";
 type CatalogConfig = {
   key: CatalogKind;
   label: string;
   singular: string;
   description: string;
-  group: GroupKey;
 };
 const CONFIGS: CatalogConfig[] = [
   {
@@ -27,7 +25,6 @@ const CONFIGS: CatalogConfig[] = [
     label: "Tipos de producto",
     singular: "Tipo de producto",
     description: "Clasificación funcional del artículo.",
-    group: "auxiliary",
   },
   {
     key: "lineBehaviors",
@@ -35,21 +32,12 @@ const CONFIGS: CatalogConfig[] = [
     singular: "Comportamiento de línea",
     description:
       "Define qué información y capacidades necesita una línea de presupuesto.",
-    group: "behavior",
-  },
-  {
-    key: "mountingTypes",
-    label: "Tipos de montaje",
-    singular: "Tipo de montaje",
-    description: "Clasificación del montaje asociado al artículo.",
-    group: "behavior",
   },
   {
     key: "units",
     label: "Unidades de medida",
     singular: "Unidad",
     description: "Unidades utilizadas para expresar cantidades y medidas.",
-    group: "auxiliary",
   },
   {
     key: "magnitudes",
@@ -57,27 +45,12 @@ const CONFIGS: CatalogConfig[] = [
     singular: "Magnitud",
     description:
       "Conceptos de medida reutilizables por la configuración dimensional.",
-    group: "auxiliary",
   },
   {
     key: "colors",
     label: "Colores",
     singular: "Color",
     description: "Catálogo auxiliar de colores reutilizable por artículos.",
-    group: "auxiliary",
-  },
-];
-const GROUPS: Array<{ key: GroupKey; label: string; description: string }> = [
-  {
-    key: "behavior",
-    label: "Comportamiento de línea",
-    description:
-      "Reglas que determinan cómo se comporta el artículo en un presupuesto.",
-  },
-  {
-    key: "auxiliary",
-    label: "Maestros auxiliares",
-    description: "Datos reutilizables por artículos y configuraciones.",
   },
 ];
 type FormState = {
@@ -91,10 +64,7 @@ type FormState = {
   discount_enabled: boolean;
   dimensions_enabled: boolean;
   configuration_enabled: boolean;
-  cut_calculation_enabled: boolean;
-  length_enabled: boolean;
   characteristics_enabled: boolean;
-  canvas_cut_enabled: boolean;
   roll_width_m: number | null;
   seam_allowance_width_m: number | null;
   seam_allowance_height_m: number | null;
@@ -112,10 +82,7 @@ const emptyForm: FormState = {
   discount_enabled: true,
   dimensions_enabled: false,
   configuration_enabled: false,
-  cut_calculation_enabled: false,
-  length_enabled: false,
   characteristics_enabled: false,
-  canvas_cut_enabled: false,
   roll_width_m: null,
   seam_allowance_width_m: null,
   seam_allowance_height_m: null,
@@ -128,19 +95,15 @@ const behaviorFields = [
   ["discount_enabled", "Descuento"],
   ["dimensions_enabled", "Dimensiones"],
   ["configuration_enabled", "Configuración"],
-  ["cut_calculation_enabled", "Cálculo de corte"],
-  ["length_enabled", "Longitud"],
   ["characteristics_enabled", "Características"],
-  ["canvas_cut_enabled", "Corte de lona"],
 ] as const;
 type BehaviorKey = (typeof behaviorFields)[number][0];
 const isBehaviorEnabled = (row: CatalogRow, key: BehaviorKey) =>
   row[key] === true;
 
-export function ProductCatalogV1() {
+export function ProductConfiguration() {
   const [companyId, setCompanyId] = useState<number | null>(null);
-  const [kind, setKind] = useState<CatalogKind>("types");
-  const [group, setGroup] = useState<GroupKey>("auxiliary");
+  const [kind, setKind] = useState<CatalogKind>(CONFIGS[0].key);
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [search, setSearch] = useState("");
   const [state, setState] = useState<"active" | "inactive" | "deleted" | "all">(
@@ -153,10 +116,6 @@ export function ProductCatalogV1() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const visibleConfigs = useMemo(
-    () => CONFIGS.filter((c) => c.group === group),
-    [group],
-  );
   const current = CONFIGS.find((c) => c.key === kind) ?? CONFIGS[0];
   const behavior = kind === "lineBehaviors";
 
@@ -192,14 +151,6 @@ export function ProductCatalogV1() {
     }
   }
 
-  function changeGroup(next: GroupKey) {
-    const first = CONFIGS.find((c) => c.group === next)!;
-    setGroup(next);
-    setKind(first.key);
-    setEditing(false);
-    setSearch("");
-  }
-
   function startNew() {
     setForm({ ...emptyForm });
     setUseDefaultEstimates(true);
@@ -220,10 +171,7 @@ export function ProductCatalogV1() {
       discount_enabled: r.discount_enabled !== false,
       dimensions_enabled: !!r.dimensions_enabled,
       configuration_enabled: !!r.configuration_enabled,
-      cut_calculation_enabled: !!r.cut_calculation_enabled,
-      length_enabled: !!r.length_enabled,
       characteristics_enabled: !!r.characteristics_enabled,
-      canvas_cut_enabled: !!r.canvas_cut_enabled,
       roll_width_m: r.roll_width_m ?? null,
       seam_allowance_width_m: r.seam_allowance_width_m ?? null,
       seam_allowance_height_m: r.seam_allowance_height_m ?? null,
@@ -305,7 +253,7 @@ export function ProductCatalogV1() {
       <div className="page-head">
         <div>
           <div className="eyebrow">VENTAS / ARTÍCULOS</div>
-          <h1>Catálogos auxiliares</h1>
+          <h1>Configuración de artículos</h1>
           <p>
             Maestros y reglas de comportamiento reutilizables por artículos y
             líneas de presupuesto. Familias y Características tienen su propia
@@ -320,39 +268,19 @@ export function ProductCatalogV1() {
       {error && <div className="inline-error">{error}</div>}
 
       <div className="catalog-tabs">
-        {GROUPS.map((g) => (
+        {CONFIGS.map((c) => (
           <button
-            key={g.key}
-            className={group === g.key ? "catalog-tab active" : "catalog-tab"}
-            onClick={() => changeGroup(g.key)}
+            key={c.key}
+            className={kind === c.key ? "catalog-tab active" : "catalog-tab"}
+            onClick={() => {
+              setKind(c.key);
+              setEditing(false);
+              setSearch("");
+            }}
           >
-            {g.label}
+            {c.label}
           </button>
         ))}
-      </div>
-
-      <div className="panel" style={{ marginBottom: 16 }}>
-        <div className="panel-head">
-          <div>
-            <h2>{GROUPS.find((g) => g.key === group)?.label}</h2>
-            <p>{GROUPS.find((g) => g.key === group)?.description}</p>
-          </div>
-        </div>
-        <div className="catalog-tabs secondary-tabs">
-          {visibleConfigs.map((c) => (
-            <button
-              key={c.key}
-              className={kind === c.key ? "catalog-tab active" : "catalog-tab"}
-              onClick={() => {
-                setKind(c.key);
-                setEditing(false);
-                setSearch("");
-              }}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       <div className="catalog-toolbar">
@@ -539,7 +467,7 @@ export function ProductCatalogV1() {
                   <div className="wide" style={{ marginTop: "14px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
                     <div className="form-section-title">Parámetros de corte</div>
                     <p className="form-help">
-                      Solo se usan si "Cálculo de corte" está activo. Déjalos en blanco para usar el valor estándar de toldo enrollable.
+                      Se usan si la familia que use esta línea es confeccionable o recortable. Déjalos en blanco para usar el valor estándar de toldo enrollable.
                     </p>
                     <div className="form-grid">
                       <label>
