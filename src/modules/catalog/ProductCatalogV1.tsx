@@ -44,8 +44,17 @@ import {
   updateFamilyAttributeAssignment,
   removeFamilyAttributeAssignment,
   getFamilyAttributesCounts,
+  listFamilyAttributeScales,
+  createFamilyAttributeScale,
+  updateFamilyAttributeScale,
+  markFamilyAttributeScaleForDeletion,
+  listFamilyAttributeColorExclusions,
+  excludeFamilyAttributeColor,
+  includeFamilyAttributeColor,
   type FamilyAttributeAssignment,
   type FamilyAttributeRef,
+  type FamilyAttributeScale,
+  type FamilyAttributeColorExclusion,
 } from "../../services/catalog/familyAttributeRepository";
 import "./catalog.css";
 
@@ -271,6 +280,29 @@ export function ProductCatalogV1() {
     Record<number, number>
   >({});
 
+  // Colores y precio de una característica dentro de la familia (fase 2)
+  const [familyAttrPriceModalFor, setFamilyAttrPriceModalFor] =
+    useState<FamilyAttributeAssignment | null>(null);
+  const [familyAttrColorOptions, setFamilyAttrColorOptions] = useState<
+    AttributeColor[]
+  >([]);
+  const [familyAttrExclusions, setFamilyAttrExclusions] = useState<
+    FamilyAttributeColorExclusion[]
+  >([]);
+  const [familyAttrScaled, setFamilyAttrScaled] = useState(false);
+  const [familyAttrPvp, setFamilyAttrPvp] = useState("");
+  const [familyAttrScales, setFamilyAttrScales] = useState<
+    FamilyAttributeScale[]
+  >([]);
+  const [familyScaleForm, setFamilyScaleForm] = useState<{
+    editing: number | null;
+    dimension_1: string;
+    dimension_2: string;
+    price: string;
+  } | null>(null);
+  const [familyAttrModalBusy, setFamilyAttrModalBusy] = useState(false);
+  const [familyAttrModalError, setFamilyAttrModalError] = useState("");
+
   const visibleConfigs = useMemo(
     () => CONFIGS.filter((c) => c.group === group),
     [group],
@@ -432,6 +464,176 @@ export function ProductCatalogV1() {
       setError(
         e instanceof Error ? e.message : "No se pudo quitar la característica.",
       );
+    }
+  }
+
+  async function openFamilyAttrPriceModal(fa: FamilyAttributeAssignment) {
+    setFamilyAttrPriceModalFor(fa);
+    setFamilyAttrScaled(fa.scaled);
+    setFamilyAttrPvp(fa.pvp == null ? "" : String(fa.pvp));
+    setFamilyScaleForm(null);
+    setFamilyAttrModalError("");
+    try {
+      const [colors, exclusions, scales] = await Promise.all([
+        listAttributeColors(fa.id),
+        listFamilyAttributeColorExclusions(fa.assignment_id),
+        listFamilyAttributeScales(fa.assignment_id),
+      ]);
+      setFamilyAttrColorOptions(colors);
+      setFamilyAttrExclusions(exclusions);
+      setFamilyAttrScales(scales);
+    } catch (e) {
+      setFamilyAttrModalError(
+        e instanceof Error ? e.message : "No se pudo cargar la información.",
+      );
+    }
+  }
+
+  function closeFamilyAttrPriceModal() {
+    setFamilyAttrPriceModalFor(null);
+    setFamilyAttrColorOptions([]);
+    setFamilyAttrExclusions([]);
+    setFamilyAttrScales([]);
+    setFamilyScaleForm(null);
+    setFamilyAttrModalError("");
+  }
+
+  async function toggleFamilyAttrColor(colorId: number) {
+    if (!familyAttrPriceModalFor) return;
+    const existing = familyAttrExclusions.find((x) => x.color_id === colorId);
+    setFamilyAttrModalBusy(true);
+    setFamilyAttrModalError("");
+    try {
+      if (existing) await includeFamilyAttributeColor(existing.id);
+      else await excludeFamilyAttributeColor(familyAttrPriceModalFor.assignment_id, colorId);
+      setFamilyAttrExclusions(
+        await listFamilyAttributeColorExclusions(familyAttrPriceModalFor.assignment_id),
+      );
+    } catch (e) {
+      setFamilyAttrModalError(
+        e instanceof Error ? e.message : "No se pudo actualizar el color.",
+      );
+    } finally {
+      setFamilyAttrModalBusy(false);
+    }
+  }
+
+  async function refreshFamilyAttrRow() {
+    if (familyAttrPriceModalFor?.family_id) {
+      await loadFamilyAttributes(familyAttrPriceModalFor.family_id);
+    }
+  }
+
+  async function toggleFamilyAttrScaled(next: boolean) {
+    if (!familyAttrPriceModalFor) return;
+    setFamilyAttrModalBusy(true);
+    setFamilyAttrModalError("");
+    try {
+      await updateFamilyAttributeAssignment(familyAttrPriceModalFor.assignment_id, {
+        scaled: next,
+      });
+      setFamilyAttrScaled(next);
+      await refreshFamilyAttrRow();
+    } catch (e) {
+      setFamilyAttrModalError(
+        e instanceof Error ? e.message : "No se pudo cambiar el tipo de precio.",
+      );
+    } finally {
+      setFamilyAttrModalBusy(false);
+    }
+  }
+
+  async function saveFamilyAttrPvp() {
+    if (!familyAttrPriceModalFor) return;
+    const value = familyAttrPvp.trim() === "" ? null : Number(familyAttrPvp);
+    if (value != null && (!Number.isFinite(value) || value < 0)) {
+      setFamilyAttrModalError("El precio debe ser un número válido.");
+      return;
+    }
+    setFamilyAttrModalBusy(true);
+    setFamilyAttrModalError("");
+    try {
+      await updateFamilyAttributeAssignment(familyAttrPriceModalFor.assignment_id, {
+        pvp: value,
+      });
+      await refreshFamilyAttrRow();
+    } catch (e) {
+      setFamilyAttrModalError(
+        e instanceof Error ? e.message : "No se pudo guardar el precio.",
+      );
+    } finally {
+      setFamilyAttrModalBusy(false);
+    }
+  }
+
+  function startFamilyScale(row?: FamilyAttributeScale) {
+    setFamilyScaleForm({
+      editing: row?.id ?? 0,
+      dimension_1: row ? String(row.dimension_1) : "",
+      dimension_2: row?.dimension_2 != null ? String(row.dimension_2) : "",
+      price: row ? String(row.price) : "",
+    });
+  }
+
+  async function saveFamilyScale() {
+    if (!familyAttrPriceModalFor || !familyScaleForm) return;
+    const dimension_1 = Number(familyScaleForm.dimension_1);
+    const dimension_2 =
+      familyScaleForm.dimension_2.trim() === "" ? null : Number(familyScaleForm.dimension_2);
+    const price = Number(familyScaleForm.price);
+    if (!Number.isFinite(dimension_1) || dimension_1 < 0) {
+      setFamilyAttrModalError("La dimensión 1 debe ser un número válido.");
+      return;
+    }
+    if (dimension_2 != null && (!Number.isFinite(dimension_2) || dimension_2 < 0)) {
+      setFamilyAttrModalError("La dimensión 2 debe ser un número válido.");
+      return;
+    }
+    setFamilyAttrModalBusy(true);
+    setFamilyAttrModalError("");
+    try {
+      if (familyScaleForm.editing === 0) {
+        await createFamilyAttributeScale(familyAttrPriceModalFor.assignment_id, {
+          dimension_1,
+          dimension_2,
+          price,
+        });
+      } else if (familyScaleForm.editing !== null) {
+        await updateFamilyAttributeScale(familyScaleForm.editing, {
+          dimension_1,
+          dimension_2,
+          price,
+        });
+      }
+      setFamilyAttrScales(
+        await listFamilyAttributeScales(familyAttrPriceModalFor.assignment_id),
+      );
+      setFamilyScaleForm(null);
+    } catch (e) {
+      setFamilyAttrModalError(
+        e instanceof Error ? e.message : "No se pudo guardar el escalado.",
+      );
+    } finally {
+      setFamilyAttrModalBusy(false);
+    }
+  }
+
+  async function removeFamilyScale(id: number) {
+    if (!familyAttrPriceModalFor) return;
+    if (!(await confirmDialog({ title: "¿Eliminar este tramo de escalado?", danger: true })))
+      return;
+    setFamilyAttrModalBusy(true);
+    try {
+      await markFamilyAttributeScaleForDeletion(id);
+      setFamilyAttrScales(
+        await listFamilyAttributeScales(familyAttrPriceModalFor.assignment_id),
+      );
+    } catch (e) {
+      setFamilyAttrModalError(
+        e instanceof Error ? e.message : "No se pudo eliminar el tramo.",
+      );
+    } finally {
+      setFamilyAttrModalBusy(false);
     }
   }
 
@@ -1385,6 +1587,7 @@ export function ProductCatalogV1() {
                                 <th style={{ textAlign: "center" }}>
                                   Obligatorio
                                 </th>
+                                <th>Precio / Colores</th>
                                 <th style={{ width: "40px" }}></th>
                               </tr>
                             </thead>
@@ -1392,7 +1595,7 @@ export function ProductCatalogV1() {
                               {familyAttributes.length === 0 ? (
                                 <tr>
                                   <td
-                                    colSpan={6}
+                                    colSpan={7}
                                     style={{
                                       textAlign: "center",
                                       padding: "14px",
@@ -1441,6 +1644,21 @@ export function ProductCatalogV1() {
                                         title="Haz clic para alternar Obligatorio / Opcional"
                                       >
                                         {fa.required ? "Sí" : "No"}
+                                      </button>
+                                    </td>
+                                    <td>
+                                      <button
+                                        type="button"
+                                        className="secondary-button compact"
+                                        onClick={() => openFamilyAttrPriceModal(fa)}
+                                        title="Gestionar colores y precio de esta característica en la familia"
+                                      >
+                                        <Palette size={13} />
+                                        {fa.scaled
+                                          ? "Escalado"
+                                          : fa.pvp != null
+                                            ? `${fa.pvp.toFixed(2)} €`
+                                            : "Sin precio"}
                                       </button>
                                     </td>
                                     <td>
@@ -1718,6 +1936,237 @@ export function ProductCatalogV1() {
           </aside>
         )}
       </div>
+
+      {familyAttrPriceModalFor && (
+        <div className="modal-backdrop" onClick={closeFamilyAttrPriceModal}>
+          <div className="modal-card lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Colores y precio: {familyAttrPriceModalFor.name}</h3>
+                <p>
+                  Los artículos de esta familia heredarán estos colores y este
+                  precio, pudiendo sobrescribirlos.
+                </p>
+              </div>
+              <button
+                className="close-btn"
+                onClick={closeFamilyAttrPriceModal}
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {familyAttrModalError && (
+                <div className="inline-error">{familyAttrModalError}</div>
+              )}
+
+              <div className="form-section-title">Colores</div>
+              {familyAttrColorOptions.length === 0 ? (
+                <p className="form-help">
+                  Esta característica no tiene colores asociados a nivel de
+                  sistema (Configuración de artículos → Características).
+                </p>
+              ) : (
+                <>
+                  <div className="check-grid">
+                    {familyAttrColorOptions.map((ac) => {
+                      const excluded = familyAttrExclusions.some(
+                        (x) => x.color_id === ac.color_id,
+                      );
+                      return (
+                        <label key={ac.id} className="inline-check">
+                          <input
+                            type="checkbox"
+                            checked={!excluded}
+                            disabled={familyAttrModalBusy}
+                            onChange={() => toggleFamilyAttrColor(ac.color_id)}
+                          />
+                          <span>
+                            {ac.color?.code} · {ac.color?.name}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="form-help">
+                    Desmarca los colores que no apliquen a esta familia.
+                  </p>
+                </>
+              )}
+
+              <div className="form-section-title" style={{ marginTop: "18px" }}>
+                Precio
+              </div>
+              <label className="inline-check">
+                <input
+                  type="checkbox"
+                  checked={familyAttrScaled}
+                  disabled={familyAttrModalBusy}
+                  onChange={(e) => toggleFamilyAttrScaled(e.target.checked)}
+                />
+                <span>Escalado por cantidad</span>
+              </label>
+
+              {!familyAttrScaled ? (
+                <div className="form-grid" style={{ marginTop: "10px" }}>
+                  <label className="wide">
+                    PVP
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={familyAttrPvp}
+                        onChange={(e) => setFamilyAttrPvp(e.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        disabled={familyAttrModalBusy}
+                        onClick={saveFamilyAttrPvp}
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  </label>
+                </div>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      margin: "10px 0",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="secondary-button compact"
+                      onClick={() => startFamilyScale()}
+                    >
+                      <Plus size={13} /> Añadir tramo
+                    </button>
+                  </div>
+                  {familyScaleForm && (
+                    <div className="form-grid" style={{ marginBottom: "10px" }}>
+                      <label>
+                        Dimensión 1
+                        <input
+                          type="number"
+                          value={familyScaleForm.dimension_1}
+                          onChange={(e) =>
+                            setFamilyScaleForm({
+                              ...familyScaleForm,
+                              dimension_1: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Dimensión 2 (opcional)
+                        <input
+                          type="number"
+                          value={familyScaleForm.dimension_2}
+                          onChange={(e) =>
+                            setFamilyScaleForm({
+                              ...familyScaleForm,
+                              dimension_2: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Precio
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={familyScaleForm.price}
+                          onChange={(e) =>
+                            setFamilyScaleForm({
+                              ...familyScaleForm,
+                              price: e.target.value,
+                            })
+                          }
+                        />
+                      </label>
+                      <div className="actions wide">
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => setFamilyScaleForm(null)}
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          className="primary-button"
+                          disabled={familyAttrModalBusy}
+                          onClick={saveFamilyScale}
+                        >
+                          <Save size={14} /> Guardar tramo
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="table-panel">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Dim. 1</th>
+                          <th>Dim. 2</th>
+                          <th>Precio</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {familyAttrScales.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="empty">
+                              Sin tramos definidos.
+                            </td>
+                          </tr>
+                        ) : (
+                          familyAttrScales.map((s) => (
+                            <tr key={s.id}>
+                              <td>{s.dimension_1}</td>
+                              <td>{s.dimension_2 ?? "—"}</td>
+                              <td>{s.price.toFixed(2)} €</td>
+                              <td>
+                                <div className="item-actions">
+                                  <button
+                                    className="icon-action"
+                                    title="Editar"
+                                    onClick={() => startFamilyScale(s)}
+                                  >
+                                    <Edit3 size={14} />
+                                  </button>
+                                  <button
+                                    className="icon-action danger"
+                                    title="Eliminar"
+                                    onClick={() => removeFamilyScale(s.id)}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-actions-footer">
+              <button className="secondary-button" onClick={closeFamilyAttrPriceModal}>
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
