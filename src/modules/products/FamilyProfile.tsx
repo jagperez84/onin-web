@@ -577,6 +577,8 @@ function FamilyEditor({
     const u = units.find((x) => x.id === unitId);
     return u ? `${u.code} · ${u.name}` : "Sin unidad";
   };
+  const scaleDim1 = selectedMeasurementType?.dimensions.find((d) => d.dimension_number === 1) ?? null;
+  const scaleDim2 = selectedMeasurementType?.dimensions.find((d) => d.dimension_number === 2) ?? null;
 
   if (loading) return <div className="loading-block">Cargando familia…</div>;
 
@@ -998,21 +1000,23 @@ function FamilyEditor({
                                     {expScaleForm && (
                                       <div className="form-grid" style={{ marginBottom: "10px" }}>
                                         <label>
-                                          Dimensión 1
+                                          {scaleDim1?.name || "Dimensión 1"}
                                           <input
                                             type="number"
                                             value={expScaleForm.dimension_1}
                                             onChange={(e) => setExpScaleForm({ ...expScaleForm, dimension_1: e.target.value })}
                                           />
                                         </label>
-                                        <label>
-                                          Dimensión 2 (opcional)
-                                          <input
-                                            type="number"
-                                            value={expScaleForm.dimension_2}
-                                            onChange={(e) => setExpScaleForm({ ...expScaleForm, dimension_2: e.target.value })}
-                                          />
-                                        </label>
+                                        {scaleDim2 && (
+                                          <label>
+                                            {scaleDim2.name}
+                                            <input
+                                              type="number"
+                                              value={expScaleForm.dimension_2}
+                                              onChange={(e) => setExpScaleForm({ ...expScaleForm, dimension_2: e.target.value })}
+                                            />
+                                          </label>
+                                        )}
                                         <label>
                                           Precio
                                           <input
@@ -1036,8 +1040,8 @@ function FamilyEditor({
                                       <table>
                                         <thead>
                                           <tr>
-                                            <th>Dim. 1</th>
-                                            <th>Dim. 2</th>
+                                            <th>{scaleDim1?.name || "Dim. 1"}</th>
+                                            {scaleDim2 && <th>{scaleDim2.name}</th>}
                                             <th>Precio</th>
                                             <th></th>
                                           </tr>
@@ -1045,7 +1049,7 @@ function FamilyEditor({
                                         <tbody>
                                           {expScales.length === 0 ? (
                                             <tr>
-                                              <td colSpan={4} className="empty">
+                                              <td colSpan={scaleDim2 ? 4 : 3} className="empty">
                                                 Sin tramos definidos.
                                               </td>
                                             </tr>
@@ -1053,7 +1057,7 @@ function FamilyEditor({
                                             expScales.map((s) => (
                                               <tr key={s.id}>
                                                 <td>{s.dimension_1}</td>
-                                                <td>{s.dimension_2 ?? "—"}</td>
+                                                {scaleDim2 && <td>{s.dimension_2 ?? "—"}</td>}
                                                 <td>{s.price.toFixed(2)} €</td>
                                                 <td>
                                                   <div className="item-actions">

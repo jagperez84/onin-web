@@ -26,6 +26,7 @@ import {
   listAttributeColors,
   type AttributeColor,
 } from "../../services/catalog/attributeColorRepository";
+import { getProductLineDefinition } from "../../services/catalog/productDefinitionRepository";
 
 type Props = {
   productId: number;
@@ -41,6 +42,7 @@ export function ProductFamilyCharacteristicsPanel({
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [rows, setRows] = useState<ProductCharacteristicConfiguration[]>([]);
   const [available, setAvailable] = useState<ProductAttributeRef[]>([]);
+  const [dimensions, setDimensions] = useState<{ dimension_number: number; code: string; name: string }[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [required, setRequired] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -85,12 +87,14 @@ export function ProductFamilyCharacteristicsPanel({
   }, [readOnly]);
   async function load(cid = companyId!) {
     try {
-      const [effective, availableAttributes] = await Promise.all([
+      const [effective, availableAttributes, definition] = await Promise.all([
         listProductCharacteristicConfiguration(productId),
         listAvailableProductAttributes(cid, productId),
+        getProductLineDefinition(productId),
       ]);
       setRows(effective);
       setAvailable(availableAttributes);
+      setDimensions(definition.dimensions);
     } catch (e) {
       onError(
         e instanceof Error
@@ -340,6 +344,9 @@ export function ProductFamilyCharacteristicsPanel({
       setModalBusy(false);
     }
   }
+
+  const scaleDim1 = dimensions.find((d) => d.dimension_number === 1) ?? null;
+  const scaleDim2 = dimensions.find((d) => d.dimension_number === 2) ?? null;
 
   return (
     <section
@@ -608,7 +615,7 @@ export function ProductFamilyCharacteristicsPanel({
                   {modalScaleForm && (
                     <div className="form-grid" style={{ marginBottom: "10px" }}>
                       <label>
-                        Dimensión 1
+                        {scaleDim1?.name || "Dimensión 1"}
                         <input
                           type="number"
                           value={modalScaleForm.dimension_1}
@@ -617,16 +624,18 @@ export function ProductFamilyCharacteristicsPanel({
                           }
                         />
                       </label>
-                      <label>
-                        Dimensión 2 (opcional)
-                        <input
-                          type="number"
-                          value={modalScaleForm.dimension_2}
-                          onChange={(e) =>
-                            setModalScaleForm({ ...modalScaleForm, dimension_2: e.target.value })
-                          }
-                        />
-                      </label>
+                      {scaleDim2 && (
+                        <label>
+                          {scaleDim2.name}
+                          <input
+                            type="number"
+                            value={modalScaleForm.dimension_2}
+                            onChange={(e) =>
+                              setModalScaleForm({ ...modalScaleForm, dimension_2: e.target.value })
+                            }
+                          />
+                        </label>
+                      )}
                       <label>
                         Precio
                         <input
@@ -661,8 +670,8 @@ export function ProductFamilyCharacteristicsPanel({
                     <table>
                       <thead>
                         <tr>
-                          <th>Dim. 1</th>
-                          <th>Dim. 2</th>
+                          <th>{scaleDim1?.name || "Dim. 1"}</th>
+                          {scaleDim2 && <th>{scaleDim2.name}</th>}
                           <th>Precio</th>
                           <th></th>
                         </tr>
@@ -670,7 +679,7 @@ export function ProductFamilyCharacteristicsPanel({
                       <tbody>
                         {modalScales.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="empty">
+                            <td colSpan={scaleDim2 ? 4 : 3} className="empty">
                               Sin tramos definidos.
                             </td>
                           </tr>
@@ -678,7 +687,7 @@ export function ProductFamilyCharacteristicsPanel({
                           modalScales.map((s) => (
                             <tr key={s.id}>
                               <td>{s.dimension_1}</td>
-                              <td>{s.dimension_2 ?? "—"}</td>
+                              {scaleDim2 && <td>{s.dimension_2 ?? "—"}</td>}
                               <td>{s.price.toFixed(2)} €</td>
                               <td>
                                 <div className="item-actions">
