@@ -710,10 +710,7 @@ function FamilyEditor({
                     discount_enabled: !!selectedBehavior.discount_enabled,
                     dimensions_enabled: !!selectedBehavior.dimensions_enabled,
                     configuration_enabled: !!selectedBehavior.configuration_enabled,
-                    cut_calculation_enabled: !!selectedBehavior.cut_calculation_enabled,
-                    length_enabled: !!selectedBehavior.length_enabled,
                     characteristics_enabled: !!selectedBehavior.characteristics_enabled,
-                    canvas_cut_enabled: !!selectedBehavior.canvas_cut_enabled,
                   }}
                 />
               </div>

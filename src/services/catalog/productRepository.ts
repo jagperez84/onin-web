@@ -8,8 +8,7 @@ export type FallbackProfileEstimate = { code:string; name:string; end_deduction_
 export type ProductLineBehavior = {
   id:number; company_id:number; code:string; name:string; description:string|null;
   quantity_enabled:boolean; price_enabled:boolean; discount_enabled:boolean;
-  dimensions_enabled:boolean; configuration_enabled:boolean; cut_calculation_enabled:boolean;
-  length_enabled:boolean; characteristics_enabled:boolean; canvas_cut_enabled:boolean;
+  dimensions_enabled:boolean; configuration_enabled:boolean; characteristics_enabled:boolean;
   // Parámetros de corte de esta línea de comportamiento. Todos opcionales: si son
   // null/undefined, cutCalculationService usa los valores históricos de toldo
   // enrollable (ver sus constantes DEFAULT_*).
@@ -75,7 +74,7 @@ async function refs(companyId:number){
     c.from('product_type').select('id,code,description').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('unit').select('id,code,name').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
     c.from('party_role').select('party_id').eq('role_code','SUPPLIER').eq('active',true),
-    c.from('product_line_behavior').select('id,company_id,code,name,description,quantity_enabled,price_enabled,discount_enabled,dimensions_enabled,configuration_enabled,cut_calculation_enabled,length_enabled,characteristics_enabled,canvas_cut_enabled').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
+    c.from('product_line_behavior').select('id,company_id,code,name,description,quantity_enabled,price_enabled,discount_enabled,dimensions_enabled,configuration_enabled,characteristics_enabled').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('code'),
   ]);
   for(const r of [f,t,u,s,b]) if(r.error) throw new CoreRepositoryError(r.error.message);
   const supplierIds=((s.data??[]) as {party_id:number}[]).map(x=>x.party_id);

@@ -91,10 +91,7 @@ type FormState = {
   discount_enabled: boolean;
   dimensions_enabled: boolean;
   configuration_enabled: boolean;
-  cut_calculation_enabled: boolean;
-  length_enabled: boolean;
   characteristics_enabled: boolean;
-  canvas_cut_enabled: boolean;
   roll_width_m: number | null;
   seam_allowance_width_m: number | null;
   seam_allowance_height_m: number | null;
@@ -112,10 +109,7 @@ const emptyForm: FormState = {
   discount_enabled: true,
   dimensions_enabled: false,
   configuration_enabled: false,
-  cut_calculation_enabled: false,
-  length_enabled: false,
   characteristics_enabled: false,
-  canvas_cut_enabled: false,
   roll_width_m: null,
   seam_allowance_width_m: null,
   seam_allowance_height_m: null,
@@ -128,10 +122,7 @@ const behaviorFields = [
   ["discount_enabled", "Descuento"],
   ["dimensions_enabled", "Dimensiones"],
   ["configuration_enabled", "Configuración"],
-  ["cut_calculation_enabled", "Cálculo de corte"],
-  ["length_enabled", "Longitud"],
   ["characteristics_enabled", "Características"],
-  ["canvas_cut_enabled", "Corte de lona"],
 ] as const;
 type BehaviorKey = (typeof behaviorFields)[number][0];
 const isBehaviorEnabled = (row: CatalogRow, key: BehaviorKey) =>
@@ -220,10 +211,7 @@ export function ProductCatalogV1() {
       discount_enabled: r.discount_enabled !== false,
       dimensions_enabled: !!r.dimensions_enabled,
       configuration_enabled: !!r.configuration_enabled,
-      cut_calculation_enabled: !!r.cut_calculation_enabled,
-      length_enabled: !!r.length_enabled,
       characteristics_enabled: !!r.characteristics_enabled,
-      canvas_cut_enabled: !!r.canvas_cut_enabled,
       roll_width_m: r.roll_width_m ?? null,
       seam_allowance_width_m: r.seam_allowance_width_m ?? null,
       seam_allowance_height_m: r.seam_allowance_height_m ?? null,

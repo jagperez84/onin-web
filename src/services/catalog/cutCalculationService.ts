@@ -97,9 +97,6 @@ export type CutCalculationInput = {
   dimensions: Record<string, number | null>;
   quantity: number;
   lineBehavior?: {
-    cut_calculation_enabled?: boolean;
-    canvas_cut_enabled?: boolean;
-    length_enabled?: boolean;
     roll_width_m?: number | null;
     seam_allowance_width_m?: number | null;
     seam_allowance_height_m?: number | null;
@@ -151,14 +148,15 @@ export function calculateCuts(input: CutCalculationInput): CutCalculationResult 
   const canvasCuts: CanvasCutPiece[] = [];
   const profileCuts: ProfileCutItem[] = [];
 
+  // Confeccionable/recortable son de la familia únicamente — antes el comportamiento de
+  // línea tenía sus propios canvas_cut_enabled/cut_calculation_enabled/length_enabled que
+  // activaban lo mismo en paralelo (dos interruptores para un mismo resultado, sin que
+  // ninguno mandara sobre el otro). Se retiraron: la familia es la única fuente.
   const shouldCalculateCanvas =
-    Boolean(lineBehavior?.canvas_cut_enabled) ||
     Boolean(family?.confectionable) ||
     widthMeters > 0 && heightMeters > 0;
 
   const shouldCalculateProfiles =
-    Boolean(lineBehavior?.cut_calculation_enabled) ||
-    Boolean(lineBehavior?.length_enabled) ||
     Boolean(family?.recuttable) ||
     widthMeters > 0;
 
