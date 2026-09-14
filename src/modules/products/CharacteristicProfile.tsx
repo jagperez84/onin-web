@@ -18,12 +18,7 @@ import {
   upsertCatalog,
   markCatalogForDeletion,
   restoreCatalog,
-  listAttributeValues,
-  upsertAttributeValue,
-  markAttributeValueForDeletion,
-  restoreAttributeValue,
   type CatalogRow,
-  type AttributeValue,
   type CatalogKind,
 } from "../../services/catalog/catalogRepository";
 import {
@@ -143,18 +138,17 @@ function CharacteristicList() {
             <tr>
               <th>Código</th>
               <th>Nombre</th>
-              <th>Tipo</th>
               <th>Estado</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={4}>Cargando…</td>
+                <td colSpan={3}>Cargando…</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={4}>
+                <td colSpan={3}>
                   <div className="empty-state">
                     <strong>No hay características</strong>
                     <span>Prueba otra búsqueda o crea una nueva característica.</span>
@@ -184,7 +178,6 @@ function CharacteristicList() {
                         {r.name}
                       </button>
                     </td>
-                    <td>{r.data_type ?? "TEXT"}</td>
                     <td>
                       <span className={`status ${deleted ? "inactive" : r.active ? "active" : "inactive"}`}>
                         {deleted ? "Marcada para borrado" : r.active ? "Activa" : "Inactiva"}
@@ -201,7 +194,7 @@ function CharacteristicList() {
   );
 }
 
-const emptyForm = { code: "", name: "", data_type: "TEXT", active: true };
+const emptyForm = { code: "", name: "", active: true };
 type FormState = typeof emptyForm;
 
 function CharacteristicEditor({
@@ -221,10 +214,6 @@ function CharacteristicEditor({
   const [loading, setLoading] = useState(characteristicId !== null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  // Valores (solo si Tipo de dato = Opción)
-  const [values, setValues] = useState<AttributeValue[]>([]);
-  const [valueForm, setValueForm] = useState({ code: "", name: "", sort_order: 0 });
 
   // Colores
   const [colors, setColors] = useState<AttributeColor[]>([]);
@@ -253,9 +242,8 @@ function CharacteristicEditor({
     }
     setLoading(true);
     try {
-      const [detail, vals, cols, allColors] = await Promise.all([
+      const [detail, cols, allColors] = await Promise.all([
         getCatalogRow(KIND, characteristicId),
-        listAttributeValues(characteristicId, "all"),
         listAttributeColors(characteristicId),
         listCatalog("colors", companyId),
       ]);
@@ -264,10 +252,8 @@ function CharacteristicEditor({
       setForm({
         code: detail.code,
         name: detail.name,
-        data_type: detail.data_type ?? "TEXT",
         active: detail.active,
       });
-      setValues(vals);
       setColors(cols);
       setCompanyColors(allColors);
     } catch (e) {
@@ -292,7 +278,6 @@ function CharacteristicEditor({
         code: form.code.trim(),
         name: form.name.trim(),
         active: form.active,
-        data_type: form.data_type,
       });
       if (characteristicId === null && saved?.id) {
         onSaved(saved.id);
@@ -332,44 +317,6 @@ function CharacteristicEditor({
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo recuperar la característica.");
-    }
-  }
-
-  async function saveValue() {
-    if (characteristicId === null) return;
-    if (!valueForm.code.trim() || !valueForm.name.trim()) {
-      setError("Código y nombre del valor son obligatorios.");
-      return;
-    }
-    setSaving(true);
-    setError("");
-    try {
-      await upsertAttributeValue({ ...valueForm, attribute_id: characteristicId, active: true });
-      setValueForm({ code: "", name: "", sort_order: 0 });
-      setValues(await listAttributeValues(characteristicId, "all"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo guardar el valor.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function removeValue(id: number) {
-    if (!(await confirmDialog({ title: "¿Marcar este valor para borrado?", danger: true }))) return;
-    try {
-      await markAttributeValueForDeletion(id);
-      if (characteristicId !== null) setValues(await listAttributeValues(characteristicId, "all"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo marcar para borrado.");
-    }
-  }
-
-  async function restoreValue(id: number) {
-    try {
-      await restoreAttributeValue(id);
-      if (characteristicId !== null) setValues(await listAttributeValues(characteristicId, "all"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo recuperar el valor.");
     }
   }
 
@@ -470,7 +417,7 @@ function CharacteristicEditor({
           <div className="panel-head">
             <div>
               <h2>Datos generales</h2>
-              <p>Identificación y tipo de dato de la característica.</p>
+              <p>Identificación de la característica.</p>
             </div>
             {row && (
               <span className={`status ${deleted ? "inactive" : row.active ? "active" : "inactive"}`}>
@@ -494,19 +441,6 @@ function CharacteristicEditor({
                 readOnly={readOnly}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
-            </label>
-            <label>
-              Tipo de dato
-              <select
-                value={form.data_type}
-                disabled={readOnly}
-                onChange={(e) => setForm({ ...form, data_type: e.target.value })}
-              >
-                <option value="TEXT">Texto</option>
-                <option value="NUMBER">Número</option>
-                <option value="BOOLEAN">Booleano</option>
-                <option value="OPTION">Opción</option>
-              </select>
             </label>
             <label>
               Estado
@@ -543,185 +477,83 @@ function CharacteristicEditor({
 
         {characteristicId === null ? (
           <div className="soft-delete-banner">
-            Guarda la característica para poder gestionar sus valores y colores.
+            Guarda la característica para poder gestionar sus colores.
           </div>
         ) : (
-          <>
-            {form.data_type === "OPTION" && (
-              <section className="panel product-profile-anchor">
-                <div className="panel-head">
-                  <div>
-                    <h2>Valores</h2>
-                    <p>Opciones seleccionables de esta característica.</p>
-                  </div>
-                  <span className="result-count">{values.length} valores</span>
-                </div>
-                <div className="form-grid">
-                  <label>
-                    Código
-                    <input
-                      value={valueForm.code}
-                      onChange={(e) => setValueForm({ ...valueForm, code: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Nombre
-                    <input
-                      value={valueForm.name}
-                      onChange={(e) => setValueForm({ ...valueForm, name: e.target.value })}
-                    />
-                  </label>
-                  <label>
-                    Orden
-                    <input
-                      type="number"
-                      value={valueForm.sort_order}
-                      onChange={(e) =>
-                        setValueForm({ ...valueForm, sort_order: Number(e.target.value) })
-                      }
-                    />
-                  </label>
-                  <div className="actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={saving}
-                      onClick={saveValue}
-                    >
-                      <Plus size={15} /> Añadir valor
-                    </button>
-                  </div>
-                </div>
-                <div className="table-panel">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Nombre</th>
-                        <th>Estado</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {values.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="empty">
-                            Sin valores definidos.
-                          </td>
-                        </tr>
-                      ) : (
-                        values.map((v) => (
-                          <tr key={v.id}>
-                            <td>{v.code}</td>
-                            <td>{v.name}</td>
-                            <td>
-                              {v.deleted_at ? "Marcado para borrado" : v.active ? "Activo" : "Inactivo"}
-                            </td>
-                            <td>
-                              <div className="item-actions">
-                                {v.deleted_at ? (
-                                  <button
-                                    className="icon-action"
-                                    onClick={() => restoreValue(v.id)}
-                                    title="Recuperar"
-                                  >
-                                    <Undo2 size={15} />
-                                  </button>
-                                ) : (
-                                  <button
-                                    className="icon-action danger"
-                                    onClick={() => removeValue(v.id)}
-                                    title="Marcar para borrado"
-                                  >
-                                    <Trash2 size={15} />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
-
-            <section className="panel product-profile-anchor">
-              <div className="panel-head">
-                <div>
-                  <h2>Colores</h2>
-                  <p>
-                    Familia y artículo heredarán este conjunto de colores, pudiendo
-                    excluir los que no apliquen en cada caso.
-                  </p>
-                </div>
-                <span className="result-count">{colors.length} colores</span>
+          <section className="panel product-profile-anchor">
+            <div className="panel-head">
+              <div>
+                <h2>Colores</h2>
+                <p>
+                  Familia y artículo heredarán este conjunto de colores, pudiendo
+                  excluir los que no apliquen en cada caso.
+                </p>
               </div>
-              <div className="form-grid">
-                <label className="wide">
-                  Añadir color
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <select value={colorToAddId} onChange={(e) => setColorToAddId(e.target.value)}>
-                      <option value="">Selecciona un color…</option>
-                      {availableColorsToAdd.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.code} · {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={!colorToAddId || colorBusy}
-                      onClick={addColor}
-                    >
-                      <Plus size={15} /> Añadir
-                    </button>
-                  </div>
-                </label>
-              </div>
-              <div className="table-panel">
-                <table>
-                  <thead>
+              <span className="result-count">{colors.length} colores</span>
+            </div>
+            <div className="form-grid">
+              <label className="wide">
+                Añadir color
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <select value={colorToAddId} onChange={(e) => setColorToAddId(e.target.value)}>
+                    <option value="">Selecciona un color…</option>
+                    {availableColorsToAdd.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.code} · {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={!colorToAddId || colorBusy}
+                    onClick={addColor}
+                  >
+                    <Plus size={15} /> Añadir
+                  </button>
+                </div>
+              </label>
+            </div>
+            <div className="table-panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {colors.length === 0 ? (
                     <tr>
-                      <th>Código</th>
-                      <th>Nombre</th>
-                      <th></th>
+                      <td colSpan={3} className="empty">
+                        Sin colores asociados a esta característica.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {colors.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="empty">
-                          Sin colores asociados a esta característica.
+                  ) : (
+                    colors.map((ac) => (
+                      <tr key={ac.id}>
+                        <td>{ac.color?.code ?? "—"}</td>
+                        <td>{ac.color?.name ?? "—"}</td>
+                        <td>
+                          <div className="item-actions">
+                            <button
+                              className="icon-action danger"
+                              title="Quitar"
+                              disabled={colorBusy}
+                              onClick={() => removeColor(ac)}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    ) : (
-                      colors.map((ac) => (
-                        <tr key={ac.id}>
-                          <td>{ac.color?.code ?? "—"}</td>
-                          <td>{ac.color?.name ?? "—"}</td>
-                          <td>
-                            <div className="item-actions">
-                              <button
-                                className="icon-action danger"
-                                title="Quitar"
-                                disabled={colorBusy}
-                                onClick={() => removeColor(ac)}
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
       </form>
     </div>

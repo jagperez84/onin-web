@@ -143,7 +143,7 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
         id, line_no, description, quantity, unit_price, discount_percent, tax_percent,
         net_amount, tax_amount, total_amount, specific_data,
         dimensions:quotation_line_dimension(code, name, value, unit_id, sort_order),
-        characteristics:quotation_line_characteristic(attribute_id, attribute_value_id, value_text, value_number, value_boolean),
+        characteristics:quotation_line_characteristic(attribute_id, attribute_value_id, value_text, value_number, value_boolean, color_id),
         product:product_id(
           id, code, commercial_description, technical_description, sales_price
         )
@@ -259,11 +259,13 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
   const { data: unitsData } = await c.from('unit').select('id, code, name');
   const unitMap = new Map<number, string>((unitsData || []).map((u: any) => [Number(u.id), u.code || u.name]));
 
-  // Fetch attribute and attribute value names for characteristics
+  // Fetch attribute, attribute value (histórico) and color names for characteristics
   const { data: attrData } = await c.from('product_attribute').select('id, name');
   const { data: attrValData } = await c.from('product_attribute_value').select('id, name');
+  const { data: colorData } = await c.from('color').select('id, name');
   const attrMap = new Map<number, string>((attrData || []).map((a: any) => [Number(a.id), a.name]));
   const attrValMap = new Map<number, string>((attrValData || []).map((av: any) => [Number(av.id), av.name]));
+  const colorMap = new Map<number, string>((colorData || []).map((cl: any) => [Number(cl.id), cl.name]));
 
   // 6. Process Lines
   const rawLines = (q.lines || []) as any[];
@@ -326,7 +328,9 @@ export async function fetchQuotationPdfData(quotationId: number): Promise<Quotat
     for (const ch of charRows) {
       const attrName = ch.attribute_id ? attrMap.get(Number(ch.attribute_id)) : null;
       let valStr: string | null = null;
-      if (ch.attribute_value_id && attrValMap.has(Number(ch.attribute_value_id))) {
+      if (ch.color_id && colorMap.has(Number(ch.color_id))) {
+        valStr = colorMap.get(Number(ch.color_id))!;
+      } else if (ch.attribute_value_id && attrValMap.has(Number(ch.attribute_value_id))) {
         valStr = attrValMap.get(Number(ch.attribute_value_id))!;
       } else if (ch.value_text) {
         valStr = ch.value_text;

@@ -836,7 +836,7 @@ function FamilyEditor({
                   <option value="">Seleccionar característica…</option>
                   {available.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.code} · {a.name} ({a.data_type})
+                      {a.code} · {a.name}
                     </option>
                   ))}
                 </select>
@@ -865,7 +865,6 @@ function FamilyEditor({
                   <tr>
                     <th>Código</th>
                     <th>Característica</th>
-                    <th>Tipo</th>
                     <th>Obligatoria</th>
                     <th>Precio / Colores</th>
                     <th></th>
@@ -874,7 +873,7 @@ function FamilyEditor({
                 <tbody>
                   {assignments.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="empty">
+                      <td colSpan={5} className="empty">
                         No hay características asignadas a esta familia.
                       </td>
                     </tr>
@@ -884,7 +883,6 @@ function FamilyEditor({
                         <tr>
                           <td>{fa.code}</td>
                           <td>{fa.name}</td>
-                          <td>{fa.data_type}</td>
                           <td>
                             <button
                               type="button"
@@ -920,7 +918,7 @@ function FamilyEditor({
                         </tr>
                         {expandedId === fa.assignment_id && (
                           <tr key={`${fa.assignment_id}-expanded`}>
-                            <td colSpan={6}>
+                            <td colSpan={5}>
                               <div className="characteristic-inline-editor">
                                 <div className="form-section-title">Colores</div>
                                 {expColorOptions.length === 0 ? (

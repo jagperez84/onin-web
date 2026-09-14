@@ -5,7 +5,6 @@ export type FamilyAttributeRef = {
   id: number;
   code: string;
   name: string;
-  data_type: string;
 };
 
 export type FamilyAttributeAssignment = FamilyAttributeRef & {
@@ -43,7 +42,7 @@ export async function listFamilyAttributeAssignments(familyId: number): Promise<
   const c = client();
   const { data, error } = await c
     .from('product_family_attribute')
-    .select('id,family_id,attribute_id,required,sort_order,active,deleted_at,scaled,pvp,product_attribute!inner(id,code,name,data_type)')
+    .select('id,family_id,attribute_id,required,sort_order,active,deleted_at,scaled,pvp,product_attribute!inner(id,code,name)')
     .eq('family_id', familyId)
     .is('deleted_at', null)
     .order('sort_order')
@@ -62,7 +61,6 @@ export async function listFamilyAttributeAssignments(familyId: number): Promise<
     id: r.product_attribute.id,
     code: r.product_attribute.code,
     name: r.product_attribute.name,
-    data_type: r.product_attribute.data_type,
     required: !!r.required,
     sort_order: r.sort_order ?? 0,
     active: !!r.active,
@@ -75,7 +73,7 @@ export async function listFamilyAttributeAssignments(familyId: number): Promise<
 export async function listAvailableFamilyAttributes(companyId: number, familyId: number): Promise<FamilyAttributeRef[]> {
   const c = client();
   const [attrs, assigned] = await Promise.all([
-    c.from('product_attribute').select('id,code,name,data_type').eq('company_id', companyId).eq('active', true).is('deleted_at', null).order('code'),
+    c.from('product_attribute').select('id,code,name').eq('company_id', companyId).eq('active', true).is('deleted_at', null).order('code'),
     c.from('product_family_attribute').select('attribute_id').eq('family_id', familyId).is('deleted_at', null),
   ]);
 

@@ -220,10 +220,11 @@ export function QuotationLineConfigurator({
           const initAttrs: QuotationLineCharacteristicDraft[] =
             config.attributes.map((a) => ({
               attribute_id: a.attribute_id,
-              attribute_value_id: a.values[0]?.id ?? null,
+              attribute_value_id: null,
               value_text: null,
               value_number: null,
               value_boolean: null,
+              color_id: a.colors[0]?.color_id ?? null,
             }));
           setAttributeDrafts(initAttrs);
 
@@ -242,10 +243,11 @@ export function QuotationLineConfigurator({
             initialSnapshot.selected_attributes || []
           ).map((a) => ({
             attribute_id: a.attribute_id,
-            attribute_value_id: a.value_id,
+            attribute_value_id: null,
             value_text: a.value_text ?? null,
             value_number: a.value_number ?? null,
             value_boolean: a.value_boolean ?? null,
+            color_id: a.color_id,
           }));
           setAttributeDrafts(hydratedAttrs);
 
@@ -361,10 +363,11 @@ export function QuotationLineConfigurator({
     const lineCharacteristics: QuotationLineCharacteristicDraft[] =
       previewSnapshot.selected_attributes.map((a) => ({
         attribute_id: a.attribute_id,
-        attribute_value_id: a.value_id,
+        attribute_value_id: null,
         value_text: a.value_text ?? null,
         value_number: a.value_number ?? null,
         value_boolean: a.value_boolean ?? null,
+        color_id: a.color_id,
       }));
 
     const lineDraft: QuotationLineDraft = {
@@ -963,96 +966,28 @@ export function QuotationLineConfigurator({
                                     </span>
                                   )}
                                 </label>
-                                {attr.values.length > 0 ? (
-                                  <select
-                                    value={
-                                      currentDraft?.attribute_value_id ?? ""
-                                    }
-                                    onChange={(e) => {
-                                      const valId = e.target.value
-                                        ? Number(e.target.value)
-                                        : null;
-                                      setAttributeDrafts((prev) =>
-                                        prev.map((a) =>
-                                          a.attribute_id === attr.attribute_id
-                                            ? {
-                                                ...a,
-                                                attribute_value_id: valId,
-                                              }
-                                            : a,
-                                        ),
-                                      );
-                                    }}
-                                  >
-                                    <option value="">Selecciona valor…</option>
-                                    {attr.values.map((v) => (
-                                      <option key={v.id} value={v.id}>
-                                        {v.name || v.code}
-                                      </option>
-                                    ))}
-                                  </select>
-                                ) : attr.data_type === "NUMBER" ? (
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={currentDraft?.value_number ?? ""}
-                                    onChange={(e) => {
-                                      const n =
-                                        e.target.value === ""
-                                          ? null
-                                          : Number(e.target.value);
-                                      setAttributeDrafts((prev) =>
-                                        prev.map((a) =>
-                                          a.attribute_id === attr.attribute_id
-                                            ? { ...a, value_number: n }
-                                            : a,
-                                        ),
-                                      );
-                                    }}
-                                  />
-                                ) : attr.data_type === "BOOLEAN" ? (
-                                  <label
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "8px",
-                                      cursor: "pointer",
-                                    }}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={
-                                        currentDraft?.value_boolean === true
-                                      }
-                                      onChange={(e) => {
-                                        const b = e.target.checked;
-                                        setAttributeDrafts((prev) =>
-                                          prev.map((a) =>
-                                            a.attribute_id === attr.attribute_id
-                                              ? { ...a, value_boolean: b }
-                                              : a,
-                                          ),
-                                        );
-                                      }}
-                                    />
-                                    <span>Activar opción</span>
-                                  </label>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    value={currentDraft?.value_text ?? ""}
-                                    onChange={(e) => {
-                                      const txt = e.target.value || null;
-                                      setAttributeDrafts((prev) =>
-                                        prev.map((a) =>
-                                          a.attribute_id === attr.attribute_id
-                                            ? { ...a, value_text: txt }
-                                            : a,
-                                        ),
-                                      );
-                                    }}
-                                  />
-                                )}
+                                <select
+                                  value={currentDraft?.color_id ?? ""}
+                                  onChange={(e) => {
+                                    const colorId = e.target.value
+                                      ? Number(e.target.value)
+                                      : null;
+                                    setAttributeDrafts((prev) =>
+                                      prev.map((a) =>
+                                        a.attribute_id === attr.attribute_id
+                                          ? { ...a, color_id: colorId }
+                                          : a,
+                                      ),
+                                    );
+                                  }}
+                                >
+                                  <option value="">Selecciona color…</option>
+                                  {attr.colors.map((v) => (
+                                    <option key={v.color_id} value={v.color_id}>
+                                      {v.name || v.code}
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                             );
                           })}

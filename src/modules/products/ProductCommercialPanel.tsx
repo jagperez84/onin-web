@@ -281,8 +281,8 @@ export function ProductCommercialPanel({
     valueId: number | string | boolean | null,
   ) => {
     if (valueId == null || valueId === "") return "—";
-    const value = attribute.values.find(
-      (v) => String(v.id) === String(valueId),
+    const value = attribute.colors.find(
+      (v) => String(v.color_id) === String(valueId),
     );
     return value?.name ?? String(valueId);
   };
@@ -641,8 +641,8 @@ export function ProductCommercialPanel({
                   }
                 >
                   <option value="">Selecciona…</option>
-                  {a.values.map((v) => (
-                    <option key={v.id} value={v.id}>
+                  {a.colors.map((v) => (
+                    <option key={v.color_id} value={v.color_id}>
                       {v.name}
                     </option>
                   ))}

@@ -11,13 +11,12 @@ function baseAttr(overrides: Partial<AttrDef> = {}): AttrDef {
     attribute_id: 1,
     code: 'METAL',
     name: 'Metal',
-    data_type: 'OPTION',
     required: false,
     sort_order: 0,
     scaled: false,
     pvp: null,
     scaleRows: [],
-    values: [],
+    colors: [],
     ...overrides,
   };
 }
@@ -29,6 +28,7 @@ function draft(overrides: Partial<QuotationLineCharacteristicDraft> = {}): Quota
     value_text: null,
     value_number: null,
     value_boolean: null,
+    color_id: null,
     ...overrides,
   };
 }

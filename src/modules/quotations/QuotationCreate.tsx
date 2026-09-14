@@ -134,6 +134,7 @@ function characteristicsFromDefinition(definition: ProductLineDefinition) {
     value_text: null,
     value_number: null,
     value_boolean: null,
+    color_id: c.colors[0]?.color_id ?? null,
   }));
 }
 function hasRequiredCharacteristicValues(line: Line) {
@@ -141,6 +142,7 @@ function hasRequiredCharacteristicValues(line: Line) {
     (c, i) =>
       !c.required ||
       [
+        line.characteristics[i]?.color_id,
         line.characteristics[i]?.attribute_value_id,
         line.characteristics[i]?.value_text,
         line.characteristics[i]?.value_number,
@@ -1492,83 +1494,25 @@ function QuotationLineRows({
                         {c.attribute_name || c.attribute_code}
                         {c.required && <span className="req-star">*</span>}
                       </span>
-                      {c.values && c.values.length > 0 ? (
-                        <select
-                          className="char-select-val"
-                          value={current?.attribute_value_id ?? ""}
-                          onChange={(e) =>
-                            onCharacteristicChange(lineIndex, ci, {
-                              attribute_id: c.attribute_id,
-                              attribute_value_id: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                              value_text: null,
-                              value_number: null,
-                              value_boolean: null,
-                            })
-                          }
-                        >
-                          <option value="">Seleccionar…</option>
-                          {c.values.map((v) => (
-                            <option key={v.id} value={v.id}>
-                              {v.name}
-                            </option>
-                          ))}
-                        </select>
-                      ) : c.data_type === "NUMBER" ? (
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="char-input-val"
-                          placeholder="0"
-                          value={current?.value_number ?? ""}
-                          onChange={(e) =>
-                            onCharacteristicChange(lineIndex, ci, {
-                              attribute_id: c.attribute_id,
-                              attribute_value_id: null,
-                              value_text: null,
-                              value_number:
-                                e.target.value === ""
-                                  ? null
-                                  : Number(e.target.value),
-                              value_boolean: null,
-                            })
-                          }
-                        />
-                      ) : c.data_type === "BOOLEAN" ? (
-                        <label className="char-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={current?.value_boolean === true}
-                            onChange={(e) =>
-                              onCharacteristicChange(lineIndex, ci, {
-                                attribute_id: c.attribute_id,
-                                attribute_value_id: null,
-                                value_text: null,
-                                value_number: null,
-                                value_boolean: e.target.checked,
-                              })
-                            }
-                          />
-                          <span>Sí</span>
-                        </label>
-                      ) : (
-                        <input
-                          type="text"
-                          className="char-input-val"
-                          placeholder="Valor…"
-                          value={current?.value_text ?? ""}
-                          onChange={(e) =>
-                            onCharacteristicChange(lineIndex, ci, {
-                              attribute_id: c.attribute_id,
-                              attribute_value_id: null,
-                              value_text: e.target.value || null,
-                              value_number: null,
-                              value_boolean: null,
-                            })
-                          }
-                        />
-                      )}
+                      <select
+                        className="char-select-val"
+                        value={current?.color_id ?? ""}
+                        onChange={(e) =>
+                          onCharacteristicChange(lineIndex, ci, {
+                            attribute_id: c.attribute_id,
+                            color_id: e.target.value
+                              ? Number(e.target.value)
+                              : null,
+                          })
+                        }
+                      >
+                        <option value="">Seleccionar…</option>
+                        {c.colors.map((v) => (
+                          <option key={v.color_id} value={v.color_id}>
+                            {v.name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   );
                 })}
