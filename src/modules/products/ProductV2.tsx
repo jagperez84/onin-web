@@ -185,9 +185,9 @@ export function ProductV2({
           <button
             className="secondary-button"
             type="button"
-            onClick={() => navigate("/ventas/articulos/catalogos")}
+            onClick={() => navigate("/ventas/articulos/configuracion")}
           >
-            <Package size={16} /> Catálogos
+            <Package size={16} /> Configuración
           </button>
           <button
             className="primary-button"
