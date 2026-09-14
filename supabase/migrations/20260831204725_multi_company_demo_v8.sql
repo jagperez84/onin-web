@@ -79,9 +79,9 @@ declare
     'stock_movement_type','document_type','document_series','installation_type','product_family','product_attribute','product_attribute_value',
     'product_family_attribute','product_family_attribute_exclusion','party','address','contact','party_role','customer','commercial',
     'product','product_attribute_assignment','product_characteristic','product_scale','product_supplier','customer_family_discount',
-    'product_customer_discount','price_list','price_list_line','party_price_list','warehouse','zone','warehouse_stock','warehouse_stock_item',
-    'stock_movement','stock_reservation','stock_reservation_item','measurement','measurement_activity','otd','otd_component','otd_breakdown',
-    'otd_rule','otd_selection','otd_selection_option','otd_variable','otd_version','sales_document','sales_document_line','sales_document_otd',
+    'product_customer_discount','warehouse','zone','warehouse_stock','warehouse_stock_item',
+    'stock_movement','stock_reservation','stock_reservation_item','measurement','measurement_activity','otd','otd_component',
+    'otd_selection','otd_selection_option','otd_variable','otd_version','sales_document','sales_document_line','sales_document_otd',
     'document_relation','quotation','quotation_line','quotation_line_characteristic','quotation_line_dimension','quotation_comment',
     'sales_order','sales_order_line','sales_order_comment','production_work_sheet','production_work_sheet_line','purchase_document',
     'purchase_document_line','invoice','invoice_line','invoice_installment','invoice_tax_breakdown','invoice_payment'
@@ -123,7 +123,7 @@ begin
       v_where := format('where s.company_id=%s and s.code not like ''__DRAFT__%%''',v_source);
     elsif exists(select 1 from information_schema.columns where table_schema='public' and table_name=v_table and column_name='company_id') then
       v_where := format('where s.company_id=%s',v_source);
-    elsif v_table in ('address','contact','party_role','customer','commercial','party_price_list') then
+    elsif v_table in ('address','contact','party_role','customer','commercial') then
       v_where := format('where s.party_id in(select id from public.party where company_id=%s)',v_source);
     elsif v_table='payment_term_installment' then
       v_where := format('where s.payment_term_id in(select id from public.payment_term where company_id=%s)',v_source);
@@ -137,8 +137,6 @@ begin
       v_where := format('where s.product_id in(select id from public.product where company_id=%s)',v_source);
     elsif v_table in ('product_attribute_assignment','product_characteristic','product_scale','product_supplier','product_customer_discount') then
       v_where := format('where s.product_id in(select id from public.product where company_id=%s)',v_source);
-    elsif v_table='price_list_line' then
-      v_where := format('where s.price_list_id in(select id from public.price_list where company_id=%s)',v_source);
     elsif v_table='warehouse_stock' then
       v_where := format('where s.warehouse_id in(select id from public.warehouse where company_id=%s)',v_source);
     elsif v_table='warehouse_stock_item' then
@@ -147,7 +145,7 @@ begin
       v_where := format('where s.reservation_id in(select id from public.stock_reservation where company_id=%s)',v_source);
     elsif v_table='measurement_activity' then
       v_where := format('where s.measurement_id in(select id from public.measurement where company_id=%s)',v_source);
-    elsif v_table in ('otd_component','otd_breakdown','otd_rule','otd_selection','otd_variable','otd_version') then
+    elsif v_table in ('otd_component','otd_selection','otd_variable','otd_version') then
       v_where := format('where s.otd_id in(select id from public.otd where company_id=%s)',v_source);
     elsif v_table='otd_selection_option' then
       v_where := format('where s.selection_id in(select id from public.otd_selection where otd_id in(select id from public.otd where company_id=%s))',v_source);

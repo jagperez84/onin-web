@@ -8,16 +8,6 @@ select c.id,v.code,v.name,true from public.company c
 cross join (values ('LONG','Longitud'),('AREA','Superficie')) v(code,name)
 where c.code='ONIN-DEMO' on conflict(company_id,code) do nothing;
 
-insert into public.price_list(company_id,code,name,active)
-select c.id,'PVP-DEMO','Tarifa PVP demostración',true from public.company c
-where c.code='ONIN-DEMO' on conflict(company_id,code) do nothing;
-
-insert into public.price_list_line(price_list_id,product_id,min_quantity,unit_price,valid_from)
-select pl.id,p.id,1,coalesce(p.sales_price,0),current_date
-from public.price_list pl join public.product p on p.company_id=pl.company_id
-where pl.company_id=(select id from public.company where code='ONIN-DEMO') and pl.code='PVP-DEMO'
-  and not exists(select 1 from public.price_list_line x where x.price_list_id=pl.id and x.product_id=p.id and x.min_quantity=1);
-
 insert into public.commercial(company_id,party_id,active)
 select p.company_id,p.id,true from public.party p
 where p.company_id=(select id from public.company where code='ONIN-DEMO')
