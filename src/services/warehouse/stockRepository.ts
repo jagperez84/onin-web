@@ -99,6 +99,9 @@ export type ProfileStockPiece = {
   characteristicId: number | null;
   characteristicCode: string | null;
   characteristicName?: string | null;
+  colorId: number | null;
+  colorCode: string | null;
+  colorName?: string | null;
   warehouseId: number;
   warehouseCode: string;
   warehouseName: string;
@@ -258,6 +261,8 @@ export async function listProfileStockPieces(input: {
   productCode?: string;
   characteristicId?: number | null;
   characteristicCode?: string | null;
+  colorId?: number | null;
+  colorCode?: string | null;
   requiredLength: number;
 }): Promise<ProfileStockPiece[]> {
   const c = client();
@@ -287,7 +292,7 @@ export async function listProfileStockPieces(input: {
   // candidatos válidos para el corte.
   const { data, error } = await c
     .from('warehouse_stock_item')
-    .select('characteristic_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_characteristic(code,description)')
+    .select('characteristic_id,color_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_characteristic(code,description),color:color(code,name)')
     .eq('product_id', productId)
     .eq('status', 'AVAILABLE')
     .limit(2000);
@@ -300,6 +305,9 @@ export async function listProfileStockPieces(input: {
     characteristicId: number | null;
     characteristicCode: string | null;
     characteristicName: string | null;
+    colorId: number | null;
+    colorCode: string | null;
+    colorName: string | null;
     length: number;
     dimensionValues: number[];
     quantity: number;
@@ -317,8 +325,10 @@ export async function listProfileStockPieces(input: {
 
     const characteristicCode = r.characteristic?.code ?? null;
     const characteristicName = r.characteristic?.description || r.characteristic?.code || null;
+    const colorCode = r.color?.code ?? null;
+    const colorName = r.color?.name ?? null;
 
-    const key = [warehouseId, r.characteristic_id ?? '', length].join('|');
+    const key = [warehouseId, r.characteristic_id ?? '', r.color_id ?? '', length].join('|');
     const existing = groups.get(key);
     const quantity = Number(r.quantity || 0);
     if (existing) {
@@ -331,6 +341,9 @@ export async function listProfileStockPieces(input: {
         characteristicId: r.characteristic_id == null ? null : Number(r.characteristic_id),
         characteristicCode,
         characteristicName,
+        colorId: r.color_id == null ? null : Number(r.color_id),
+        colorCode,
+        colorName,
         length,
         dimensionValues: dims,
         quantity
@@ -347,6 +360,10 @@ export async function listProfileStockPieces(input: {
   const reqCharCode = (typeof input.characteristicCode === 'string' && input.characteristicCode.trim().length > 0)
     ? input.characteristicCode.trim().toLowerCase()
     : null;
+  const reqColorId = input.colorId != null && Number(input.colorId) > 0 ? Number(input.colorId) : null;
+  const reqColorCode = (typeof input.colorCode === 'string' && input.colorCode.trim().length > 0)
+    ? input.colorCode.trim().toLowerCase()
+    : null;
 
   const filtered = allPieces.filter(piece => {
     const pieceCharId = piece.characteristicId != null ? Number(piece.characteristicId) : null;
@@ -356,17 +373,29 @@ export async function listProfileStockPieces(input: {
     if (reqCharId !== null || reqCharCode !== null) {
       // Must match requested characteristic exactly
       if (reqCharId !== null && pieceCharId !== null && pieceCharId === reqCharId) {
-        return true;
+        // match
+      } else if (
+        reqCharCode !== null &&
+        ((pieceCharCode && pieceCharCode === reqCharCode) || (pieceCharName && pieceCharName === reqCharCode))
+      ) {
+        // match
+      } else {
+        return false;
       }
-      if (reqCharCode !== null) {
-        if (pieceCharCode && pieceCharCode === reqCharCode) return true;
-        if (pieceCharName && pieceCharName === reqCharCode) return true;
-      }
-      return false;
-    } else {
+    } else if (pieceCharId !== null || pieceCharCode !== null) {
       // Must NOT have any characteristic
-      return pieceCharId === null && pieceCharCode === null;
+      return false;
     }
+
+    const pieceColorId = piece.colorId != null ? Number(piece.colorId) : null;
+    const pieceColorCode = piece.colorCode ? piece.colorCode.trim().toLowerCase() : null;
+
+    if (reqColorId !== null || reqColorCode !== null) {
+      if (reqColorId !== null && pieceColorId !== null && pieceColorId === reqColorId) return true;
+      if (reqColorCode !== null && pieceColorCode && pieceColorCode === reqColorCode) return true;
+      return false;
+    }
+    return pieceColorId === null && pieceColorCode === null;
   });
 
   return filtered.sort((a, b) => a.length - b.length).map(x => ({
@@ -375,6 +404,9 @@ export async function listProfileStockPieces(input: {
     characteristicId: x.characteristicId,
     characteristicCode: x.characteristicCode,
     characteristicName: x.characteristicName,
+    colorId: x.colorId,
+    colorCode: x.colorCode,
+    colorName: x.colorName,
     warehouseId: x.warehouseId,
     warehouseCode: x.warehouseCode,
     warehouseName: x.warehouseName,

@@ -12,6 +12,9 @@ export type CutNeed = {
   characteristic: string;
   characteristicCode?: string;
   characteristicId?: number;
+  colorId?: number;
+  colorCode?: string;
+  colorName?: string;
   unit: string;
 };
 
@@ -88,6 +91,19 @@ export function deriveProfileCutNeeds(line: any): CutNeed[] {
         (characteristicId ? `Característica #${characteristicId}` : 'Sin característica')
     );
 
+    const compColorId =
+      (comp?.color_id ? Number(comp.color_id) : undefined) ||
+      (snapshot.color_id ? Number(snapshot.color_id) : undefined) ||
+      (line.color_id ? Number(line.color_id) : undefined) ||
+      (line.specific_data?.color_id ? Number(line.specific_data?.color_id) : undefined) ||
+      undefined;
+
+    const colorId = compColorId ? Number(compColorId) : undefined;
+    const colorCode =
+      comp?.color_code || snapshot.color_code || line.color_code || undefined;
+    const colorName =
+      comp?.color_name || snapshot.color_name || line.color_name || undefined;
+
     const dimensions =
       comp?.dimension_list || comp?.dimensions || snapshot.dimensions || line.specific_data?.dimensions || [];
     const dimEntries = Array.isArray(dimensions)
@@ -131,12 +147,15 @@ export function deriveProfileCutNeeds(line: any): CutNeed[] {
       characteristic,
       characteristicCode,
       characteristicId,
+      colorId,
+      colorCode,
+      colorName,
       unit: initialDimensionUnit
     };
   });
 }
 
-type NeedMatchableSheet = { product_id: number | null; product_code: string | null; characteristic_id: number | null; characteristic_code: string | null; required_length: number };
+type NeedMatchableSheet = { product_id: number | null; product_code: string | null; characteristic_id: number | null; characteristic_code: string | null; color_id?: number | null; color_code?: string | null; required_length: number };
 
 /** Localiza, entre las hojas ya generadas para la línea, la que cubre una necesidad de perfil concreta. */
 export function findWorkSheetForNeed<T extends NeedMatchableSheet>(need: CutNeed, sheets: T[]): T | null {
@@ -158,6 +177,25 @@ export function findWorkSheetForNeed<T extends NeedMatchableSheet>(need: CutNeed
         }
       } else if (need.characteristicCode || ws.characteristic_code) {
         if (need.characteristicCode && ws.characteristic_code && need.characteristicCode.toLowerCase() === ws.characteristic_code.toLowerCase()) {
+          // match
+        } else {
+          return false;
+        }
+      }
+      if (need.colorId || ws.color_id) {
+        if (need.colorId && ws.color_id && need.colorId === ws.color_id) {
+          // match
+        } else if (
+          need.colorCode &&
+          ws.color_code &&
+          need.colorCode.toLowerCase() === ws.color_code.toLowerCase()
+        ) {
+          // match
+        } else {
+          return false;
+        }
+      } else if (need.colorCode || ws.color_code) {
+        if (need.colorCode && ws.color_code && need.colorCode.toLowerCase() === ws.color_code.toLowerCase()) {
           // match
         } else {
           return false;
