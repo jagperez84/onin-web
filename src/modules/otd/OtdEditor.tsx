@@ -240,6 +240,8 @@ export function OtdEditor() {
                 ? Number(x.characteristic_id)
                 : null,
               characteristic_expression: x.characteristic_expression ?? null,
+              color_id: x.color_id ? Number(x.color_id) : null,
+              color_expression: x.color_expression ?? null,
               component_type:
                 x.component_type === "IMPROVEMENT" ? "IMPROVEMENT" : "BASIC",
               price_increment: Number(x.price_increment ?? 0),
@@ -567,6 +569,10 @@ export function OtdEditor() {
           characteristic_expression: c.characteristic_expression
             ? c.characteristic_expression.trim()
             : null,
+          color_id: c.color_id ? Number(c.color_id) : null,
+          color_expression: c.color_expression
+            ? c.color_expression.trim()
+            : null,
           code: c.code ? c.code.trim() : null,
           description: c.description ? c.description.trim() : null,
           quantity_expression:
@@ -808,6 +814,8 @@ export function OtdEditor() {
               ? Number(x.characteristic_id)
               : null,
             characteristic_expression: x.characteristic_expression ?? null,
+            color_id: x.color_id ? Number(x.color_id) : null,
+            color_expression: x.color_expression ?? null,
             code: x.code ?? null,
             description: x.description ?? null,
             quantity_expression:

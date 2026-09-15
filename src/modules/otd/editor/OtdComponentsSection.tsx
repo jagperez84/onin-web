@@ -43,6 +43,8 @@ export function OtdComponentsSection({
     product_id: null,
     characteristic_id: null,
     characteristic_expression: null,
+    color_id: null,
+    color_expression: null,
     quantity_expression: "1",
     component_type: "BASIC",
     price_increment: 0,
@@ -92,6 +94,8 @@ export function OtdComponentsSection({
       dimension_expressions: initialDimExprs,
       characteristic_id: p.characteristics[0]?.id ?? null,
       characteristic_expression: null,
+      color_id: null,
+      color_expression: null,
     });
 
   };
@@ -104,6 +108,8 @@ export function OtdComponentsSection({
       dimension_expressions: {},
       characteristic_id: null,
       characteristic_expression: null,
+      color_id: null,
+      color_expression: null,
     });
   };
 
@@ -336,11 +342,15 @@ export function OtdComponentsSection({
                                 characteristic_id: null,
                                 characteristic_expression:
                                   c.characteristic_expression || "COLOR",
+                                color_id: null,
+                                color_expression: null,
                               })
                             : updateComponent(ci, {
                                 characteristic_expression: null,
                                 characteristic_id:
                                   characteristics[0]?.id ?? null,
+                                color_id: null,
+                                color_expression: null,
                               })
                         }
                       >
@@ -384,6 +394,8 @@ export function OtdComponentsSection({
                                 ? Number(e.target.value)
                                 : null,
                               characteristic_expression: null,
+                              color_id: null,
+                              color_expression: null,
                             })
                           }
                         >
@@ -400,6 +412,97 @@ export function OtdComponentsSection({
                       </label>
                     )}
                   </div>
+
+                  {!dynamic &&
+                    c.characteristic_id &&
+                    (() => {
+                      const selectedChar = characteristics.find(
+                        (ch) => ch.id === c.characteristic_id,
+                      );
+                      const availableColors = selectedChar?.colors ?? [];
+                      if (availableColors.length === 0) return null;
+                      const colorDynamic = Boolean(
+                        c.color_expression?.trim(),
+                      );
+                      return (
+                        <div className="otd-characteristic-grid otd-color-subblock">
+                          <label>
+                            <span className="field-label">
+                              Origen del color
+                            </span>
+                            <select
+                              value={colorDynamic ? "VARIABLE" : "FIXED"}
+                              onChange={(e) =>
+                                e.target.value === "VARIABLE"
+                                  ? updateComponent(ci, {
+                                      color_id: null,
+                                      color_expression:
+                                        c.color_expression || "COLOR",
+                                    })
+                                  : updateComponent(ci, {
+                                      color_expression: null,
+                                      color_id: null,
+                                    })
+                              }
+                            >
+                              <option value="FIXED">
+                                Color fijo ({availableColors.length}{" "}
+                                disponible
+                                {availableColors.length > 1 ? "s" : ""})
+                              </option>
+                              <option value="VARIABLE">
+                                Fórmula o Variable dinámica
+                              </option>
+                            </select>
+                          </label>
+
+                          {colorDynamic ? (
+                            <div className="otd-characteristic-expr-wrap">
+                              <FormulaPredictiveInput
+                                label="Fórmula / Variable color"
+                                value={c.color_expression ?? ""}
+                                onChange={(val) =>
+                                  updateComponent(ci, {
+                                    color_expression: val,
+                                    color_id: null,
+                                  })
+                                }
+                                placeholder="Ej. COLOR o ACABADO"
+                                availableInputs={selections}
+                                availableVariables={variables}
+                                compact
+                              />
+                            </div>
+                          ) : (
+                            <label>
+                              <span className="field-label">
+                                Color del listado de colores del sistema
+                              </span>
+                              <select
+                                value={c.color_id ?? ""}
+                                onChange={(e) =>
+                                  updateComponent(ci, {
+                                    color_id: e.target.value
+                                      ? Number(e.target.value)
+                                      : null,
+                                    color_expression: null,
+                                  })
+                                }
+                              >
+                                <option value="">
+                                  Preguntar al configurar el presupuesto…
+                                </option>
+                                {availableColors.map((cl) => (
+                                  <option key={cl.id} value={cl.id}>
+                                    {cl.code} · {cl.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                        </div>
+                      );
+                    })()}
                 </div>
               )}
 

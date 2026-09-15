@@ -190,6 +190,8 @@ export function OtdLineConfiguratorModal({
                   {},
                 characteristic_id: c.characteristic_id || null,
                 characteristic_expression: c.characteristic_expression || null,
+                color_id: matchedBase?.color_id ?? null,
+                color_expression: matchedBase?.color_expression ?? null,
                 price_increment: Number(
                   c.price_increment ?? c.increment_amount ?? 0,
                 ),
@@ -298,6 +300,8 @@ export function OtdLineConfiguratorModal({
       dimension_expressions: {},
       characteristic_id: null,
       characteristic_expression: null,
+      color_id: null,
+      color_expression: null,
       price_increment: 0,
       price_increment_type: "FIXED",
       active: true,
@@ -386,13 +390,15 @@ export function OtdLineConfiguratorModal({
     if (colorId == null || !runtimeData || !calculation) return;
     setColorSelections((prev) => {
       const next = { ...prev };
-      for (const comp of calculation.components) {
-        if (!comp.characteristic_id) continue;
+      calculation.components.forEach((comp, idx) => {
+        if (!comp.characteristic_id) return;
+        const compDef = customComponents[idx];
+        if (compDef?.color_id || compDef?.color_expression?.trim()) return;
         const options = runtimeData.colorsByCharacteristic.get(comp.characteristic_id) ?? [];
         if (options.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
-      }
+      });
       return next;
     });
   };

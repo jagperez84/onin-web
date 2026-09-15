@@ -89,6 +89,8 @@ export type OtdComponentDef = OtdComponentFormula & {
   component_type: 'BASIC' | 'IMPROVEMENT';
   characteristic_id: number | null;
   characteristic_expression: string | null;
+  color_id: number | null;
+  color_expression: string | null;
   price_increment: number;
   price_increment_type: 'FIXED' | 'PERCENTAGE';
   unit_id?: number | null;
@@ -534,6 +536,8 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
           : {},
       characteristic_id: c.characteristic_id ? Number(c.characteristic_id) : null,
       characteristic_expression: c.characteristic_expression || null,
+      color_id: c.color_id ? Number(c.color_id) : null,
+      color_expression: c.color_expression || null,
       price_increment: Number(c.price_increment ?? 0),
       price_increment_type: c.price_increment_type === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED',
       unit_id: cUnitId,
@@ -871,17 +875,49 @@ export function calculateOtdRuntime(
         }
       }
 
-      // Resolución de color (fase de formulario OTD): si la característica resuelta
-      // agrupa colores (characteristic_color), el usuario debe elegir uno en el propio
-      // formulario para que el despiece sepa qué stock consumir. El precio no depende
-      // del color, solo de la característica, así que esto nunca cambia basePrice.
+      // Resolución de color: si la característica resuelta agrupa colores
+      // (characteristic_color), el componente puede fijar uno en el propio OTD
+      // (color_id), resolverlo dinámicamente (color_expression, igual que
+      // characteristic_expression) o, si no se definió ninguno de los dos, pedirlo
+      // al usuario en el propio formulario de configuración (colorSelections). El
+      // precio no depende del color, solo de la característica, así que esto nunca
+      // cambia basePrice.
       const availableColors = resolvedChar
         ? runtimeData.colorsByCharacteristic.get(resolvedChar.id) ?? []
         : [];
       let resolvedColorId: number | null = null;
       let resolvedColorCode: string | null = null;
       let resolvedColorName: string | null = null;
-      if (availableColors.length > 0) {
+
+      if (comp.color_id) {
+        const fixed = availableColors.find(cl => cl.id === Number(comp.color_id)) ?? null;
+        if (fixed) {
+          resolvedColorId = fixed.id;
+          resolvedColorCode = fixed.code;
+          resolvedColorName = fixed.name;
+        }
+      } else if (comp.color_expression && comp.color_expression.trim()) {
+        const expr = comp.color_expression.trim();
+        const colorValue =
+          processedInputs[expr] ??
+          rawValues[expr] ??
+          (Number.isFinite(resolvedVariables[expr]) ? String(resolvedVariables[expr]) : expr);
+
+        if (colorValue !== null && colorValue !== undefined && String(colorValue).trim() !== '') {
+          const searchStr = String(colorValue).trim().toUpperCase();
+          const matched =
+            availableColors.find(
+              cl => String(cl.id) === searchStr || cl.code.toUpperCase() === searchStr || cl.name.toUpperCase() === searchStr
+            ) ?? null;
+          if (matched) {
+            resolvedColorId = matched.id;
+            resolvedColorCode = matched.code;
+            resolvedColorName = matched.name;
+          }
+        }
+      }
+
+      if (!resolvedColorId && availableColors.length > 0) {
         const rawColorId = colorSelections[String(comp.id)];
         const matched =
           rawColorId != null ? availableColors.find(cl => cl.id === Number(rawColorId)) ?? null : null;
@@ -1206,7 +1242,12 @@ export interface OninProduct {
   measurement_type_id?: number | null;
   unit_id?: number | null;
   unit?: { id: number; code: string; name: string; symbol?: string | null } | null;
-  characteristics: Array<{ id: number; code: string; description: string | null }>;
+  characteristics: Array<{
+    id: number;
+    code: string;
+    description: string | null;
+    colors: Array<{ id: number; code: string; name: string }>;
+  }>;
   measurement_type?: {
     id: number;
     name: string;
@@ -1317,14 +1358,38 @@ export async function fetchOninProducts(productIds: number[]): Promise<Record<nu
     .is('deleted_at', null)
     .order('code');
 
-  const charsByProduct = new Map<number, Array<{ id: number; code: string; description: string | null }>>();
+  const charIds = (chars ?? []).map((ch: any) => Number(ch.id));
+  const colorsByCharacteristic = new Map<number, Array<{ id: number; code: string; name: string }>>();
+  if (charIds.length > 0) {
+    const { data: ccData } = await c
+      .from('characteristic_color')
+      .select('characteristic_id,color:color(id,code,name,active)')
+      .in('characteristic_id', charIds)
+      .eq('active', true)
+      .is('deleted_at', null);
+    for (const row of (ccData ?? []) as any[]) {
+      const color = row.color;
+      if (!color || color.active === false) continue;
+      const chId = Number(row.characteristic_id);
+      const list = colorsByCharacteristic.get(chId) ?? [];
+      list.push({ id: Number(color.id), code: String(color.code), name: String(color.name) });
+      colorsByCharacteristic.set(chId, list);
+    }
+  }
+
+  const charsByProduct = new Map<
+    number,
+    Array<{ id: number; code: string; description: string | null; colors: Array<{ id: number; code: string; name: string }> }>
+  >();
   for (const ch of chars ?? []) {
     const pid = Number(ch.product_id);
+    const chId = Number(ch.id);
     const list = charsByProduct.get(pid) ?? [];
     list.push({
-      id: Number(ch.id),
+      id: chId,
       code: String(ch.code),
       description: ch.description || null,
+      colors: colorsByCharacteristic.get(chId) ?? [],
     });
     charsByProduct.set(pid, list);
   }

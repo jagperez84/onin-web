@@ -61,6 +61,8 @@ interface Component {
   product_id: number | null;
   characteristic_id: number | null;
   characteristic_expression: string | null;
+  color_id: number | null;
+  color_expression: string | null;
   code?: string;
   description?: string | null;
   quantity_expression: string;
@@ -93,6 +95,7 @@ interface OninProduct {
     id: number;
     code: string;
     description: string | null;
+    colors: Array<{ id: number; code: string; name: string }>;
   }>;
   measurement_type?: {
     id: number;
@@ -242,13 +245,48 @@ export function OtdDetail() {
             .in("id", productIds);
 
           if (prods) {
+            const charIds = [
+              ...new Set(
+                (prods as any[]).flatMap((p) =>
+                  (p.characteristics ?? []).map((ch: any) => ch.id),
+                ),
+              ),
+            ];
+            const colorsByChar = new Map<
+              number,
+              Array<{ id: number; code: string; name: string }>
+            >();
+            if (charIds.length > 0) {
+              const { data: ccData } = await supabase
+                .from("characteristic_color")
+                .select("characteristic_id,color:color(id,code,name,active)")
+                .in("characteristic_id", charIds)
+                .eq("active", true)
+                .is("deleted_at", null);
+              for (const row of (ccData ?? []) as any[]) {
+                const color = row.color;
+                if (!color || color.active === false) continue;
+                const chId = Number(row.characteristic_id);
+                const list = colorsByChar.get(chId) ?? [];
+                list.push({
+                  id: Number(color.id),
+                  code: String(color.code),
+                  name: String(color.name),
+                });
+                colorsByChar.set(chId, list);
+              }
+            }
+
             for (const p of prods as any[]) {
               productMap[p.id] = {
                 id: p.id,
                 code: p.code,
                 commercial_description: p.commercial_description,
                 technical_description: p.technical_description,
-                characteristics: p.characteristics ?? [],
+                characteristics: (p.characteristics ?? []).map((ch: any) => ({
+                  ...ch,
+                  colors: colorsByChar.get(Number(ch.id)) ?? [],
+                })),
                 measurement_type: p.measurement_type ?? null,
               };
             }
@@ -308,6 +346,8 @@ export function OtdDetail() {
           product_id: x.product_id ?? null,
           characteristic_id: x.characteristic_id ?? null,
           characteristic_expression: x.characteristic_expression ?? null,
+          color_id: x.color_id ?? null,
+          color_expression: x.color_expression ?? null,
           component_type:
             x.component_type === "IMPROVEMENT" ? "IMPROVEMENT" : "BASIC",
           price_increment: Number(x.price_increment ?? 0),
@@ -786,6 +826,11 @@ export function OtdDetail() {
                 const selectedChar = c.characteristic_id
                   ? characteristics.find((x) => x.id === c.characteristic_id)
                   : null;
+                const isDynamicColor = Boolean(c.color_expression?.trim());
+                const selectedColor =
+                  !isDynamicColor && c.color_id && selectedChar
+                    ? selectedChar.colors.find((cl) => cl.id === c.color_id)
+                    : null;
 
                 return (
                   <div className="otd-row-card" key={c.id || ci}>
@@ -894,6 +939,25 @@ export function OtdDetail() {
                         ) : (
                           <span style={{ color: "var(--muted)" }}>
                             Sin característica seleccionada
+                          </span>
+                        )}
+                        {(isDynamicColor || c.color_id) && (
+                          <span>
+                            {" · Color: "}
+                            {isDynamicColor ? (
+                              <>
+                                Dinámico por variable/entrada:{" "}
+                                <code>{c.color_expression}</code>
+                              </>
+                            ) : selectedColor ? (
+                              <>
+                                Fijo: <strong>{selectedColor.code}</strong>
+                                {" · "}
+                                {selectedColor.name}
+                              </>
+                            ) : (
+                              "—"
+                            )}
                           </span>
                         )}
                       </div>

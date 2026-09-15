@@ -210,13 +210,15 @@ export function OtdRuntime() {
     if (colorId == null || !runtimeData || !calculation) return;
     setColorSelections((prev) => {
       const next = { ...prev };
-      for (const comp of calculation.components) {
-        if (!comp.characteristic_id) continue;
+      calculation.components.forEach((comp, idx) => {
+        if (!comp.characteristic_id) return;
+        const compDef = customComponents[idx];
+        if (compDef?.color_id || compDef?.color_expression?.trim()) return;
         const options = runtimeData.colorsByCharacteristic.get(comp.characteristic_id) ?? [];
         if (options.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
-      }
+      });
       return next;
     });
   };
@@ -352,6 +354,8 @@ export function OtdRuntime() {
       dimension_expressions: {},
       characteristic_id: null,
       characteristic_expression: null,
+      color_id: null,
+      color_expression: null,
       price_increment: 0,
       price_increment_type: "FIXED",
       active: true,
@@ -864,9 +868,13 @@ export function OtdRuntime() {
               {calculation?.components.map((c, idx) => {
                 const compDef = customComponents[idx];
                 const isInactive = compDef && !compDef.active;
-                const availableColors = c.characteristic_id
-                  ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
-                  : [];
+                const hasPresetColor = Boolean(
+                  compDef?.color_id || compDef?.color_expression?.trim(),
+                );
+                const availableColors =
+                  c.characteristic_id && !hasPresetColor
+                    ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
+                    : [];
                 const componentKey = String(c.id ?? idx);
 
                 return (
@@ -933,6 +941,11 @@ export function OtdRuntime() {
                         {c.characteristic_name && (
                           <span>
                             Acabado: <b>{c.characteristic_name}</b> ·{" "}
+                          </span>
+                        )}
+                        {hasPresetColor && c.color_name && (
+                          <span>
+                            Color: <b>{c.color_name}</b> ·{" "}
                           </span>
                         )}
                         <span>

@@ -587,6 +587,12 @@
   gap: 12px;
 }
 
+.otd-color-subblock {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
 .otd-dimensions-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

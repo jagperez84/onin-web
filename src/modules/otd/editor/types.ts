@@ -41,6 +41,8 @@ export interface Component {
   product_id: number | null;
   characteristic_id: number | null;
   characteristic_expression: string | null;
+  color_id: number | null;
+  color_expression: string | null;
   code?: string;
   description?: string | null;
   quantity_expression: string;

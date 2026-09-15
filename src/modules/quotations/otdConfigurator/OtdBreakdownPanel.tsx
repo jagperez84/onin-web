@@ -403,9 +403,13 @@ export function OtdBreakdownPanel({
               {calculation.components.map((c, ci) => {
                 const compDef = customComponents[ci];
                 const isInactive = compDef && !compDef.active;
-                const availableColors = c.characteristic_id
-                  ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
-                  : [];
+                const hasPresetColor = Boolean(
+                  compDef?.color_id || compDef?.color_expression?.trim(),
+                );
+                const availableColors =
+                  c.characteristic_id && !hasPresetColor
+                    ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
+                    : [];
                 const componentKey = String(c.id ?? ci);
 
                 return (
@@ -464,6 +468,20 @@ export function OtdBreakdownPanel({
                             }}
                           >
                             {c.characteristic_name}
+                          </span>
+                        )}
+                        {hasPresetColor && c.color_name && (
+                          <span
+                            style={{
+                              fontSize: "10.5px",
+                              color: "#047857",
+                              background: "#dcfce7",
+                              padding: "1px 5px",
+                              borderRadius: "3px",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {c.color_name}
                           </span>
                         )}
                         {c.component_type === "IMPROVEMENT" ? (
