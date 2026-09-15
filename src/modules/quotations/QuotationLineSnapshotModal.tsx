@@ -252,9 +252,23 @@ export function QuotationLineSnapshotModal({
                                 background: "var(--primary-soft)",
                                 padding: "1px 5px",
                                 borderRadius: "3px",
+                                marginRight: "4px",
                               }}
                             >
                               {comp.characteristic_name}
+                            </span>
+                          )}
+                          {comp.color_name && (
+                            <span
+                              style={{
+                                fontSize: "10px",
+                                color: "var(--status-success-fg)",
+                                background: "var(--success-soft)",
+                                padding: "1px 5px",
+                                borderRadius: "3px",
+                              }}
+                            >
+                              {comp.color_name}
                             </span>
                           )}
                         </td>
