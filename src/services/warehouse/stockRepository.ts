@@ -127,6 +127,30 @@ function cleanTerm(value: string) {
 }
 
 /**
+ * Resuelve código/nombre de característica (product_attribute) para un lote de
+ * ids, sin depender del embedding automático de PostgREST (característica:
+ * product_attribute(...)): ese embedding exige una FK real, y characteristic_id
+ * puede seguir apuntando al antiguo product_characteristic en filas de stock
+ * anteriores a 20260921150000 (esas tablas se quedan sin la FK nueva a
+ * propósito — ver esa migración). Un lookup manual funciona igual haya FK o
+ * no, y para esos ids antiguos simplemente no encuentra nada (characteristic
+ * queda null), en vez de romper la consulta entera.
+ */
+async function fetchCharacteristicLabels(
+  c: ReturnType<typeof client>,
+  ids: Array<number | null | undefined>,
+): Promise<Map<number, { code: string; description: string | null }>> {
+  const uniqueIds = [...new Set(ids.filter((id): id is number => id != null))];
+  const map = new Map<number, { code: string; description: string | null }>();
+  if (uniqueIds.length === 0) return map;
+  const { data } = await c.from('product_attribute').select('id,code,name').in('id', uniqueIds);
+  for (const row of (data ?? []) as any[]) {
+    map.set(Number(row.id), { code: String(row.code), description: row.name ?? null });
+  }
+  return map;
+}
+
+/**
  * Ensures physical items in warehouse_stock_item table are synchronized with dimensional stock movements
  */
 export async function syncWarehouseStockItems(companyId: number, productId: number): Promise<void> {
@@ -307,11 +331,12 @@ export async function listProfileStockPieces(input: {
   // candidatos válidos para el corte.
   const { data, error } = await c
     .from('warehouse_stock_item')
-    .select('characteristic_id,color_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_attribute(code,description:name),color:color(code,name)')
+    .select('characteristic_id,color_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),color:color(code,name)')
     .eq('product_id', productId)
     .eq('status', 'AVAILABLE')
     .limit(2000);
   if (error) throw new CoreRepositoryError(error.message);
+  const charLabels = await fetchCharacteristicLabels(c, (data ?? []).map((r: any) => r.characteristic_id));
 
   type Aggregate = {
     warehouseId: number;
@@ -338,8 +363,9 @@ export async function listProfileStockPieces(input: {
     const warehouseId = r.warehouse_stock?.warehouse_id;
     if (warehouseId == null) continue;
 
-    const characteristicCode = r.characteristic?.code ?? null;
-    const characteristicName = r.characteristic?.description || r.characteristic?.code || null;
+    const characteristic = r.characteristic_id != null ? charLabels.get(Number(r.characteristic_id)) : undefined;
+    const characteristicCode = characteristic?.code ?? null;
+    const characteristicName = characteristic?.description || characteristic?.code || null;
     const colorCode = r.color?.code ?? null;
     const colorName = r.color?.name ?? null;
 
@@ -439,11 +465,15 @@ export async function listStockBalances(companyId: number, warehouseId?: number,
   if (warehouseIds.length === 0) return [];
   const { data, error } = await c
     .from('warehouse_stock')
-    .select('id,warehouse_id,product_id,characteristic_id,color_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_attribute(code,description:name),color:color(code,name)')
+    .select('id,warehouse_id,product_id,characteristic_id,color_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),color:color(code,name)')
     .in('warehouse_id', warehouseId ? [warehouseId] : warehouseIds)
     .order('updated_at', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
-  const rows = (data ?? []) as unknown as StockBalance[];
+  const charLabels = await fetchCharacteristicLabels(c, (data ?? []).map((r: any) => r.characteristic_id));
+  const rows = (data ?? []).map((r: any) => ({
+    ...r,
+    characteristic: r.characteristic_id != null ? charLabels.get(Number(r.characteristic_id)) ?? null : null,
+  })) as unknown as StockBalance[];
   const term = cleanTerm(search).toLowerCase();
   return term ? rows.filter(r => `${r.product?.code ?? ''} ${r.product?.commercial_description ?? ''} ${r.characteristic?.code ?? ''} ${r.characteristic?.description ?? ''}`.toLowerCase().includes(term)) : rows;
 }
@@ -452,7 +482,7 @@ export async function listStockMovements(companyId: number, filters: { warehouse
   const c = client();
   let q = c
     .from('stock_movement')
-    .select('id,company_id,warehouse_id,product_id,movement_type_id,characteristic_id,color_id,quantity,movement_date,reference,notes,transfer_group_id,dimension_values,movement_type:stock_movement_type(code,name,direction),warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_attribute(code,description:name),color:color(code,name)')
+    .select('id,company_id,warehouse_id,product_id,movement_type_id,characteristic_id,color_id,quantity,movement_date,reference,notes,transfer_group_id,dimension_values,movement_type:stock_movement_type(code,name,direction),warehouse:warehouse(code,name),product:product(code,commercial_description),color:color(code,name)')
     .eq('company_id', companyId)
     .order('movement_date', { ascending: false })
     .order('id', { ascending: false });
@@ -462,7 +492,11 @@ export async function listStockMovements(companyId: number, filters: { warehouse
   if (filters.to) q = q.lte('movement_date', `${filters.to}T23:59:59.999`);
   const { data, error } = await q.limit(500);
   if (error) throw new CoreRepositoryError(error.message);
-  return (data ?? []) as unknown as StockMovement[];
+  const charLabels = await fetchCharacteristicLabels(c, (data ?? []).map((r: any) => r.characteristic_id));
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    characteristic: r.characteristic_id != null ? charLabels.get(Number(r.characteristic_id)) ?? null : null,
+  })) as unknown as StockMovement[];
 }
 
 export async function listMovementTypes(companyId: number) {
@@ -634,12 +668,16 @@ export async function listStockReservations(companyId: number, status = 'ACTIVE'
   const c = client();
   const { data, error } = await c
     .from('stock_reservation')
-    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,reference,notes,status,created_at,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_attribute(code,description:name),color:color(code,name)')
+    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,reference,notes,status,created_at,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description),color:color(code,name)')
     .eq('company_id', companyId)
     .eq('status', status)
     .order('created_at', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
-  return (data ?? []) as unknown as StockReservation[];
+  const charLabels = await fetchCharacteristicLabels(c, (data ?? []).map((r: any) => r.characteristic_id));
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    characteristic: r.characteristic_id != null ? charLabels.get(Number(r.characteristic_id)) ?? null : null,
+  })) as unknown as StockReservation[];
 }
 
 export async function reserveStock(input: {
