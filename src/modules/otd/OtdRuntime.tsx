@@ -191,10 +191,26 @@ export function OtdRuntime() {
     };
   }, [runtimeData, customComponents]);
 
+  const otdColorOptions = runtimeData ? getOtdColorOptions(runtimeData) : [];
+
+  // "COLOR" es una entrada virtual: no es una Selección real del OTD, es el
+  // valor elegido en el selector maestro "Acabado / Color". Se inyecta aquí
+  // para que cualquier color_expression/characteristic_expression que la
+  // referencie (rawValues["COLOR"]) la resuelva, sin pisar una Selección real
+  // con ese mismo código si el diseñador del OTD la hubiera creado.
+  const effectiveValues = useMemo(() => {
+    if (masterColorId == null || (values.COLOR ?? "").trim() !== "") {
+      return values;
+    }
+    const masterColor = otdColorOptions.find((c) => c.id === masterColorId);
+    if (!masterColor) return values;
+    return { ...values, COLOR: masterColor.code };
+  }, [values, masterColorId, otdColorOptions]);
+
   const calculation = useMemo<OtdCalculationResult | null>(() => {
     if (!effectiveRuntimeData) return null;
-    return calculateOtdRuntime(effectiveRuntimeData, values, colorSelections);
-  }, [effectiveRuntimeData, values, colorSelections]);
+    return calculateOtdRuntime(effectiveRuntimeData, effectiveValues, colorSelections);
+  }, [effectiveRuntimeData, effectiveValues, colorSelections]);
 
   const handleColorChange = (componentId: string, colorId: number | null) => {
     setColorSelections((prev) => {
@@ -210,17 +226,6 @@ export function OtdRuntime() {
     if (colorId == null || !runtimeData || !calculation) return;
     setColorSelections((prev) => {
       const next = { ...prev };
-      // eslint-disable-next-line no-console
-      console.log("[OTD DEBUG] handleMasterColorChange", {
-        colorId,
-        components: calculation.components.map((comp) => ({
-          id: comp.id,
-          product_name: comp.product_name,
-          characteristic_id: comp.characteristic_id,
-          color_source: comp.color_source,
-          available_colors: comp.available_colors,
-        })),
-      });
       calculation.components.forEach((comp) => {
         if (!comp.characteristic_id) return;
         // Fijo o resuelto por fórmula: viene del propio OTD, el maestro no lo
@@ -231,13 +236,9 @@ export function OtdRuntime() {
           next[String(comp.id)] = colorId;
         }
       });
-      // eslint-disable-next-line no-console
-      console.log("[OTD DEBUG] colorSelections tras aplicar", next);
       return next;
     });
   };
-
-  const otdColorOptions = runtimeData ? getOtdColorOptions(runtimeData) : [];
 
   const snapshot = useMemo<OtdConfigurationSnapshot | null>(() => {
     if (!effectiveRuntimeData || !calculation) return null;

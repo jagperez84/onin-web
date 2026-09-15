@@ -256,15 +256,31 @@ export function OtdLineConfiguratorModal({
     };
   }, [runtimeData, customComponents]);
 
+  const otdColorOptions = runtimeData ? getOtdColorOptions(runtimeData) : [];
+
+  // "COLOR" es una entrada virtual: no es una Selección real del OTD, es el
+  // valor elegido en el selector maestro "Acabado / Color". Se inyecta aquí
+  // para que cualquier color_expression/characteristic_expression que la
+  // referencie (rawValues["COLOR"]) la resuelva, sin pisar una Selección real
+  // con ese mismo código si el diseñador del OTD la hubiera creado.
+  const effectiveValues = useMemo(() => {
+    if (masterColorId == null || (values.COLOR ?? "").trim() !== "") {
+      return values;
+    }
+    const masterColor = otdColorOptions.find((c) => c.id === masterColorId);
+    if (!masterColor) return values;
+    return { ...values, COLOR: masterColor.code };
+  }, [values, masterColorId, otdColorOptions]);
+
   // Live calculation with try-catch safety
   const calculation = useMemo<OtdCalculationResult | null>(() => {
     if (!effectiveRuntimeData) return null;
     try {
-      return calculateOtdRuntime(effectiveRuntimeData, values, colorSelections);
+      return calculateOtdRuntime(effectiveRuntimeData, effectiveValues, colorSelections);
     } catch (err: any) {
       console.error("Error calculando OTD runtime:", err);
       return {
-        inputs: values,
+        inputs: effectiveValues,
         resolvedVariables: {},
         components: [],
         otdBasePrice: 0,
@@ -276,7 +292,7 @@ export function OtdLineConfiguratorModal({
         errors: [err?.message || "Error en el cálculo paramétrico"],
       };
     }
-  }, [effectiveRuntimeData, values, colorSelections]);
+  }, [effectiveRuntimeData, effectiveValues, colorSelections]);
 
   // Live snapshot
   const snapshot = useMemo<OtdConfigurationSnapshot | null>(() => {

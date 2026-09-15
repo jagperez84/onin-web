@@ -468,7 +468,14 @@ export function OtdComponentsSection({
                                   })
                                 }
                                 placeholder="Ej. COLOR o ACABADO"
-                                availableInputs={selections}
+                                availableInputs={[
+                                  {
+                                    code: "COLOR",
+                                    name: "Acabado / Color (selector general del configurador)",
+                                    selection_type: "OPTION",
+                                  },
+                                  ...selections,
+                                ]}
                                 availableVariables={variables}
                                 compact
                               />
