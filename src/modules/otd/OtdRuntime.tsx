@@ -43,6 +43,7 @@ import {
 import { Toast } from "../../components/ui/Toast";
 import { FormulaPredictiveInput } from "./FormulaPredictiveInput";
 import { EntitySearchField, type EntitySearchOption } from "../../components/ui/EntitySearchField";
+import { ColorSwatch } from "../../components/ui/ColorSwatch";
 import "./otd-runtime.css";
 
 const euro = (n: number) =>
@@ -667,20 +668,28 @@ export function OtdRuntime() {
             {otdColorOptions.length > 0 && (
               <label className="runtime-input-field" style={{ marginBottom: 14 }}>
                 <span>Acabado / Color</span>
-                <select
-                  value={masterColorId ?? ""}
-                  onChange={(e) =>
-                    handleMasterColorChange(e.target.value ? Number(e.target.value) : null)
-                  }
-                  className="runtime-select"
-                >
-                  <option value="">Sin color por defecto</option>
-                  {otdColorOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.code} · {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="otd-color-select-row">
+                  <select
+                    value={masterColorId ?? ""}
+                    onChange={(e) =>
+                      handleMasterColorChange(e.target.value ? Number(e.target.value) : null)
+                    }
+                    className="runtime-select"
+                  >
+                    <option value="">Sin color por defecto</option>
+                    {otdColorOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.code} · {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  {(() => {
+                    const selected = otdColorOptions.find((c) => c.id === masterColorId);
+                    return selected ? (
+                      <ColorSwatch hex={selected.hex} code={selected.code} name={selected.name} size="md" />
+                    ) : null;
+                  })()}
+                </div>
                 <small style={{ color: "var(--muted)", fontSize: 11.5 }}>
                   Se aplica por defecto a cada componente cuyo acabado admita ese color;
                   cada componente conserva su propio selector para cambiarlo.
@@ -925,7 +934,7 @@ export function OtdRuntime() {
                       </div>
 
                       {availableColors.length > 0 && (
-                        <div style={{ margin: "4px 0" }}>
+                        <div style={{ margin: "4px 0", display: "flex", alignItems: "center", gap: 6 }}>
                           <select
                             value={colorSelections[componentKey] ?? ""}
                             onChange={(e) =>
@@ -948,6 +957,13 @@ export function OtdRuntime() {
                               </option>
                             ))}
                           </select>
+                          {(() => {
+                            const selectedColorId = colorSelections[componentKey];
+                            const selected = selectedColorId != null ? availableColors.find((color) => color.id === selectedColorId) : null;
+                            return selected ? (
+                              <ColorSwatch hex={selected.hex} code={selected.code} name={selected.name} size="sm" />
+                            ) : null;
+                          })()}
                         </div>
                       )}
                       <div className="comp-subtext">
@@ -957,8 +973,10 @@ export function OtdRuntime() {
                           </span>
                         )}
                         {hasPresetColor && c.color_name && (
-                          <span>
-                            Color: <b>{c.color_name}</b> ·{" "}
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            Color: <b>{c.color_name}</b>
+                            <ColorSwatch hex={c.color_hex} code={c.color_code} name={c.color_name} size="xs" />
+                            {" · "}
                           </span>
                         )}
                         <span>

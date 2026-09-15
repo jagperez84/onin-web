@@ -154,7 +154,7 @@ export async function materializeFamilyAttributeForProduct(productId:number,attr
   return assignmentId;
 }
 
-export type EffectiveAttributeColor={color_id:number;code:string;name:string};
+export type EffectiveAttributeColor={color_id:number;code:string;name:string;hex:string|null};
 
 /**
  * Colores disponibles para una característica ya efectiva en un artículo (heredada de
@@ -171,5 +171,5 @@ export async function listEffectiveAttributeColors(attributeId:number,source:'fa
   const excludedIds=new Set(exclusions.map(x=>x.color_id));
   return allColors
     .filter(c=>c.color&&!excludedIds.has(c.color_id))
-    .map(c=>({color_id:c.color_id,code:c.color!.code,name:c.color!.name}));
+    .map(c=>({color_id:c.color_id,code:c.color!.code,name:c.color!.name,hex:c.color!.hex??null}));
 }

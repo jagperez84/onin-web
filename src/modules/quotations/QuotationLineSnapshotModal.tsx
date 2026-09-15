@@ -18,6 +18,7 @@ import {
 import type { QuotationLineSnapshot } from "../../services/sales/quotationLineCalculationService";
 import type { OtdConfigurationSnapshot } from "../../services/otd/otdCalculationService";
 import { formatEuro } from "../../services/catalog/productPricingService";
+import { ColorSwatch } from "../../components/ui/ColorSwatch";
 import "./quotation-configurator.css";
 
 export type QuotationLineSnapshotModalProps = {
@@ -261,6 +262,9 @@ export function QuotationLineSnapshotModal({
                           {comp.color_name && (
                             <span
                               style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "4px",
                                 fontSize: "10px",
                                 color: "var(--status-success-fg)",
                                 background: "var(--success-soft)",
@@ -268,6 +272,12 @@ export function QuotationLineSnapshotModal({
                                 borderRadius: "3px",
                               }}
                             >
+                              <ColorSwatch
+                                hex={comp.color_hex}
+                                code={comp.color_code}
+                                name={comp.color_name}
+                                size="xs"
+                              />
                               {comp.color_name}
                             </span>
                           )}

@@ -15,6 +15,7 @@ export type CutNeed = {
   colorId?: number;
   colorCode?: string;
   colorName?: string;
+  colorHex?: string | null;
   unit: string;
 };
 
@@ -103,6 +104,8 @@ export function deriveProfileCutNeeds(line: any): CutNeed[] {
       comp?.color_code || snapshot.color_code || line.color_code || undefined;
     const colorName =
       comp?.color_name || snapshot.color_name || line.color_name || undefined;
+    const colorHex =
+      comp?.color_hex || snapshot.color_hex || line.color_hex || undefined;
 
     const dimensions =
       comp?.dimension_list || comp?.dimensions || snapshot.dimensions || line.specific_data?.dimensions || [];
@@ -150,6 +153,7 @@ export function deriveProfileCutNeeds(line: any): CutNeed[] {
       colorId,
       colorCode,
       colorName,
+      colorHex,
       unit: initialDimensionUnit
     };
   });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ClipboardCheck, X } from 'lucide-react';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
 import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
+import { ColorSwatch } from '../../components/ui/ColorSwatch';
 import './lona-confection.css';
 
 type Props = { line:any; reference?:string; onClose:()=>void };
@@ -55,7 +56,7 @@ export function LonaConfectionViewModal({line,reference,onClose}:Props){
               <div className="lona-data-grid">
                 <div><span>Dimensiones requeridas</span><strong>{formatDimensions(sheet.requiredDimensions,sheet.requiredDimensionUnits)}</strong></div>
                 <div><span>Característica</span><strong>{sheet.characteristicName||'Sin característica'}</strong></div>
-                <div><span>Color</span><strong>{sheet.colorName||'Sin color'}</strong></div>
+                <div><span>Color</span><strong style={{display:'flex',alignItems:'center',gap:'4px'}}>{sheet.colorName||'Sin color'}{sheet.colorName&&<ColorSwatch hex={sheet.colorHex} code={sheet.colorCode} name={sheet.colorName} size="sm"/>}</strong></div>
                 <div><span>Selección</span><strong>{sheet.selectionMode==='MANUAL'?'Manual':'Automática'}</strong></div>
                 <div><span>Unidad</span><strong>{sheet.unitSymbol||sheet.requiredDimensionUnits[0]||'—'}</strong></div>
               </div>

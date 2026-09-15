@@ -3,6 +3,7 @@ import { ArrowRightLeft, PackagePlus, RefreshCw, ChevronDown, ChevronRight } fro
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { listWarehouses, type Warehouse } from "../../services/warehouse/warehouseRepository";
 import { listStockBalances, listStockItemTraceability, type StockBalance, type StockItemTraceability } from "../../services/warehouse/stockRepository";
+import { ColorSwatch } from "../../components/ui/ColorSwatch";
 import "./stock.css";
 
 const formatDate = (value: string | null) =>
@@ -242,7 +243,12 @@ export function StockList() {
                             <span className="secondary-line">{r.characteristic.description}</span>
                           )}
                         </td>
-                        <td>{r.color?.name || r.color?.code || "—"}</td>
+                        <td style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          {r.color?.name || r.color?.code || "—"}
+                          {(r.color?.name || r.color?.code) && (
+                            <ColorSwatch hex={r.color?.hex} code={r.color?.code} name={r.color?.name} size="xs" />
+                          )}
+                        </td>
                         <td className="numeric">{r.quantity}</td>
                         <td className="numeric">{r.reserved_quantity}</td>
                         <td

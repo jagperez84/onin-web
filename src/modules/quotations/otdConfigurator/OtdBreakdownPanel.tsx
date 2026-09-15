@@ -14,6 +14,7 @@ import type {
   OtdRuntimeData,
   OtdComponentDef,
 } from "../../../services/otd/otdCalculationService";
+import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import { euro } from "./types";
 
 export type OtdBreakdownPanelProps = {
@@ -471,6 +472,9 @@ export function OtdBreakdownPanel({
                         {hasPresetColor && c.color_name && (
                           <span
                             style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
                               fontSize: "10.5px",
                               color: "#047857",
                               background: "#dcfce7",
@@ -479,6 +483,7 @@ export function OtdBreakdownPanel({
                               fontWeight: 600,
                             }}
                           >
+                            <ColorSwatch hex={c.color_hex} code={c.color_code} name={c.color_name} size="xs" />
                             {c.color_name}
                           </span>
                         )}
@@ -525,7 +530,14 @@ export function OtdBreakdownPanel({
                         )}
                       </div>
                       {availableColors.length > 0 && (
-                        <div style={{ marginTop: "4px" }}>
+                        <div
+                          style={{
+                            marginTop: "4px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                          }}
+                        >
                           <select
                             value={colorSelections[componentKey] ?? ""}
                             onChange={(e) =>
@@ -553,6 +565,21 @@ export function OtdBreakdownPanel({
                               </option>
                             ))}
                           </select>
+                          {(() => {
+                            const selectedColorId = colorSelections[componentKey];
+                            const selected =
+                              selectedColorId != null
+                                ? availableColors.find((color) => color.id === selectedColorId)
+                                : null;
+                            return selected ? (
+                              <ColorSwatch
+                                hex={selected.hex}
+                                code={selected.code}
+                                name={selected.name}
+                                size="sm"
+                              />
+                            ) : null;
+                          })()}
                         </div>
                       )}
                       <div

@@ -17,6 +17,7 @@ import { downloadLonaConfectionPdf } from '../../services/production/lonaConfect
 import { calculateLonaCut, type LonaCutCalculationResult, type LonaCutType } from '../../services/production/lonaCutCalculationService';
 import { LonaCutDiagram } from './LonaCutDiagram';
 import { LonaConfectionViewModal } from './LonaConfectionViewModal';
+import { ColorSwatch } from '../../components/ui/ColorSwatch';
 import './lona-confection.css';
 
 type Props = {
@@ -431,7 +432,12 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                           </div>
                           <div>
                             <span>Color</span>
-                            <strong>{component.colorName || 'Sin color'}</strong>
+                            <strong style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {component.colorName || 'Sin color'}
+                              {component.colorName && (
+                                <ColorSwatch hex={component.colorHex} code={component.colorCode} name={component.colorName} size="sm" />
+                              )}
+                            </strong>
                           </div>
                         </div>
 

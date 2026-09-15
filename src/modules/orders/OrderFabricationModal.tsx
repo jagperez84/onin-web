@@ -17,6 +17,7 @@ import {
   type OrderFabricationPlan,
   type ProfileNeedPreview,
 } from '../../services/production/orderFabricationService';
+import { ColorSwatch } from '../../components/ui/ColorSwatch';
 import './component-consumption.css';
 import './lona-confection.css';
 import './sales-order-cut.css';
@@ -397,7 +398,10 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                 <td>Línea {need.lineNo}</td>
                                 <td>{need.profile}</td>
                                 <td>{need.characteristic}</td>
-                                <td>{need.colorName || '—'}</td>
+                                <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  {need.colorName || '—'}
+                                  {need.colorName && <ColorSwatch hex={need.colorHex} code={need.colorCode} name={need.colorName} size="xs" />}
+                                </td>
                                 <td>
                                   {need.quantity} × {need.length} {need.unit}
                                 </td>
@@ -433,7 +437,12 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                                 {piece.length} {need.unit}
                                               </small>
                                               <small>Disp. {piece.quantity}</small>
-                                              {piece.colorName && <small>{piece.colorName}</small>}
+                                              {piece.colorName && (
+                                                <small style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                  {piece.colorName}
+                                                  <ColorSwatch hex={piece.colorHex} code={piece.colorCode} name={piece.colorName} size="xs" />
+                                                </small>
+                                              )}
                                             </span>
                                             <span className="ofc-piece-qty">
                                               <input
@@ -494,7 +503,10 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                     <strong>{component.productCode}</strong>
                                     <div className="muted">{component.productName}</div>
                                   </td>
-                                  <td>{component.colorName || '—'}</td>
+                                  <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    {component.colorName || '—'}
+                                    {component.colorName && <ColorSwatch hex={component.colorHex} code={component.colorCode} name={component.colorName} size="xs" />}
+                                  </td>
                                   <td>
                                     {component.quantity} · {component.line ?? '—'}
                                     {component.lineUnit ? ` ${component.lineUnit}` : ''} × {component.output ?? '—'}
@@ -584,8 +596,9 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                 <strong>{row.need.productCode}</strong>
                                 <div className="muted">{row.need.productName}</div>
                               </td>
-                              <td>
+                              <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 {[row.need.characteristicName, row.need.colorName].filter(Boolean).join(' · ') || '—'}
+                                {row.need.colorName && <ColorSwatch hex={row.need.colorHex} code={row.need.colorCode} name={row.need.colorName} size="xs" />}
                               </td>
                               <td>
                                 {row.need.quantity} {row.need.unitCode}

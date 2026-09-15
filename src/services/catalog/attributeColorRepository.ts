@@ -21,7 +21,7 @@ export async function listAttributeColors(attributeId: number): Promise<Attribut
   const c = client();
   const { data, error } = await c
     .from('attribute_color')
-    .select('id,attribute_id,color_id,active,deleted_at,color:color(id,code,name,active)')
+    .select('id,attribute_id,color_id,active,deleted_at,color:color(id,code,name,active,hex)')
     .eq('attribute_id', attributeId)
     .is('deleted_at', null)
     .order('id');

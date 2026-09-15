@@ -1387,3 +1387,13 @@
   color: var(--status-danger-fg);
 }
 
+
+.otd-color-select-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.otd-color-select-row select {
+  flex: 1;
+}

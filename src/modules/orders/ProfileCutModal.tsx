@@ -20,6 +20,7 @@ import { downloadWorkSheetPdf, downloadBatchWorkSheetsPdf } from '../../services
 import { loadMasterProductConfiguration } from '../../services/catalog/productConfigurationService';
 import { deriveProfileCutNeeds, findWorkSheetForNeed, type CutNeed } from '../../services/catalog/profileCutNeeds';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
+import { ColorSwatch } from '../../components/ui/ColorSwatch';
 import './sales-order.css';
 import './sales-order-cut.css';
 
@@ -434,9 +435,10 @@ export function ProfileCutModal({
                       <span className="profile-cut-tab-index">Perfil {idx + 1}</span>
                     </div>
                     <div className="profile-cut-tab-meta">
-                      <span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                         {n.quantity} × {u(n.length, idx)}
                         {n.colorName ? ` · ${n.colorName}` : ''}
+                        {n.colorName && <ColorSwatch hex={n.colorHex} code={n.colorCode} name={n.colorName} size="xs" />}
                       </span>
                       {sheet ? (
                         <span className="profile-cut-badge done">
@@ -481,10 +483,19 @@ export function ProfileCutModal({
               {existingWorkSheets.map(ws => (
                 <div className="sales-order-review-row completed-sheet-row" key={ws.id}>
                   <div>
-                    <strong style={{ color: 'var(--primary)', display: 'block', fontSize: '13.5px' }}>
+                    <strong
+                      style={{
+                        color: 'var(--primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '13.5px'
+                      }}
+                    >
                       {ws.code} · {ws.product_code} (
                       {ws.characteristic_name || 'Sin característica'}
                       {ws.color_name ? ` · ${ws.color_name}` : ''})
+                      {ws.color_name && <ColorSwatch hex={ws.color_hex} code={ws.color_code} name={ws.color_name} size="xs" />}
                     </strong>
                     <span style={{ fontSize: '12px', color: 'var(--muted)' }}>
                       Necesidad: {ws.quantity} ud. × {uSheet(ws.required_length, ws)}
@@ -551,10 +562,23 @@ export function ProfileCutModal({
               <h3>Resultado previsto del lote ({batchProposals.length} perfiles)</h3>
               {batchProposals.map((prop, idx) => (
                 <div key={idx} style={{ marginBottom: '14px' }}>
-                  <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px', color: 'var(--text)' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      marginBottom: '6px',
+                      color: 'var(--text)'
+                    }}
+                  >
                     Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic}
                     {prop.need.colorName ? ` · ${prop.need.colorName}` : ''}) · {prop.need.quantity} ×{' '}
                     {u(prop.need.length, prop.need.componentIndex)}
+                    {prop.need.colorName && (
+                      <ColorSwatch hex={prop.need.colorHex} code={prop.need.colorCode} name={prop.need.colorName} size="xs" />
+                    )}
                   </div>
                   {prop.pieces.map((piece, pIdx) => (
                     <div
@@ -634,9 +658,10 @@ export function ProfileCutModal({
                           <span>
                             {n.quantity} × {u(n.length, idx)}
                           </span>
-                          <small>
+                          <small style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                             {n.characteristic}
                             {n.colorName ? ` · ${n.colorName}` : ''}
+                            {n.colorName && <ColorSwatch hex={n.colorHex} code={n.colorCode} name={n.colorName} size="xs" />}
                           </small>
                         </div>
                       ))}
@@ -656,9 +681,12 @@ export function ProfileCutModal({
                     </div>
                     <div>
                       <span>Característica</span>
-                      <strong>
+                      <strong style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {activeNeed.characteristic}
                         {activeNeed.colorName ? ` · ${activeNeed.colorName}` : ''}
+                        {activeNeed.colorName && (
+                          <ColorSwatch hex={activeNeed.colorHex} code={activeNeed.colorCode} name={activeNeed.colorName} size="sm" />
+                        )}
                       </strong>
                     </div>
                   </div>
@@ -816,9 +844,12 @@ export function ProfileCutModal({
                                 </span>
                                 <span>
                                   <strong>{u(piece.length, activeNeedIndex)}</strong>
-                                  <small>
+                                  <small style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                     {piece.characteristicName || piece.characteristicCode || 'Sin característica'}
                                     {piece.colorName ? ` · ${piece.colorName}` : ''}
+                                    {piece.colorName && (
+                                      <ColorSwatch hex={piece.colorHex} code={piece.colorCode} name={piece.colorName} size="xs" />
+                                    )}
                                   </small>
                                 </span>
                                 <span className="stock-piece-quantity" onClick={e => e.stopPropagation()}>
@@ -910,9 +941,12 @@ export function ProfileCutModal({
                           marginBottom: '6px'
                         }}
                       >
-                        <span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic}
                           {prop.need.colorName ? ` · ${prop.need.colorName}` : ''})
+                          {prop.need.colorName && (
+                            <ColorSwatch hex={prop.need.colorHex} code={prop.need.colorCode} name={prop.need.colorName} size="xs" />
+                          )}
                         </span>
                         <span>
                           Necesidad: {prop.need.quantity} × {u(prop.need.length, prop.need.componentIndex)}

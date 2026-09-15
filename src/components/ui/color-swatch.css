@@ -1,0 +1,91 @@
+.color-swatch-tile {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: zoom-in;
+  padding: 0;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.color-swatch-tile.xs {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.color-swatch-tile.sm {
+  width: 15px;
+  height: 15px;
+}
+
+.color-swatch-tile.md {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+.color-swatch-tile.no-hex,
+.color-swatch-large.no-hex {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--canvas-stripe),
+    var(--canvas-stripe) 3px,
+    var(--surface) 3px,
+    var(--surface) 6px
+  );
+}
+
+.color-swatch-backdrop {
+  z-index: 12000;
+  cursor: zoom-out;
+}
+
+.color-swatch-popover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.3);
+  max-width: 320px;
+  cursor: default;
+}
+
+.color-swatch-large {
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.color-swatch-large.no-hex {
+  background-size: 12px 12px;
+}
+
+.color-swatch-popover-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.color-swatch-popover-text strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.color-swatch-popover-text code {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.color-swatch-muted {
+  font-size: 12px;
+  color: var(--muted);
+}

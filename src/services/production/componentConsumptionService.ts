@@ -16,6 +16,7 @@ export type ComponentNeed = {
   colorId: number | null;
   colorCode: string | null;
   colorName: string | null;
+  colorHex: string | null;
 };
 
 /** Un componente del despiece cuenta como "componente por unidades" si no es el perfil ni la tela/lona
@@ -53,7 +54,8 @@ export function resolveOrderLineComponents(line: any): ComponentNeed[] {
         characteristicName: c.characteristic_name || null,
         colorId,
         colorCode: c.color_code || null,
-        colorName: c.color_name || null
+        colorName: c.color_name || null,
+        colorHex: c.color_hex || null
       });
     }
   }
@@ -108,7 +110,9 @@ export type ComponentConsumptionLine = {
   unitCode: string | null;
   quantity: number;
   characteristicName: string | null;
+  colorCode: string | null;
   colorName: string | null;
+  colorHex: string | null;
 };
 
 export type ComponentConsumptionWorkSheet = {
@@ -151,7 +155,9 @@ function mapSheet(row: any): ComponentConsumptionWorkSheet {
         unitCode: l.component_unit_code ?? null,
         quantity: Number(l.quantity || 0),
         characteristicName: l.component_characteristic_name ?? null,
-        colorName: l.component_color_name ?? null
+        colorCode: l.component_color_code ?? null,
+        colorName: l.component_color_name ?? null,
+        colorHex: l.color?.hex ?? null
       }))
   };
 }
@@ -160,7 +166,7 @@ export async function getComponentConsumptionWorkSheetBySalesOrderLine(salesOrde
   const c = client();
   const { data, error } = await c
     .from('production_work_sheet')
-    .select('*,lines:production_work_sheet_line(*)')
+    .select('*,lines:production_work_sheet_line(*,color:color(hex))')
     .eq('sales_order_line_id', salesOrderLineId)
     .eq('document_type', 'COMPONENT_CONSUMPTION')
     .order('issue_date', { ascending: false })

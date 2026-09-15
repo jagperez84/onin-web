@@ -10,6 +10,7 @@ import {
   type ComponentNeed,
   type ComponentStockOption,
 } from '../../services/production/componentConsumptionService';
+import { ColorSwatch } from '../../components/ui/ColorSwatch';
 import './component-consumption.css';
 
 type Props = {
@@ -162,7 +163,10 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                         <strong>{l.productCode}</strong>
                         <span className="component-consumption-secondary">{l.productName}</span>
                       </td>
-                      <td>{[l.characteristicName, l.colorName].filter(Boolean).join(' · ') || '—'}</td>
+                      <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {[l.characteristicName, l.colorName].filter(Boolean).join(' · ') || '—'}
+                        {l.colorName && <ColorSwatch hex={l.colorHex} code={l.colorCode} name={l.colorName} size="xs" />}
+                      </td>
                       <td>{l.warehouseCode}</td>
                       <td className="numeric">
                         {l.quantity} {l.unitCode}
@@ -213,7 +217,10 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                           <strong>{need.productCode}</strong>
                           <span className="component-consumption-secondary">{need.productName}</span>
                         </td>
-                        <td>{[need.characteristicName, need.colorName].filter(Boolean).join(' · ') || '—'}</td>
+                        <td style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          {[need.characteristicName, need.colorName].filter(Boolean).join(' · ') || '—'}
+                          {need.colorName && <ColorSwatch hex={need.colorHex} code={need.colorCode} name={need.colorName} size="xs" />}
+                        </td>
                         <td>
                           {options.length === 0 ? (
                             <span className="component-consumption-no-stock">Sin existencias</span>

@@ -79,7 +79,7 @@ export type OtdDimensionDef = {
 
 export type OtdScale = ProductScaleRow & { product_id: number };
 
-export type OtdColorOption = { id: number; code: string; name: string };
+export type OtdColorOption = { id: number; code: string; name: string; hex: string | null };
 
 /**
  * "Característica" a efectos de OTD = product_attribute (familia + asignación de
@@ -166,6 +166,7 @@ export type OtdCalculatedComponent = {
   color_id: number | null;
   color_code: string | null;
   color_name: string | null;
+  color_hex: string | null;
   /** De dónde salió el color: 'fixed'/'formula' vienen del propio OTD (no editable al configurar); 'manual' es la elección del usuario (desplegable propio o selector maestro), siempre editable aunque ya tenga valor. null si no se resolvió ninguno. */
   color_source: 'fixed' | 'formula' | 'manual' | null;
   /** Colores disponibles para este componente, ya filtrados por artículo/familia. Vacío si su característica no diferencia por color o no se resolvió ninguna. */
@@ -234,6 +235,7 @@ export type OtdSnapshotComponent = {
   color_id: number | null;
   color_code: string | null;
   color_name: string | null;
+  color_hex: string | null;
   pricing_source: 'base' | 'characteristic' | 'scale' | 'scale_characteristic' | 'manual';
   scale_step_used: {
     dimension_1: number;
@@ -424,7 +426,7 @@ export async function loadEffectiveCharacteristicsForProducts(
     attributeIds.size > 0
       ? c
           .from('attribute_color')
-          .select('attribute_id,color:color(id,code,name,active)')
+          .select('attribute_id,color:color(id,code,name,active,hex)')
           .in('attribute_id', [...attributeIds])
           .is('deleted_at', null)
       : Promise.resolve({ data: [] as any[], error: null }),
@@ -448,7 +450,7 @@ export async function loadEffectiveCharacteristicsForProducts(
     if (!color) continue;
     const attrId = Number(row.attribute_id);
     const list = colorsByAttribute.get(attrId) ?? [];
-    list.push({ id: Number(color.id), code: String(color.code), name: String(color.name) });
+    list.push({ id: Number(color.id), code: String(color.code), name: String(color.name), hex: color.hex ?? null });
     colorsByAttribute.set(attrId, list);
   }
 
@@ -1061,6 +1063,7 @@ export function calculateOtdRuntime(
       let resolvedColorId: number | null = null;
       let resolvedColorCode: string | null = null;
       let resolvedColorName: string | null = null;
+      let resolvedColorHex: string | null = null;
       // Distingue de dónde salió el color, para que la UI sepa si puede
       // seguir ofreciendo el desplegable manual: 'fixed'/'formula' vienen del
       // propio OTD (no hace falta ni tiene sentido dejar elegir otro color al
@@ -1076,6 +1079,7 @@ export function calculateOtdRuntime(
           resolvedColorId = fixed.id;
           resolvedColorCode = fixed.code;
           resolvedColorName = fixed.name;
+          resolvedColorHex = fixed.hex;
           resolvedColorSource = 'fixed';
         }
       } else if (comp.color_expression && comp.color_expression.trim()) {
@@ -1095,6 +1099,7 @@ export function calculateOtdRuntime(
             resolvedColorId = matched.id;
             resolvedColorCode = matched.code;
             resolvedColorName = matched.name;
+            resolvedColorHex = matched.hex;
             resolvedColorSource = 'formula';
           }
         }
@@ -1108,6 +1113,7 @@ export function calculateOtdRuntime(
           resolvedColorId = matched.id;
           resolvedColorCode = matched.code;
           resolvedColorName = matched.name;
+          resolvedColorHex = matched.hex;
           resolvedColorSource = 'manual';
         } else {
           requiredMissing.push(`Color de ${comp.description || comp.code}`);
@@ -1213,6 +1219,7 @@ export function calculateOtdRuntime(
         color_id: resolvedColorId,
         color_code: resolvedColorCode,
         color_name: resolvedColorName,
+        color_hex: resolvedColorHex,
         color_source: resolvedColorSource,
         available_colors: availableColors,
         pricing_source: pricingSource,
@@ -1250,6 +1257,7 @@ export function calculateOtdRuntime(
         color_id: null,
         color_code: null,
         color_name: null,
+        color_hex: null,
         color_source: null,
         available_colors: [],
         pricing_source: 'manual',
@@ -1371,6 +1379,7 @@ export function buildOtdConfigurationSnapshot(
     color_id: c.color_id,
     color_code: c.color_code,
     color_name: c.color_name,
+    color_hex: c.color_hex,
     pricing_source: c.pricing_source,
     scale_step_used: c.scale_step_used,
     base_price: c.base_price,

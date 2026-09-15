@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 
-export type ColorRef = { id: number; code: string; name: string; active: boolean };
+export type ColorRef = { id: number; code: string; name: string; active: boolean; hex?: string | null };
 
 export type CharacteristicColor = {
   id: number;

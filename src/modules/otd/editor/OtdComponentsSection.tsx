@@ -2,6 +2,7 @@ import React from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { FormulaPredictiveInput } from "../FormulaPredictiveInput";
 import { EntitySearchField, type EntitySearchOption } from "../../../components/ui/EntitySearchField";
+import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import {
   searchOninProducts,
   type OninProduct,
@@ -485,26 +486,34 @@ export function OtdComponentsSection({
                               <span className="field-label">
                                 Color del listado de colores del sistema
                               </span>
-                              <select
-                                value={c.color_id ?? ""}
-                                onChange={(e) =>
-                                  updateComponent(ci, {
-                                    color_id: e.target.value
-                                      ? Number(e.target.value)
-                                      : null,
-                                    color_expression: null,
-                                  })
-                                }
-                              >
-                                <option value="">
-                                  Preguntar al configurar el presupuesto…
-                                </option>
-                                {availableColors.map((cl) => (
-                                  <option key={cl.id} value={cl.id}>
-                                    {cl.code} · {cl.name}
+                              <div className="otd-color-select-row">
+                                <select
+                                  value={c.color_id ?? ""}
+                                  onChange={(e) =>
+                                    updateComponent(ci, {
+                                      color_id: e.target.value
+                                        ? Number(e.target.value)
+                                        : null,
+                                      color_expression: null,
+                                    })
+                                  }
+                                >
+                                  <option value="">
+                                    Preguntar al configurar el presupuesto…
                                   </option>
-                                ))}
-                              </select>
+                                  {availableColors.map((cl) => (
+                                    <option key={cl.id} value={cl.id}>
+                                      {cl.code} · {cl.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                {(() => {
+                                  const selectedColor = availableColors.find((cl) => cl.id === c.color_id);
+                                  return selectedColor ? (
+                                    <ColorSwatch hex={selectedColor.hex} code={selectedColor.code} name={selectedColor.name} size="md" />
+                                  ) : null;
+                                })()}
+                              </div>
                             </label>
                           )}
                         </div>

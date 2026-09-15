@@ -4,6 +4,7 @@ import {
   getOtdColorOptions,
   type OtdRuntimeData,
 } from "../../../services/otd/otdCalculationService";
+import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 
 export type OtdInputsFormProps = {
   runtimeData: OtdRuntimeData;
@@ -81,28 +82,36 @@ export function OtdInputsForm({
               Acabado / Color
             </h4>
           </div>
-          <select
-            value={masterColorId ?? ""}
-            onChange={(e) =>
-              onMasterColorChange?.(e.target.value ? Number(e.target.value) : null)
-            }
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "6px",
-              border: "1px solid #cbd5e1",
-              fontSize: "13px",
-              background: "#ffffff",
-              color: "#0f172a",
-            }}
-          >
-            <option value="">Sin color por defecto</option>
-            {colorOptions.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code} · {c.name}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <select
+              value={masterColorId ?? ""}
+              onChange={(e) =>
+                onMasterColorChange?.(e.target.value ? Number(e.target.value) : null)
+              }
+              style={{
+                flex: 1,
+                padding: "8px 12px",
+                borderRadius: "6px",
+                border: "1px solid #cbd5e1",
+                fontSize: "13px",
+                background: "#ffffff",
+                color: "#0f172a",
+              }}
+            >
+              <option value="">Sin color por defecto</option>
+              {colorOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} · {c.name}
+                </option>
+              ))}
+            </select>
+            {(() => {
+              const selected = colorOptions.find((c) => c.id === masterColorId);
+              return selected ? (
+                <ColorSwatch hex={selected.hex} code={selected.code} name={selected.name} size="md" />
+              ) : null;
+            })()}
+          </div>
           <p style={{ fontSize: "11.5px", color: "#64748b", margin: "6px 0 0" }}>
             Se aplica como valor por defecto a cada componente cuyo acabado admita ese
             color; cada componente sigue teniendo su propio selector para cambiarlo.

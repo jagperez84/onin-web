@@ -3,6 +3,7 @@ import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { listWarehouses, type Warehouse } from "../../services/warehouse/warehouseRepository";
 import { listStockMovements, type StockMovement } from "../../services/warehouse/stockRepository";
+import { ColorSwatch } from "../../components/ui/ColorSwatch";
 import "./stock.css";
 
 export function StockMovementsList({ successMessage }: { successMessage?: string }) {
@@ -80,7 +81,12 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
                   <td>{row.warehouse?.code}</td>
                   <td><strong>{row.product?.code}</strong><span className="secondary-line">{row.product?.commercial_description || "Sin descripción"}</span></td>
                   <td>{row.characteristic?.code || "—"}</td>
-                  <td>{row.color?.name || row.color?.code || "—"}</td>
+                  <td style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    {row.color?.name || row.color?.code || "—"}
+                    {(row.color?.name || row.color?.code) && (
+                      <ColorSwatch hex={row.color?.hex} code={row.color?.code} name={row.color?.name} size="xs" />
+                    )}
+                  </td>
                   <td>{formatDimensions(row.dimension_values)}</td>
                   <td className="numeric">{row.quantity}</td>
                   <td>{row.reference || "—"}</td>
