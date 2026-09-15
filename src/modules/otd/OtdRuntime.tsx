@@ -213,7 +213,12 @@ export function OtdRuntime() {
       calculation.components.forEach((comp, idx) => {
         if (!comp.characteristic_id) return;
         const compDef = customComponents[idx];
-        if (compDef?.color_id || compDef?.color_expression?.trim()) return;
+        // Un color_expression que sí resolvió (color_name presente) no se
+        // pisa con el maestro — respeta lo que decidió la fórmula. Pero si no
+        // resolvió (p. ej. no hay ninguna entrada de oficina con ese código),
+        // el maestro sigue siendo la única forma de dar valor al componente.
+        const dynamicResolved = Boolean(compDef?.color_expression?.trim()) && Boolean(comp.color_name);
+        if (compDef?.color_id || dynamicResolved) return;
         if (comp.available_colors.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
@@ -867,8 +872,13 @@ export function OtdRuntime() {
               {calculation?.components.map((c, idx) => {
                 const compDef = customComponents[idx];
                 const isInactive = compDef && !compDef.active;
+                // Un color_expression solo cuenta como "resuelto" (sin dropdown
+                // manual, sin poder recibir el color maestro) si de verdad produjo
+                // un color; si la fórmula no encontró nada, se comporta como
+                // cualquier componente sin color predefinido.
                 const hasPresetColor = Boolean(
-                  compDef?.color_id || compDef?.color_expression?.trim(),
+                  compDef?.color_id ||
+                    (compDef?.color_expression?.trim() && c.color_name),
                 );
                 const availableColors = !hasPresetColor ? c.available_colors : [];
                 const componentKey = String(c.id ?? idx);

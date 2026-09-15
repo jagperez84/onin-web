@@ -403,8 +403,11 @@ export function OtdBreakdownPanel({
               {calculation.components.map((c, ci) => {
                 const compDef = customComponents[ci];
                 const isInactive = compDef && !compDef.active;
+                // Un color_expression solo cuenta como "resuelto" si de verdad
+                // produjo un color; si no, se comporta como sin color predefinido.
                 const hasPresetColor = Boolean(
-                  compDef?.color_id || compDef?.color_expression?.trim(),
+                  compDef?.color_id ||
+                    (compDef?.color_expression?.trim() && c.color_name),
                 );
                 const availableColors = !hasPresetColor ? c.available_colors : [];
                 const componentKey = String(c.id ?? ci);

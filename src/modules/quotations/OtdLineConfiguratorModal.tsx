@@ -393,7 +393,11 @@ export function OtdLineConfiguratorModal({
       calculation.components.forEach((comp, idx) => {
         if (!comp.characteristic_id) return;
         const compDef = customComponents[idx];
-        if (compDef?.color_id || compDef?.color_expression?.trim()) return;
+        // Un color_expression que sí resolvió (color_name presente) no se
+        // pisa con el maestro; si no resolvió, el maestro sigue siendo la
+        // única forma de dar valor al componente.
+        const dynamicResolved = Boolean(compDef?.color_expression?.trim()) && Boolean(comp.color_name);
+        if (compDef?.color_id || dynamicResolved) return;
         if (comp.available_colors.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
