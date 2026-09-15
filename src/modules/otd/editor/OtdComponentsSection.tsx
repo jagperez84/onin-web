@@ -6,6 +6,7 @@ import { ColorSwatch } from "../../../components/ui/ColorSwatch";
 import {
   searchOninProducts,
   type OninProduct,
+  type OtdCharacteristicOption,
 } from "../../../services/otd/otdCalculationService";
 import type { Unit } from "../../../services/catalog/unitRepository";
 import type { Component, Otd, Selection, Variable } from "./types";
@@ -17,6 +18,66 @@ function toProductOption(p: OninProduct): OtdProductOption {
     ...p,
     label: `${p.code} · ${p.commercial_description || p.technical_description || "Sin descripción"}`,
   };
+}
+
+/**
+ * Aplana característica + color en una única lista de opciones: una por cada
+ * color disponible en cada característica (para que el color determine la
+ * característica/acabado, no al revés) y, si alguna característica no
+ * diferencia por color, una opción "solo característica" para poder elegirla
+ * igualmente. Cuando el mismo color existe en más de una característica de la
+ * familia, el nombre de la característica se añade a la etiqueta para
+ * distinguirlas.
+ */
+type FlatCharacteristicColorOption = {
+  key: string;
+  characteristicId: number;
+  colorId: number | null;
+  code: string | null;
+  name: string | null;
+  hex: string | null;
+  label: string;
+};
+
+function buildCharacteristicColorOptions(
+  characteristics: OtdCharacteristicOption[],
+): FlatCharacteristicColorOption[] {
+  const colorCount = new Map<number, number>();
+  for (const ch of characteristics) {
+    for (const cl of ch.colors) {
+      colorCount.set(cl.id, (colorCount.get(cl.id) ?? 0) + 1);
+    }
+  }
+  const options: FlatCharacteristicColorOption[] = [];
+  for (const ch of characteristics) {
+    if (ch.colors.length === 0) {
+      options.push({
+        key: `ch:${ch.id}`,
+        characteristicId: ch.id,
+        colorId: null,
+        code: null,
+        name: null,
+        hex: null,
+        label: `${ch.code}${ch.description ? ` · ${ch.description}` : ""}`,
+      });
+      continue;
+    }
+    for (const cl of ch.colors) {
+      const ambiguous = (colorCount.get(cl.id) ?? 0) > 1;
+      options.push({
+        key: `chcolor:${ch.id}:${cl.id}`,
+        characteristicId: ch.id,
+        colorId: cl.id,
+        code: cl.code,
+        name: cl.name,
+        hex: cl.hex,
+        label: ambiguous
+          ? `${cl.code} · ${cl.name} (${ch.description || ch.code})`
+          : `${cl.code} · ${cl.name}`,
+      });
+    }
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label));
 }
 
 export type OtdComponentsSectionProps = {
@@ -88,14 +149,17 @@ export function OtdComponentsSection({
       });
     }
 
+    const charColorOptions = buildCharacteristicColorOptions(p.characteristics);
+    const onlyOption = charColorOptions.length === 1 ? charColorOptions[0] : null;
+
     updateComponent(componentIdx, {
       product_id: p.id,
       code: p.code,
       description: p.commercial_description || p.technical_description,
       dimension_expressions: initialDimExprs,
-      characteristic_id: p.characteristics[0]?.id ?? null,
+      characteristic_id: onlyOption?.characteristicId ?? null,
       characteristic_expression: null,
-      color_id: null,
+      color_id: onlyOption?.colorId ?? null,
       color_expression: null,
     });
 
@@ -317,210 +381,122 @@ export function OtdComponentsSection({
               </div>
 
               {/* Characteristic / Color Section */}
-              {product && characteristics.length > 0 && (
-                <div className="otd-characteristic-block">
-                  <div className="otd-dimensions-title">
-                    <strong>
-                      Característica / Acabado / Color del Componente
-                    </strong>
-                    <span>
-                      Configura un acabado fijo del catálogo (
-                      {characteristics.length} disponible
-                      {characteristics.length > 1 ? "s" : ""}) o resuélvelo
-                      dinámicamente con una variable/fórmula.
-                    </span>
-                  </div>
-                  <div className="otd-characteristic-grid">
-                    <label>
-                      <span className="field-label">
-                        Origen de la característica
+              {product && characteristics.length > 0 && (() => {
+                const charColorOptions = buildCharacteristicColorOptions(characteristics);
+                const selectedKey =
+                  c.color_id != null
+                    ? `chcolor:${c.characteristic_id}:${c.color_id}`
+                    : c.characteristic_id != null
+                    ? `ch:${c.characteristic_id}`
+                    : "";
+                const selectedOption = charColorOptions.find((o) => o.key === selectedKey) ?? null;
+                return (
+                  <div className="otd-characteristic-block">
+                    <div className="otd-dimensions-title">
+                      <strong>
+                        Característica / Acabado / Color del Componente
+                      </strong>
+                      <span>
+                        Elige el color del componente ({charColorOptions.length}{" "}
+                        disponible{charColorOptions.length > 1 ? "s" : ""}) — la
+                        característica/acabado se determina automáticamente
+                        según el color y la familia del artículo — o
+                        resuélvelo dinámicamente con una variable/fórmula.
                       </span>
-                      <select
-                        value={dynamic ? "VARIABLE" : "FIXED"}
-                        onChange={(e) =>
-                          e.target.value === "VARIABLE"
-                            ? updateComponent(ci, {
-                                characteristic_id: null,
-                                characteristic_expression:
-                                  c.characteristic_expression || "COLOR",
-                                color_id: null,
-                                color_expression: null,
-                              })
-                            : updateComponent(ci, {
-                                characteristic_expression: null,
-                                characteristic_id:
-                                  characteristics[0]?.id ?? null,
-                                color_id: null,
-                                color_expression: null,
-                              })
-                        }
-                      >
-                        <option value="FIXED">
-                          Fija de catálogo ({characteristics.length}{" "}
-                          disponibles)
-                        </option>
-                        <option value="VARIABLE">
-                          Fórmula o Variable dinámica
-                        </option>
-                      </select>
-                    </label>
-
-                    {dynamic ? (
-                      <div className="otd-characteristic-expr-wrap">
-                        <FormulaPredictiveInput
-                          label="Fórmula / Variable característica"
-                          value={c.characteristic_expression ?? ""}
-                          onChange={(val) =>
-                            updateComponent(ci, {
-                              characteristic_expression: val,
-                              characteristic_id: null,
-                            })
-                          }
-                          placeholder="Ej. COLOR, LONA o TIPO_ACABADO"
-                          availableInputs={selections}
-                          availableVariables={variables}
-                          compact
-                        />
-                      </div>
-                    ) : (
+                    </div>
+                    <div className="otd-characteristic-grid">
                       <label>
                         <span className="field-label">
-                          Característica del catálogo
+                          Origen de la característica / color
                         </span>
                         <select
-                          value={c.characteristic_id ?? ""}
+                          value={dynamic ? "VARIABLE" : "FIXED"}
                           onChange={(e) =>
-                            updateComponent(ci, {
-                              characteristic_id: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                              characteristic_expression: null,
-                              color_id: null,
-                              color_expression: null,
-                            })
+                            e.target.value === "VARIABLE"
+                              ? updateComponent(ci, {
+                                  characteristic_id: null,
+                                  characteristic_expression:
+                                    c.characteristic_expression || "COLOR",
+                                  color_id: null,
+                                  color_expression: null,
+                                })
+                              : updateComponent(ci, {
+                                  characteristic_expression: null,
+                                  characteristic_id: null,
+                                  color_id: null,
+                                  color_expression: null,
+                                })
                           }
                         >
-                          <option value="">
-                            Seleccionar característica…
+                          <option value="FIXED">
+                            Color fijo de catálogo ({charColorOptions.length}{" "}
+                            disponibles)
                           </option>
-                          {characteristics.map((ch) => (
-                            <option key={ch.id} value={ch.id}>
-                              {ch.code}
-                              {ch.description ? ` · ${ch.description}` : ""}
-                            </option>
-                          ))}
+                          <option value="VARIABLE">
+                            Fórmula o Variable dinámica
+                          </option>
                         </select>
                       </label>
-                    )}
-                  </div>
 
-                  {!dynamic &&
-                    c.characteristic_id &&
-                    (() => {
-                      const selectedChar = characteristics.find(
-                        (ch) => ch.id === c.characteristic_id,
-                      );
-                      const availableColors = selectedChar?.colors ?? [];
-                      if (availableColors.length === 0) return null;
-                      const colorDynamic = Boolean(
-                        c.color_expression?.trim(),
-                      );
-                      return (
-                        <div className="otd-characteristic-grid otd-color-subblock">
-                          <label>
-                            <span className="field-label">
-                              Origen del color
-                            </span>
-                            <select
-                              value={colorDynamic ? "VARIABLE" : "FIXED"}
-                              onChange={(e) =>
-                                e.target.value === "VARIABLE"
-                                  ? updateComponent(ci, {
-                                      color_id: null,
-                                      color_expression:
-                                        c.color_expression || "COLOR",
-                                    })
-                                  : updateComponent(ci, {
-                                      color_expression: null,
-                                      color_id: null,
-                                    })
-                              }
-                            >
-                              <option value="FIXED">
-                                Color fijo ({availableColors.length}{" "}
-                                disponible
-                                {availableColors.length > 1 ? "s" : ""})
-                              </option>
-                              <option value="VARIABLE">
-                                Fórmula o Variable dinámica
-                              </option>
-                            </select>
-                          </label>
-
-                          {colorDynamic ? (
-                            <div className="otd-characteristic-expr-wrap">
-                              <FormulaPredictiveInput
-                                label="Fórmula / Variable color"
-                                value={c.color_expression ?? ""}
-                                onChange={(val) =>
-                                  updateComponent(ci, {
-                                    color_expression: val,
-                                    color_id: null,
-                                  })
-                                }
-                                placeholder="Ej. COLOR o ACABADO"
-                                availableInputs={[
-                                  {
-                                    code: "COLOR",
-                                    name: "Acabado / Color (selector general del configurador)",
-                                    selection_type: "OPTION",
-                                  },
-                                  ...selections,
-                                ]}
-                                availableVariables={variables}
-                                compact
-                              />
-                            </div>
-                          ) : (
-                            <label>
-                              <span className="field-label">
-                                Color del listado de colores del sistema
-                              </span>
-                              <div className="otd-color-select-row">
-                                <select
-                                  value={c.color_id ?? ""}
-                                  onChange={(e) =>
-                                    updateComponent(ci, {
-                                      color_id: e.target.value
-                                        ? Number(e.target.value)
-                                        : null,
-                                      color_expression: null,
-                                    })
-                                  }
-                                >
-                                  <option value="">
-                                    Preguntar al configurar el presupuesto…
-                                  </option>
-                                  {availableColors.map((cl) => (
-                                    <option key={cl.id} value={cl.id}>
-                                      {cl.code} · {cl.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                {(() => {
-                                  const selectedColor = availableColors.find((cl) => cl.id === c.color_id);
-                                  return selectedColor ? (
-                                    <ColorSwatch hex={selectedColor.hex} code={selectedColor.code} name={selectedColor.name} size="md" />
-                                  ) : null;
-                                })()}
-                              </div>
-                            </label>
-                          )}
+                      {dynamic ? (
+                        <div className="otd-characteristic-expr-wrap">
+                          <FormulaPredictiveInput
+                            label="Fórmula / Variable característica"
+                            value={c.characteristic_expression ?? ""}
+                            onChange={(val) =>
+                              updateComponent(ci, {
+                                characteristic_expression: val,
+                                characteristic_id: null,
+                              })
+                            }
+                            placeholder="Ej. COLOR, LONA o TIPO_ACABADO"
+                            availableInputs={selections}
+                            availableVariables={variables}
+                            compact
+                          />
                         </div>
-                      );
-                    })()}
-                </div>
-              )}
+                      ) : (
+                        <label>
+                          <span className="field-label">
+                            Color del catálogo
+                          </span>
+                          <div className="otd-color-select-row">
+                            <select
+                              value={selectedKey}
+                              onChange={(e) => {
+                                const opt = charColorOptions.find(
+                                  (o) => o.key === e.target.value,
+                                );
+                                updateComponent(ci, {
+                                  characteristic_id: opt?.characteristicId ?? null,
+                                  color_id: opt?.colorId ?? null,
+                                  characteristic_expression: null,
+                                  color_expression: null,
+                                });
+                              }}
+                            >
+                              <option value="">Seleccionar color…</option>
+                              {charColorOptions.map((opt) => (
+                                <option key={opt.key} value={opt.key}>
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                            {selectedOption?.colorId != null && (
+                              <ColorSwatch
+                                hex={selectedOption.hex}
+                                code={selectedOption.code}
+                                name={selectedOption.name}
+                                size="md"
+                              />
+                            )}
+                          </div>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Dimensions Section (Formula / Quantity per dimension) */}
               {product && dimensions.length > 0 && (
