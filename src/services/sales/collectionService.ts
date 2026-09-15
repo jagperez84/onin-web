@@ -52,6 +52,26 @@ const SELECT =
   'id,sequence,percentage,due_date,amount,status,collected_amount,collected_date,collected_notes,' +
   'invoice:invoice_id(id,code,invoice_type,status,customer_id,customer:customer_id(party:party_id(legal_name,trade_name)))';
 
+/** IDs de cliente con algún plazo de cobro pendiente y ya vencido (impago), para marcarlos en el listado de clientes. */
+export async function listCustomerIdsWithOverdueCollections(): Promise<Set<number>> {
+  const c = client();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().slice(0, 10);
+  const { data, error } = await c
+    .from('invoice_installment')
+    .select('invoice:invoice_id(customer_id)')
+    .eq('status', 'PENDING')
+    .lt('due_date', todayStr);
+  if (error) throw new CoreRepositoryError(error.message);
+  const ids = new Set<number>();
+  for (const row of data || []) {
+    const invoice = one((row as any).invoice);
+    if (invoice?.customer_id != null) ids.add(Number(invoice.customer_id));
+  }
+  return ids;
+}
+
 export async function listCollections(filters: { status?: InstallmentStatus | 'ALL'; search?: string; customerId?: number } = {}): Promise<CollectionRow[]> {
   const c = client();
   let q = c.from('invoice_installment').select(SELECT).order('due_date', { ascending: true });

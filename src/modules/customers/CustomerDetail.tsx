@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
+  AlertTriangle,
   Mail,
   MapPin,
   Edit3,
@@ -82,6 +83,7 @@ export function CustomerDetail() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [hasOverdueCollections, setHasOverdueCollections] = useState(false);
   const messageLogRef = useRef<HTMLDivElement | null>(null);
 
   const reportError = (value: string) => {
@@ -192,7 +194,14 @@ export function CustomerDetail() {
       <div className="page-head">
         <div>
           <div className="eyebrow">VENTAS / CLIENTES / {data.customer.id}</div>
-          <h1>Cliente {data.customer.id}</h1>
+          <h1 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            Cliente {data.customer.id}
+            {hasOverdueCollections && (
+              <span title="Tiene cobros vencidos sin pagar" style={{ display: "inline-flex" }}>
+                <AlertTriangle size={20} color="var(--status-danger-fg)" />
+              </span>
+            )}
+          </h1>
           <p>{data.party.trade_name || data.party.legal_name}</p>
         </div>
         <div className="actions">
@@ -374,7 +383,11 @@ export function CustomerDetail() {
           customerPartyId={data.party.id}
           editable={editing && !deleted}
         />
-        <CustomerDocumentsSection id="documentos" customerId={data.customer.id} />
+        <CustomerDocumentsSection
+          id="documentos"
+          customerId={data.customer.id}
+          onOverdueChange={setHasOverdueCollections}
+        />
       </form>
       {editing && !deleted && (
         <ProfileSaveBar onSave={saveProfile} saving={saving} />

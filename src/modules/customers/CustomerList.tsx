@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { Plus, Search, Undo2, Users } from "lucide-react";
+import { AlertTriangle, Plus, Search, Undo2, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   listCustomers,
   restoreCustomer,
 } from "../../services/core/customerRepository";
+import { listCustomerIdsWithOverdueCollections } from "../../services/sales/collectionService";
 import type { CustomerSummary } from "../../domain/core/types";
 
 export function CustomerList() {
   const [rows, setRows] = useState<CustomerSummary[]>([]);
+  const [overdueIds, setOverdueIds] = useState<Set<number>>(new Set());
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<
     "active" | "inactive" | "deleted" | "all"
@@ -19,7 +21,12 @@ export function CustomerList() {
     setLoading(true);
     setError("");
     try {
-      setRows(await listCustomers(search, status));
+      const [customers, overdue] = await Promise.all([
+        listCustomers(search, status),
+        listCustomerIdsWithOverdueCollections().catch(() => new Set<number>()),
+      ]);
+      setRows(customers);
+      setOverdueIds(overdue);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "No se pudieron cargar los clientes.",
@@ -111,18 +118,26 @@ export function CustomerList() {
             ) : (
               rows.map((r) => {
                 const deleted = !!r.deleted_at;
+                const hasOverdue = overdueIds.has(r.id);
                 return (
                   <tr key={r.id} className="clickable-row">
                     <td>
                       <Link to={`/ventas/clientes/${r.id}`}>{r.id}</Link>
                     </td>
                     <td>
-                      <Link
-                        className="primary-link"
-                        to={`/ventas/clientes/${r.id}`}
-                      >
-                        {r.party.trade_name || r.party.legal_name}
-                      </Link>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        {hasOverdue && (
+                          <span title="Tiene cobros vencidos sin pagar" style={{ display: "inline-flex" }}>
+                            <AlertTriangle size={14} color="var(--status-danger-fg)" />
+                          </span>
+                        )}
+                        <Link
+                          className="primary-link"
+                          to={`/ventas/clientes/${r.id}`}
+                        >
+                          {r.party.trade_name || r.party.legal_name}
+                        </Link>
+                      </span>
                       {r.party.trade_name && (
                         <div className="secondary">{r.party.legal_name}</div>
                       )}

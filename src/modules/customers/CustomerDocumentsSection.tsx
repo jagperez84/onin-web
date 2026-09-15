@@ -52,9 +52,12 @@ type DocumentGroup = {
 export function CustomerDocumentsSection({
   id = "documentos",
   customerId,
+  onOverdueChange,
 }: {
   id?: string;
   customerId: number;
+  /** Notifica al contenedor si el cliente tiene cobros pendientes ya vencidos, para poder marcarlo en la cabecera. */
+  onOverdueChange?: (hasOverdue: boolean) => void;
 }) {
   const [summary, setSummary] = useState<CustomerCommercialSummary | null>(null);
   const [typeFilter, setTypeFilter] = useState<CustomerDocumentType | "ALL">("ALL");
@@ -68,7 +71,10 @@ export function CustomerDocumentsSection({
     setError("");
     getCustomerCommercialSummary(customerId)
       .then((s) => {
-        if (active) setSummary(s);
+        if (active) {
+          setSummary(s);
+          onOverdueChange?.(s.stats.overdueCollectionsCount > 0);
+        }
       })
       .catch((e) => {
         if (active)
