@@ -30,6 +30,7 @@ import { OtdVariablesSection } from "./editor/OtdVariablesSection";
 import { OtdComponentsSection } from "./editor/OtdComponentsSection";
 import { OtdAssistantModal } from "./editor/OtdAssistantModal";
 import type { Otd, Selection, Variable, Component } from "./editor/types";
+import { MessageLog } from "../../components/ui/MessageLog";
 import { OtdList } from "./OtdList";
 import "./otd.css";
 
@@ -322,12 +323,12 @@ export function OtdEditor() {
       } = await supabase.auth.getUser();
       let company_id = otd.company_id ?? 1;
       if (user) {
-        const { data: prof } = await supabase
-          .from("profiles")
+        const { data: ua } = await supabase
+          .from("user_account")
           .select("company_id")
-          .eq("id", user.id)
+          .eq("auth_user_id", user.id)
           .maybeSingle();
-        if (prof?.company_id) company_id = prof.company_id;
+        if (ua?.company_id) company_id = ua.company_id;
       }
 
       // 1. Save OTD Header
@@ -944,6 +945,11 @@ export function OtdEditor() {
         </div>
       </div>
 
+      <MessageLog
+        error={message && !message.startsWith("Guardado") ? message : ""}
+        success={message.startsWith("Guardado") ? message : ""}
+      />
+
       {/* Top Sticky Navigator for Maximum Horizontal Space */}
       <div className="otd-top-nav-wrapper">
         <nav
@@ -1021,14 +1027,6 @@ export function OtdEditor() {
             }
             onChange={setComponents}
           />
-
-          {message && (
-            <div
-              className={`otd-message ${message.startsWith("Guardado") ? "ok" : "error"}`}
-            >
-              {message}
-            </div>
-          )}
         </form>
       </div>
 
