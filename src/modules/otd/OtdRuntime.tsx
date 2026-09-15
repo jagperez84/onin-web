@@ -210,6 +210,17 @@ export function OtdRuntime() {
     if (colorId == null || !runtimeData || !calculation) return;
     setColorSelections((prev) => {
       const next = { ...prev };
+      // eslint-disable-next-line no-console
+      console.log("[OTD DEBUG] handleMasterColorChange", {
+        colorId,
+        components: calculation.components.map((comp) => ({
+          id: comp.id,
+          product_name: comp.product_name,
+          characteristic_id: comp.characteristic_id,
+          color_source: comp.color_source,
+          available_colors: comp.available_colors,
+        })),
+      });
       calculation.components.forEach((comp) => {
         if (!comp.characteristic_id) return;
         // Fijo o resuelto por fórmula: viene del propio OTD, el maestro no lo
@@ -220,6 +231,8 @@ export function OtdRuntime() {
           next[String(comp.id)] = colorId;
         }
       });
+      // eslint-disable-next-line no-console
+      console.log("[OTD DEBUG] colorSelections tras aplicar", next);
       return next;
     });
   };
