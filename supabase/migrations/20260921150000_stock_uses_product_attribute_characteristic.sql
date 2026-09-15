@@ -3,16 +3,25 @@
 -- product_characteristic + characteristic_color, el mismo sistema que resultó
 -- muerto en el editor de OTD (20260921140000_otd_component_characteristic_uses_
 -- attribute.sql): su única pantalla de alta (ProductCharacteristics.tsx) no está
--- enlazada desde ningún sitio de la app, así que ningún artículo pudo tener nunca
--- una fila de product_characteristic por UI. En la práctica characteristic_id
--- siempre viajaba a NULL en movimientos/reservas reales, y validate_characteristic_color
--- bloqueaba cualquier color_id real porque exigía primero un characteristic_id
--- válido que nunca podía existir.
+-- enlazada desde ningún sitio de la app, así que desde la UI ningún artículo
+-- pudo tener nunca una fila de product_characteristic nueva, y
+-- validate_characteristic_color bloqueaba cualquier color_id real porque exigía
+-- primero un characteristic_id válido que la UI nunca podía crear.
 --
--- El sistema real y accesible es product_attribute (herencia de familia +
--- asignación de artículo, colores vía attribute_color) — el mismo repuntado ya
--- hecho para otd_component. Este archivo repite el mismo cambio para el motor
--- de stock:
+-- Eso no significa que la columna esté vacía: 20260831204725_multi_company_demo_v8.sql
+-- replica product_characteristic y warehouse_stock/stock_movement/... de la
+-- empresa real a la demo, así que SÍ hay filas de stock con characteristic_id
+-- apuntando a product_characteristic ya en producción (datos reales, no basura;
+-- probablemente cargados por SQL/import directo en su momento, no por esta
+-- pantalla). No se tocan ni se pierden: el paso 4 de abajo repunta la FK a
+-- product_attribute solo en las tablas donde todo el characteristic_id
+-- existente ya encaja; donde no encaja dejamos la columna sin FK (sigue
+-- guardando el valor tal cual) en vez de fallar o anular datos ajenos.
+--
+-- El sistema real y accesible para dar de alta una característica nueva es
+-- product_attribute (herencia de familia + asignación de artículo, colores vía
+-- attribute_color) — el mismo repuntado ya hecho para otd_component. Este
+-- archivo repite el mismo cambio para el motor de stock:
 --   1. effective_product_characteristics(product_id): fusión en SQL (familia +
 --      asignación de artículo + exclusiones) equivalente a
 --      loadEffectiveCharacteristicsForProducts en TS.
@@ -30,8 +39,17 @@
 --      artículo con ese flag no podía reservarse nunca.
 --   4. Las FK characteristic_id de warehouse_stock, warehouse_stock_item,
 --      stock_movement, stock_reservation y production_work_sheet pasan de
---      product_characteristic(id) a product_attribute(id). Como characteristic_id
---      estaba siempre a NULL en la práctica (ver arriba), no hay datos que migrar.
+--      product_characteristic(id) a product_attribute(id) — solo donde los
+--      datos existentes ya lo permiten (ver arriba); en el resto queda como
+--      aviso (raise notice) para revisar manualmente cuándo/si conviene migrar
+--      esas filas concretas a una característica product_attribute real.
+--
+-- Las filas con un characteristic_id "viejo" (product_characteristic) siguen
+-- funcionando para sus propios movimientos futuros: register_stock_movement
+-- etc. rechazará ese characteristic_id por RPC (ya no es válido contra
+-- product_attribute), pero el fallback de registerStockMovement en
+-- stockRepository.ts ya hace un insert directo sin pasar por el RPC cuando la
+-- validación de característica falla, así que el movimiento no se bloquea.
 
 -- 1. Fusión efectiva de características (family + article + exclusiones), igual
 -- criterio que listProductCharacteristicConfiguration/listEffectiveAttributeColors.
@@ -443,14 +461,25 @@ begin
 end; $$;
 
 -- 4. Repunta las FK characteristic_id de product_characteristic a
--- product_attribute en las tablas de stock/producción. characteristic_id estaba
--- siempre a NULL en la práctica (ver justificación arriba), así que no hay que
--- migrar datos — solo repuntar la restricción, con el nombre que Postgres le
--- haya puesto realmente en cada tabla (no asumido).
+-- product_attribute en las tablas de stock/producción — pero solo donde los
+-- datos existentes ya encajan. Hay filas reales (ver justificación arriba)
+-- con characteristic_id de la vieja product_characteristic; forzar la FK ahí
+-- fallaría (o, peor, habría que anular ese dato para poder forzarla). Por
+-- tabla: se quita siempre la FK vieja a product_characteristic si existe: ese
+-- valor deja de tener integridad referencial garantizada por la base de
+-- datos, pero el dato en sí no se toca. La FK nueva a product_attribute solo
+-- se añade si NINGÚN characteristic_id existente en esa tabla la
+-- incumpliría; si alguno la incumple, se deja sin FK (con un aviso) en vez de
+-- fallar — la validación de negocio real ya la hacen register_stock_movement/
+-- reserve_stock/etc. contra product_attribute para cualquier movimiento
+-- nuevo, así que la ausencia de esta FK no abre ninguna vía nueva de
+-- inconsistencia; solo dilata la limpieza de esas filas concretas a cuando el
+-- usuario decida revisarlas manualmente.
 do $$
 declare
   v_table text;
   v_conname text;
+  v_incompatible integer;
 begin
   foreach v_table in array array['warehouse_stock','warehouse_stock_item','stock_movement','stock_reservation','production_work_sheet']
   loop
@@ -465,7 +494,15 @@ begin
     if v_conname is not null then
       execute format('alter table public.%I drop constraint %I', v_table, v_conname);
     end if;
-    if not exists (
+
+    execute format(
+      'select count(*) from public.%I t where t.characteristic_id is not null and not exists (select 1 from public.product_attribute pa where pa.id = t.characteristic_id)',
+      v_table
+    ) into v_incompatible;
+
+    if v_incompatible > 0 then
+      raise notice 'Sin FK nueva characteristic_id -> product_attribute en %: % fila(s) con characteristic_id todavía del antiguo product_characteristic. El dato no se toca; revísalas manualmente cuando convenga y vuelve a lanzar este bloque para forzar la restricción.', v_table, v_incompatible;
+    elsif not exists (
       select 1
       from pg_constraint c
       where c.conrelid = format('public.%I', v_table)::regclass
@@ -485,8 +522,8 @@ begin
   end loop;
 end $$;
 
-comment on column public.warehouse_stock.characteristic_id is 'Característica (product_attribute.id, familia o artículo) de esta partida de stock. NULL si el artículo no diferencia por característica.';
-comment on column public.warehouse_stock_item.characteristic_id is 'Característica (product_attribute.id) de esta pieza física. NULL si el artículo no diferencia por característica.';
-comment on column public.stock_movement.characteristic_id is 'Característica (product_attribute.id) afectada por el movimiento. NULL si el artículo no diferencia por característica.';
-comment on column public.stock_reservation.characteristic_id is 'Característica (product_attribute.id) reservada. NULL si el artículo no diferencia por característica.';
-comment on column public.production_work_sheet.characteristic_id is 'Característica (product_attribute.id) del artículo cortado/consumido. NULL si el artículo no diferencia por característica.';
+comment on column public.warehouse_stock.characteristic_id is 'Característica (product_attribute.id, familia o artículo) de esta partida de stock. NULL si el artículo no diferencia por característica. Filas anteriores a 20260921150000 pueden conservar un id del antiguo product_characteristic sin FK (ver esa migración).';
+comment on column public.warehouse_stock_item.characteristic_id is 'Característica (product_attribute.id) de esta pieza física. NULL si el artículo no diferencia por característica. Filas anteriores a 20260921150000 pueden conservar un id del antiguo product_characteristic sin FK (ver esa migración).';
+comment on column public.stock_movement.characteristic_id is 'Característica (product_attribute.id) afectada por el movimiento. NULL si el artículo no diferencia por característica. Filas anteriores a 20260921150000 pueden conservar un id del antiguo product_characteristic sin FK (ver esa migración).';
+comment on column public.stock_reservation.characteristic_id is 'Característica (product_attribute.id) reservada. NULL si el artículo no diferencia por característica. Filas anteriores a 20260921150000 pueden conservar un id del antiguo product_characteristic sin FK (ver esa migración).';
+comment on column public.production_work_sheet.characteristic_id is 'Característica (product_attribute.id) del artículo cortado/consumido. NULL si el artículo no diferencia por característica. Filas anteriores a 20260921150000 pueden conservar un id del antiguo product_characteristic sin FK (ver esa migración).';
