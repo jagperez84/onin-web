@@ -28,7 +28,7 @@ export function StockMovementCreateModal({ onClose }: Props) {
   const [dimensionValues, setDimensionValues] = useState<Record<string, string>>({});
   const [warehouseId, setWarehouseId] = useState("");
   const [type, setType] = useState("");
-  const [characteristicId, setCharacteristicId] = useState("");
+  const [selectedOptionKey, setSelectedOptionKey] = useState("");
   const [quantity, setQuantity] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -51,7 +51,7 @@ export function StockMovementCreateModal({ onClose }: Props) {
 
   useEffect(() => {
     if (!product) {
-      setCharacteristics([]); setDimensions([]); setDimensionValues({}); setCharacteristicId(""); return;
+      setCharacteristics([]); setDimensions([]); setDimensionValues({}); setSelectedOptionKey(""); return;
     }
     setError("");
     Promise.all([listStockCharacteristics(product.id), listProductDimensions(product.id)]).then(([characteristicRows, dimensionRows]) => {
@@ -62,19 +62,21 @@ export function StockMovementCreateModal({ onClose }: Props) {
       setCharacteristics([]); setDimensions([]); setDimensionValues({});
       setError(value instanceof Error ? value.message : "No se pudieron cargar las dimensiones del artículo.");
     });
-    setCharacteristicId("");
+    setSelectedOptionKey("");
   }, [product?.id]);
+
+  const selectedOption = characteristics.find((c) => `${c.characteristicId}:${c.colorId}` === selectedOptionKey) ?? null;
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (companyId === null || !product) return;
     const characteristicRequired = product.include_stock_by_color && characteristics.length > 0;
-    if (characteristicRequired && !characteristicId) { setError("Selecciona una característica para este artículo."); return; }
+    if (characteristicRequired && !selectedOption) { setError("Selecciona una característica para este artículo."); return; }
     setSaving(true); setError("");
     try {
       const normalizedDimensions = Object.fromEntries(dimensions.map((dimension) => [dimension.code, dimensionValues[dimension.code] === undefined || dimensionValues[dimension.code] === "" ? null : Number(dimensionValues[dimension.code])]));
       if (dimensions.some((dimension) => normalizedDimensions[dimension.code] === null)) throw new Error("Completa todas las dimensiones del artículo.");
-      await registerStockMovement({ companyId, warehouseId: Number(warehouseId), productId: product.id, quantity: Number(quantity), movementTypeCode: type, characteristicId: characteristicId ? Number(characteristicId) : null, dimensionValues: normalizedDimensions, reference, notes, movementDate: date });
+      await registerStockMovement({ companyId, warehouseId: Number(warehouseId), productId: product.id, quantity: Number(quantity), movementTypeCode: type, characteristicId: selectedOption?.characteristicId ?? null, colorId: selectedOption?.colorId ?? null, dimensionValues: normalizedDimensions, reference, notes, movementDate: date });
       navigate("/almacen/movimientos", { replace: true, state: { stockSuccess: "Movimiento registrado correctamente." } });
     } catch (value) {
       setError(value instanceof Error ? value.message : "No se pudo registrar el movimiento.");
@@ -95,7 +97,7 @@ export function StockMovementCreateModal({ onClose }: Props) {
               <StockProductLookup companyId={companyId ?? 0} value={product} onChange={setProduct} />
               <label><span>Almacén *</span><select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} required><option value="">Seleccionar…</option>{warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code} · {warehouse.name}</option>)}</select></label>
               <label><span>Tipo *</span><select value={type} onChange={(event) => setType(event.target.value)} required><option value="">Seleccionar…</option>{types.map((movementType) => <option key={movementType.code} value={movementType.code}>{movementType.name}</option>)}</select></label>
-              <label><span>Característica / color</span><select value={characteristicId} onChange={(event) => setCharacteristicId(event.target.value)} disabled={!product || characteristics.length === 0} required={Boolean(product?.include_stock_by_color && characteristics.length > 0)}><option value="">{!product ? "Selecciona un artículo" : characteristics.length === 0 ? "Sin características asignadas" : "Sin característica"}</option>{characteristics.map((characteristic) => <option key={characteristic.id} value={characteristic.id}>{characteristic.code}{characteristic.description ? ` · ${characteristic.description}` : ""}</option>)}</select>{product && characteristics.length === 0 && <small className="field-hint">Este artículo no tiene características asignadas; no es necesario seleccionar ninguna.</small>}</label>
+              <label><span>Característica / color</span><select value={selectedOptionKey} onChange={(event) => setSelectedOptionKey(event.target.value)} disabled={!product || characteristics.length === 0} required={Boolean(product?.include_stock_by_color && characteristics.length > 0)}><option value="">{!product ? "Selecciona un artículo" : characteristics.length === 0 ? "Sin características asignadas" : "Sin característica"}</option>{characteristics.map((option) => <option key={`${option.characteristicId}:${option.colorId}`} value={`${option.characteristicId}:${option.colorId}`}>{option.characteristicCode} · {option.colorCode}{option.colorName ? ` (${option.colorName})` : ""}</option>)}</select>{product && characteristics.length === 0 && <small className="field-hint">Este artículo no tiene características asignadas; no es necesario seleccionar ninguna.</small>}</label>
               {dimensions.length > 0 && <div className="stock-dimension-fields field-wide"><div className="stock-dimension-title"><Ruler size={15} /> Dimensiones del artículo</div><div className="stock-dimension-grid">{dimensions.map((dimension) => <label key={dimension.id}><span>{dimension.name} <small>({dimension.code}) *</small></span><div className="stock-dimension-input"><input type="number" min="0" step={dimension.decimals ? `0.${"0".repeat(Math.max(0, dimension.decimals - 1))}1` : "1"} value={dimensionValues[dimension.code] ?? ""} onChange={(event) => setDimensionValues((values) => ({ ...values, [dimension.code]: event.target.value }))} required /><em>u.{dimension.unit_id}</em></div></label>)}</div></div>}
               <label><span>Cantidad *</span><input inputMode="decimal" type="number" min="0.0001" step="any" value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
               <label><span>Fecha y hora</span><input type="datetime-local" value={date} onChange={(event) => setDate(event.target.value)} /></label>

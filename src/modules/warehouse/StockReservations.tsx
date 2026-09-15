@@ -185,7 +185,7 @@ function ReservationForm({
     import("../../services/warehouse/stockRepository").StockCharacteristic[]
   >([]);
   const [warehouseId, setWarehouseId] = useState("");
-  const [characteristicId, setCharacteristicId] = useState("");
+  const [selectedOptionKey, setSelectedOptionKey] = useState("");
   const [quantity, setQuantity] = useState("");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -195,14 +195,17 @@ function ReservationForm({
   useEffect(() => {
     if (!product) {
       setChars([]);
-      setCharacteristicId("");
+      setSelectedOptionKey("");
       return;
     }
     listStockCharacteristics(product.id)
       .then(setChars)
       .catch(() => setChars([]));
-    setCharacteristicId("");
+    setSelectedOptionKey("");
   }, [product?.id]);
+  const selectedOption =
+    chars.find((c) => `${c.characteristicId}:${c.colorId}` === selectedOptionKey) ??
+    null;
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!product) return;
@@ -215,7 +218,8 @@ function ReservationForm({
         warehouseId: Number(warehouseId),
         productId: product.id,
         quantity: Number(quantity),
-        characteristicId: characteristicId ? Number(characteristicId) : null,
+        characteristicId: selectedOption?.characteristicId ?? null,
+        colorId: selectedOption?.colorId ?? null,
         reference,
         notes,
       });
@@ -265,15 +269,22 @@ function ReservationForm({
         <label>
           <span>Característica / color</span>
           <select
-            value={characteristicId}
-            onChange={(e) => setCharacteristicId(e.target.value)}
+            value={selectedOptionKey}
+            onChange={(e) => setSelectedOptionKey(e.target.value)}
             disabled={!product}
           >
-            <option value="">Sin característica</option>
+            <option value="">
+              {!product || chars.length === 0
+                ? "Sin características asignadas"
+                : "Sin característica"}
+            </option>
             {chars.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code}
-                {c.description ? ` · ${c.description}` : ""}
+              <option
+                key={`${c.characteristicId}:${c.colorId}`}
+                value={`${c.characteristicId}:${c.colorId}`}
+              >
+                {c.characteristicCode} · {c.colorCode}
+                {c.colorName ? ` (${c.colorName})` : ""}
               </option>
             ))}
           </select>

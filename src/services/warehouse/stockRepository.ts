@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
 import { sanitizeSearchTerm } from '../core/searchSanitize';
+import { listProductCharacteristicConfiguration, listEffectiveAttributeColors } from '../catalog/productAttributeRepository';
 
 export type StockBalance = {
   id: number;
@@ -84,13 +85,19 @@ export type StockProduct = {
   stock_minimum: number;
 };
 
+/**
+ * Una fila por combinación característica (product_attribute, familia o
+ * artículo) x color efectivo disponible para ella — el desplegable "Característica
+ * / color" de almacén elige directamente un color, y characteristicId viaja junto
+ * para saber a qué característica pertenece.
+ */
 export type StockCharacteristic = {
-  id: number;
-  product_id: number;
-  code: string;
-  description: string | null;
-  active: boolean;
-  deleted_at: string | null;
+  characteristicId: number;
+  characteristicCode: string;
+  characteristicName: string;
+  colorId: number;
+  colorCode: string;
+  colorName: string;
 };
 
 export type ProfileStockPiece = {
@@ -126,24 +133,24 @@ export async function syncWarehouseStockItems(companyId: number, productId: numb
   const c = client();
   const { data: movements, error: mErr } = await c
     .from('stock_movement')
-    .select('id,company_id,warehouse_id,product_id,characteristic_id,quantity,dimension_values,movement_type:stock_movement_type(direction)')
+    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,dimension_values,movement_type:stock_movement_type(direction)')
     .eq('company_id', companyId)
     .eq('product_id', productId);
   if (mErr || !movements) return;
 
   const { data: wsList } = await c
     .from('warehouse_stock')
-    .select('id,warehouse_id,product_id,characteristic_id')
+    .select('id,warehouse_id,product_id,characteristic_id,color_id')
     .eq('product_id', productId);
 
   const { data: wsiList } = await c
     .from('warehouse_stock_item')
-    .select('id,warehouse_stock_id,product_id,characteristic_id,dimension_values,status')
+    .select('id,warehouse_stock_id,product_id,characteristic_id,color_id,dimension_values,status')
     .eq('product_id', productId)
     .in('status', ['AVAILABLE', 'RESERVED']);
 
   const activeWsi = wsiList || [];
-  const groups = new Map<string, { warehouseId: number; characteristicId: number | null; length: number; quantity: number; sourceMovementId: number }>();
+  const groups = new Map<string, { warehouseId: number; characteristicId: number | null; colorId: number | null; length: number; quantity: number; sourceMovementId: number }>();
 
   for (const m of (movements as any[])) {
     const dims = m.dimension_values;
@@ -151,10 +158,10 @@ export async function syncWarehouseStockItems(companyId: number, productId: numb
     const length = Number(dims[0]);
     if (!Number.isFinite(length) || length <= 0) continue;
 
-    const key = [m.warehouse_id, m.characteristic_id ?? '', length].join('|');
+    const key = [m.warehouse_id, m.characteristic_id ?? '', m.color_id ?? '', length].join('|');
     const dir = Number(m.movement_type?.direction ?? 0);
     const signed = dir * Number(m.quantity || 0);
-    const cur = groups.get(key) || { warehouseId: m.warehouse_id, characteristicId: m.characteristic_id, length, quantity: 0, sourceMovementId: m.id };
+    const cur = groups.get(key) || { warehouseId: m.warehouse_id, characteristicId: m.characteristic_id, colorId: m.color_id, length, quantity: 0, sourceMovementId: m.id };
     cur.quantity += signed;
     groups.set(key, cur);
   }
@@ -163,12 +170,12 @@ export async function syncWarehouseStockItems(companyId: number, productId: numb
     if (g.quantity <= 0) continue;
     const existingCount = activeWsi.filter(w => {
       const wLength = Array.isArray(w.dimension_values) ? Number(w.dimension_values[0]) : null;
-      return (w.characteristic_id ?? null) === (g.characteristicId ?? null) && wLength === g.length;
+      return (w.characteristic_id ?? null) === (g.characteristicId ?? null) && (w.color_id ?? null) === (g.colorId ?? null) && wLength === g.length;
     }).length;
 
     const diff = g.quantity - existingCount;
     if (diff > 0) {
-      let ws = (wsList || []).find(w => w.warehouse_id === g.warehouseId && (w.characteristic_id ?? null) === (g.characteristicId ?? null));
+      let ws = (wsList || []).find(w => w.warehouse_id === g.warehouseId && (w.characteristic_id ?? null) === (g.characteristicId ?? null) && (w.color_id ?? null) === (g.colorId ?? null));
       if (!ws) {
         // Create warehouse_stock if missing
         const { data: newWs } = await c
@@ -177,10 +184,11 @@ export async function syncWarehouseStockItems(companyId: number, productId: numb
             warehouse_id: g.warehouseId,
             product_id: productId,
             characteristic_id: g.characteristicId ?? null,
+            color_id: g.colorId ?? null,
             quantity: g.quantity,
             reserved_quantity: 0
           })
-          .select('id,warehouse_id,product_id,characteristic_id')
+          .select('id,warehouse_id,product_id,characteristic_id,color_id')
           .single();
         if (newWs) ws = newWs;
       }
@@ -190,6 +198,7 @@ export async function syncWarehouseStockItems(companyId: number, productId: numb
         warehouse_stock_id: ws.id,
         product_id: productId,
         characteristic_id: g.characteristicId ?? null,
+        color_id: g.colorId ?? null,
         quantity: 1,
         dimension_values: [g.length],
         status: 'AVAILABLE',
@@ -218,16 +227,22 @@ export async function searchStockProducts(companyId: number, search = ''): Promi
 }
 
 export async function listStockCharacteristics(productId: number): Promise<StockCharacteristic[]> {
-  const c = client();
-  const { data, error } = await c
-    .from('product_characteristic')
-    .select('id,product_id,code,description,active,deleted_at')
-    .eq('product_id', productId)
-    .eq('active', true)
-    .is('deleted_at', null)
-    .order('code');
-  if (error) throw new CoreRepositoryError(error.message);
-  return (data ?? []) as StockCharacteristic[];
+  const effective = (await listProductCharacteristicConfiguration(productId)).filter(row => !row.excluded);
+  const rows: StockCharacteristic[] = [];
+  for (const characteristic of effective) {
+    const colors = await listEffectiveAttributeColors(characteristic.attribute_id, characteristic.source, characteristic.assignment_id);
+    for (const color of colors) {
+      rows.push({
+        characteristicId: characteristic.attribute_id,
+        characteristicCode: characteristic.code,
+        characteristicName: characteristic.name,
+        colorId: color.color_id,
+        colorCode: color.code,
+        colorName: color.name,
+      });
+    }
+  }
+  return rows.sort((a, b) => a.characteristicCode.localeCompare(b.characteristicCode) || a.colorCode.localeCompare(b.colorCode));
 }
 
 export async function listStockItemTraceability(stockBalanceId: number): Promise<StockItemTraceability[]> {
@@ -292,7 +307,7 @@ export async function listProfileStockPieces(input: {
   // candidatos válidos para el corte.
   const { data, error } = await c
     .from('warehouse_stock_item')
-    .select('characteristic_id,color_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_characteristic(code,description),color:color(code,name)')
+    .select('characteristic_id,color_id,quantity,dimension_values,warehouse_stock:warehouse_stock_id(warehouse_id,warehouse:warehouse_id(code,name)),characteristic:product_attribute(code,description:name),color:color(code,name)')
     .eq('product_id', productId)
     .eq('status', 'AVAILABLE')
     .limit(2000);
@@ -424,7 +439,7 @@ export async function listStockBalances(companyId: number, warehouseId?: number,
   if (warehouseIds.length === 0) return [];
   const { data, error } = await c
     .from('warehouse_stock')
-    .select('id,warehouse_id,product_id,characteristic_id,color_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_characteristic(code,description),color:color(code,name)')
+    .select('id,warehouse_id,product_id,characteristic_id,color_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description,stock_minimum,base_unit_id),characteristic:product_attribute(code,description:name),color:color(code,name)')
     .in('warehouse_id', warehouseId ? [warehouseId] : warehouseIds)
     .order('updated_at', { ascending: false });
   if (error) throw new CoreRepositoryError(error.message);
@@ -437,7 +452,7 @@ export async function listStockMovements(companyId: number, filters: { warehouse
   const c = client();
   let q = c
     .from('stock_movement')
-    .select('id,company_id,warehouse_id,product_id,movement_type_id,characteristic_id,color_id,quantity,movement_date,reference,notes,transfer_group_id,dimension_values,movement_type:stock_movement_type(code,name,direction),warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_characteristic(code,description),color:color(code,name)')
+    .select('id,company_id,warehouse_id,product_id,movement_type_id,characteristic_id,color_id,quantity,movement_date,reference,notes,transfer_group_id,dimension_values,movement_type:stock_movement_type(code,name,direction),warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_attribute(code,description:name),color:color(code,name)')
     .eq('company_id', companyId)
     .order('movement_date', { ascending: false })
     .order('id', { ascending: false });
@@ -619,7 +634,7 @@ export async function listStockReservations(companyId: number, status = 'ACTIVE'
   const c = client();
   const { data, error } = await c
     .from('stock_reservation')
-    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,reference,notes,status,created_at,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_characteristic(code,description),color:color(code,name)')
+    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,reference,notes,status,created_at,updated_at,warehouse:warehouse(code,name),product:product(code,commercial_description),characteristic:product_attribute(code,description:name),color:color(code,name)')
     .eq('company_id', companyId)
     .eq('status', status)
     .order('created_at', { ascending: false });

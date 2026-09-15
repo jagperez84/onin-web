@@ -67,7 +67,8 @@ export async function checkOrderMaterialAvailability(
           companyId,
           productId: need.profileId,
           requiredLength: need.length,
-          characteristicId: need.colorId ?? null,
+          characteristicId: need.characteristicId ?? null,
+          colorId: need.colorId ?? null,
         }).catch(() => []);
 
         const validStock = pieces

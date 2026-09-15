@@ -75,8 +75,8 @@ export function CharacteristicSelect({
   onChange,
 }: {
   productId: number;
-  value: number | null;
-  onChange: (id: number | null) => void;
+  value: { characteristicId: number; colorId: number } | null;
+  onChange: (value: { characteristicId: number; colorId: number } | null) => void;
 }) {
   const [rows, setRows] = useState<StockCharacteristic[]>([]);
   const [loading, setLoading] = useState(false);
@@ -103,23 +103,26 @@ export function CharacteristicSelect({
     };
   }, [productId]);
 
+  const selectedKey = value ? `${value.characteristicId}:${value.colorId}` : "";
+
   return (
     <label>
       <span>Característica / color</span>
       <select
-        value={value ?? ""}
-        onChange={(e) =>
-          onChange(e.target.value ? Number(e.target.value) : null)
-        }
+        value={selectedKey}
+        onChange={(e) => {
+          const [characteristicId, colorId] = e.target.value.split(":").map(Number);
+          onChange(e.target.value ? { characteristicId, colorId } : null);
+        }}
         disabled={loading || rows.length === 0}
       >
         <option value="">
           {loading ? "Cargando características…" : rows.length === 0 ? "Sin características asignadas (No requerida)" : "Sin característica (Opcional)"}
         </option>
         {rows.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.code}
-            {c.description ? ` · ${c.description}` : ""}
+          <option key={`${c.characteristicId}:${c.colorId}`} value={`${c.characteristicId}:${c.colorId}`}>
+            {c.characteristicCode} · {c.colorCode}
+            {c.colorName ? ` (${c.colorName})` : ""}
           </option>
         ))}
       </select>
