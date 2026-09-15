@@ -10,6 +10,12 @@ export type ComponentNeed = {
   productName: string;
   unitCode: string;
   quantity: number;
+  characteristicId: number | null;
+  characteristicCode: string | null;
+  characteristicName: string | null;
+  colorId: number | null;
+  colorCode: string | null;
+  colorName: string | null;
 };
 
 /** Un componente del despiece cuenta como "componente por unidades" si no es el perfil ni la tela/lona
@@ -24,39 +30,62 @@ export function resolveOrderLineComponents(line: any): ComponentNeed[] {
   const rawComponents: any[] = Array.isArray(snapshot?.components) ? snapshot.components : [];
   const accessoryComponents = rawComponents.filter(isAccessoryComponent);
 
-  const byProduct = new Map<number, ComponentNeed>();
+  const byKey = new Map<string, ComponentNeed>();
   for (const c of accessoryComponents) {
     const productId = Number(c.product_id);
     const quantity = Number(c.quantity) || 0;
     if (!Number.isFinite(productId) || quantity <= 0) continue;
-    const existing = byProduct.get(productId);
+    const characteristicId = c.characteristic_id ? Number(c.characteristic_id) : null;
+    const colorId = c.color_id ? Number(c.color_id) : null;
+    const key = `${productId}:${characteristicId ?? ''}:${colorId ?? ''}`;
+    const existing = byKey.get(key);
     if (existing) {
       existing.quantity += quantity;
     } else {
-      byProduct.set(productId, {
+      byKey.set(key, {
         productId,
         productCode: c.product_code || c.code || `P-${productId}`,
         productName: c.product_name || c.description || `Componente ${productId}`,
         unitCode: c.unit_code || c.unit_symbol || 'ud',
-        quantity
+        quantity,
+        characteristicId,
+        characteristicCode: c.characteristic_code || null,
+        characteristicName: c.characteristic_name || null,
+        colorId,
+        colorCode: c.color_code || null,
+        colorName: c.color_name || null
       });
     }
   }
-  return Array.from(byProduct.values());
+  return Array.from(byKey.values());
 }
 
 export type ComponentStockOption = { warehouseId: number; warehouseCode: string; warehouseName: string; available: number };
 
-export async function listComponentStockOptions(companyId: number, productId: number): Promise<ComponentStockOption[]> {
+export async function listComponentStockOptions(
+  companyId: number,
+  productId: number,
+  characteristicId: number | null = null,
+  colorId: number | null = null
+): Promise<ComponentStockOption[]> {
   const c = client();
   const { data, error } = await c
     .from('warehouse_stock')
-    .select('quantity,reserved_quantity,warehouse!inner(id,code,name,company_id,deleted_at)')
+    .select('quantity,reserved_quantity,characteristic_id,color_id,warehouse!inner(id,code,name,company_id,deleted_at)')
     .eq('product_id', productId)
     .eq('warehouse.company_id', companyId)
     .is('warehouse.deleted_at', null);
   if (error) throw new CoreRepositoryError(error.message);
   return (data ?? [])
+    .filter((r: any) => {
+      const rowCharId = r.characteristic_id == null ? null : Number(r.characteristic_id);
+      const rowColorId = r.color_id == null ? null : Number(r.color_id);
+      if (characteristicId != null) {
+        if (rowCharId !== characteristicId) return false;
+        return colorId != null ? rowColorId === colorId : rowColorId === null;
+      }
+      return rowCharId === null && rowColorId === null;
+    })
     .map((r: any) => ({
       warehouseId: Number(r.warehouse?.id),
       warehouseCode: r.warehouse?.code ?? '—',
@@ -78,6 +107,8 @@ export type ComponentConsumptionLine = {
   productName: string | null;
   unitCode: string | null;
   quantity: number;
+  characteristicName: string | null;
+  colorName: string | null;
 };
 
 export type ComponentConsumptionWorkSheet = {
@@ -118,7 +149,9 @@ function mapSheet(row: any): ComponentConsumptionWorkSheet {
         productCode: l.component_product_code ?? null,
         productName: l.component_product_name ?? null,
         unitCode: l.component_unit_code ?? null,
-        quantity: Number(l.quantity || 0)
+        quantity: Number(l.quantity || 0),
+        characteristicName: l.component_characteristic_name ?? null,
+        colorName: l.component_color_name ?? null
       }))
   };
 }
@@ -147,7 +180,20 @@ export async function createAndExecuteComponentConsumption(input: {
   productCode: string | null;
   productName: string | null;
   quantity: number;
-  lines: Array<{ warehouseId: number; productId: number; productCode: string; productName: string; unitCode: string; quantity: number }>;
+  lines: Array<{
+    warehouseId: number;
+    productId: number;
+    productCode: string;
+    productName: string;
+    unitCode: string;
+    quantity: number;
+    characteristicId?: number | null;
+    characteristicCode?: string | null;
+    characteristicName?: string | null;
+    colorId?: number | null;
+    colorCode?: string | null;
+    colorName?: string | null;
+  }>;
   reference?: string | null;
   notes?: string | null;
 }): Promise<ComponentConsumptionWorkSheet> {
@@ -169,7 +215,13 @@ export async function createAndExecuteComponentConsumption(input: {
       product_code: l.productCode,
       product_name: l.productName,
       unit_code: l.unitCode,
-      quantity: l.quantity
+      quantity: l.quantity,
+      characteristic_id: l.characteristicId ?? null,
+      characteristic_code: l.characteristicCode ?? null,
+      characteristic_name: l.characteristicName ?? null,
+      color_id: l.colorId ?? null,
+      color_code: l.colorCode ?? null,
+      color_name: l.colorName ?? null
     })),
     p_reference: input.reference ?? null,
     p_notes: input.notes ?? null

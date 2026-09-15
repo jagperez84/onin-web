@@ -55,6 +55,7 @@ export function LonaConfectionViewModal({line,reference,onClose}:Props){
               <div className="lona-data-grid">
                 <div><span>Dimensiones requeridas</span><strong>{formatDimensions(sheet.requiredDimensions,sheet.requiredDimensionUnits)}</strong></div>
                 <div><span>Característica</span><strong>{sheet.characteristicName||'Sin característica'}</strong></div>
+                <div><span>Color</span><strong>{sheet.colorName||'Sin color'}</strong></div>
                 <div><span>Selección</span><strong>{sheet.selectionMode==='MANUAL'?'Manual':'Automática'}</strong></div>
                 <div><span>Unidad</span><strong>{sheet.unitSymbol||sheet.requiredDimensionUnits[0]||'—'}</strong></div>
               </div>

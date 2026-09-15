@@ -55,6 +55,7 @@ export function WorkSheetDetail({ id, isModal = false, onClose }: { id: number; 
         <div><span>Línea</span><strong>{item.sales_order_line_no ?? '—'}</strong></div>
         <div><span>Perfil</span><strong>{item.product_code || '—'}</strong><small>{item.product_name || ''}</small></div>
         <div><span>Característica</span><strong>{item.characteristic_name || item.characteristic_code || '—'}</strong></div>
+        <div><span>Color</span><strong>{item.color_name || item.color_code || '—'}</strong></div>
         <div><span>Necesidad</span><strong>{item.quantity} × {item.required_length}{unit ? ` ${unit}` : ''}</strong></div>
         <div><span>Referencia</span><strong>{item.reference || '—'}</strong></div>
       </div>

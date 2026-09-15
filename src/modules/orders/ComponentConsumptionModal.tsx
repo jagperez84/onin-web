@@ -53,7 +53,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
           return;
         }
         const optionsByProduct = await Promise.all(
-          needs.map(async need => [need.productId, await listComponentStockOptions(companyId, need.productId).catch(() => [])] as const)
+          needs.map(async need => [need.productId, await listComponentStockOptions(companyId, need.productId, need.characteristicId, need.colorId).catch(() => [])] as const)
         );
         if (!active) return;
         const optionsMap = Object.fromEntries(optionsByProduct) as Record<number, ComponentStockOption[]>;
@@ -98,6 +98,12 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
           productName: need.productName,
           unitCode: need.unitCode,
           quantity: need.quantity,
+          characteristicId: need.characteristicId,
+          characteristicCode: need.characteristicCode,
+          characteristicName: need.characteristicName,
+          colorId: need.colorId,
+          colorCode: need.colorCode,
+          colorName: need.colorName,
         })),
       });
       setSheet(result);
@@ -144,6 +150,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                 <thead>
                   <tr>
                     <th>Componente</th>
+                    <th>Característica / Color</th>
                     <th>Almacén</th>
                     <th className="numeric">Cantidad</th>
                   </tr>
@@ -155,6 +162,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                         <strong>{l.productCode}</strong>
                         <span className="component-consumption-secondary">{l.productName}</span>
                       </td>
+                      <td>{[l.characteristicName, l.colorName].filter(Boolean).join(' · ') || '—'}</td>
                       <td>{l.warehouseCode}</td>
                       <td className="numeric">
                         {l.quantity} {l.unitCode}
@@ -188,6 +196,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                 <thead>
                   <tr>
                     <th>Componente</th>
+                    <th>Característica / Color</th>
                     <th>Almacén</th>
                     <th className="numeric">Necesidad</th>
                   </tr>
@@ -204,6 +213,7 @@ export function ComponentConsumptionModal({ line, companyId, salesOrderId, order
                           <strong>{need.productCode}</strong>
                           <span className="component-consumption-secondary">{need.productName}</span>
                         </td>
+                        <td>{[need.characteristicName, need.colorName].filter(Boolean).join(' · ') || '—'}</td>
                         <td>
                           {options.length === 0 ? (
                             <span className="component-consumption-no-stock">Sin existencias</span>

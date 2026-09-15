@@ -189,6 +189,8 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
             productId: component.productId,
             characteristicId: component.characteristicId,
             characteristicCode: component.characteristicCode,
+            colorId: component.colorId,
+            colorCode: component.colorCode,
           });
           if (!active) return;
           setProbeCandidates(previous => ({ ...previous, [index]: probe }));
@@ -209,6 +211,8 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
             productId: component.productId,
             characteristicId: component.characteristicId,
             characteristicCode: component.characteristicCode,
+            colorId: component.colorId,
+            colorCode: component.colorCode,
             pieces: calculation.pieces.map(piece => ({ width: piece.width, length: piece.length, label: piece.label })),
             unit: component.lineUnit,
           });
@@ -425,6 +429,10 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                             <span>Característica</span>
                             <strong>{component.characteristicName || 'Sin característica'}</strong>
                           </div>
+                          <div>
+                            <span>Color</span>
+                            <strong>{component.colorName || 'Sin color'}</strong>
+                          </div>
                         </div>
 
                         <div className="lona-parameters-row">
@@ -502,7 +510,8 @@ export function LonaConfectionModal({ line, companyId, salesOrderId, reference, 
                             !materialLoading && (
                               <span className="lona-material-empty">
                                 No hay una existencia dimensional con la característica requerida (
-                                {component.characteristicName || 'Sin característica'}) que cubra estas medidas.
+                                {component.characteristicName || 'Sin característica'}
+                                {component.colorName ? ` · ${component.colorName}` : ''}) que cubra estas medidas.
                               </span>
                             )
                           )}

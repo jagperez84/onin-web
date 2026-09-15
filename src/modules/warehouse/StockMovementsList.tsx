@@ -71,15 +71,16 @@ export function StockMovementsList({ successMessage }: { successMessage?: string
       {error && <div className="inline-error">{error}</div>}
       <div className="table-panel">
         <table>
-            <thead><tr><th>Fecha</th><th>Tipo</th><th>Almacén</th><th>Artículo</th><th>Característica</th><th>Dimensiones</th><th className="numeric">Cantidad</th><th>Referencia</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Tipo</th><th>Almacén</th><th>Artículo</th><th>Característica</th><th>Color</th><th>Dimensiones</th><th className="numeric">Cantidad</th><th>Referencia</th></tr></thead>
             <tbody>
-              {loading ? <tr><td colSpan={8}>Cargando…</td></tr> : rows.length === 0 ? <tr><td colSpan={8} className="empty">No hay movimientos.</td></tr> : rows.map((row) => (
+              {loading ? <tr><td colSpan={9}>Cargando…</td></tr> : rows.length === 0 ? <tr><td colSpan={9} className="empty">No hay movimientos.</td></tr> : rows.map((row) => (
                 <tr key={row.id}>
                   <td>{new Date(row.movement_date).toLocaleString("es-ES")}</td>
                   <td><span className={`movement-badge ${row.movement_type?.direction === 1 ? "in" : "out"}`}>{row.movement_type?.direction === 1 ? <ArrowDownToLine size={14} /> : <ArrowUpFromLine size={14} />} {row.movement_type?.name}</span></td>
                   <td>{row.warehouse?.code}</td>
                   <td><strong>{row.product?.code}</strong><span className="secondary-line">{row.product?.commercial_description || "Sin descripción"}</span></td>
                   <td>{row.characteristic?.code || "—"}</td>
+                  <td>{row.color?.name || row.color?.code || "—"}</td>
                   <td>{formatDimensions(row.dimension_values)}</td>
                   <td className="numeric">{row.quantity}</td>
                   <td>{row.reference || "—"}</td>

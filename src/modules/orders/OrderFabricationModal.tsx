@@ -98,6 +98,8 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
               productId: component.productId,
               characteristicId: component.characteristicId,
               characteristicCode: component.characteristicCode,
+              colorId: component.colorId,
+              colorCode: component.colorCode,
             })
               .then(probe => {
                 if (active) setLonaProbes(prev => ({ ...prev, [key]: probe }));
@@ -133,6 +135,8 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
         productCode: need.profile,
         characteristicId: need.characteristicId,
         characteristicCode: need.characteristicCode,
+        colorId: need.colorId,
+        colorCode: need.colorCode,
         requiredLength: need.length,
       })
         .then(rows => {
@@ -214,6 +218,8 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
           quantity: p.selectedQuantity,
           characteristicId: p.characteristicId,
           characteristicCode: p.characteristicCode,
+          colorId: p.colorId,
+          colorCode: p.colorCode,
         }));
       }
     });
@@ -374,6 +380,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                           <th>Línea</th>
                           <th>Perfil</th>
                           <th>Característica</th>
+                          <th>Color</th>
                           <th>Necesidad</th>
                           <th>Modo</th>
                           <th>Selección</th>
@@ -390,6 +397,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                 <td>Línea {need.lineNo}</td>
                                 <td>{need.profile}</td>
                                 <td>{need.characteristic}</td>
+                                <td>{need.colorName || '—'}</td>
                                 <td>
                                   {need.quantity} × {need.length} {need.unit}
                                 </td>
@@ -407,7 +415,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                               </tr>
                               {mode === 'MANUAL' && (
                                 <tr className="ofc-manual-row">
-                                  <td colSpan={6}>
+                                  <td colSpan={7}>
                                     {profilePiecesLoading[need.key] ? (
                                       <div className="empty-cell">Consultando stock compatible…</div>
                                     ) : pieces.length === 0 ? (
@@ -425,6 +433,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                                 {piece.length} {need.unit}
                                               </small>
                                               <small>Disp. {piece.quantity}</small>
+                                              {piece.colorName && <small>{piece.colorName}</small>}
                                             </span>
                                             <span className="ofc-piece-qty">
                                               <input
@@ -463,6 +472,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                         <tr>
                           <th>Línea</th>
                           <th>Componente</th>
+                          <th>Color</th>
                           <th>Necesidad</th>
                           <th>Tipo de corte</th>
                           <th>Dobladillo</th>
@@ -484,6 +494,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                     <strong>{component.productCode}</strong>
                                     <div className="muted">{component.productName}</div>
                                   </td>
+                                  <td>{component.colorName || '—'}</td>
                                   <td>
                                     {component.quantity} · {component.line ?? '—'}
                                     {component.lineUnit ? ` ${component.lineUnit}` : ''} × {component.output ?? '—'}
@@ -518,11 +529,11 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                                   </td>
                                 </tr>
                                 <tr className="ofc-manual-row">
-                                  <td colSpan={6}>
+                                  <td colSpan={7}>
                                     {probeLoading ? (
                                       <div className="empty-cell">Buscando material de lona compatible…</div>
                                     ) : !probe ? (
-                                      <div className="empty-cell">Sin material de lona compatible para {component.productCode} ({component.characteristicName || 'sin característica'}).</div>
+                                      <div className="empty-cell">Sin material de lona compatible para {component.productCode} ({component.characteristicName || 'sin característica'}{component.colorName ? ` · ${component.colorName}` : ''}).</div>
                                     ) : (
                                       <div className="ofc-lona-diagram">
                                         <LonaCutDiagram
@@ -558,6 +569,7 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                         <tr>
                           <th>Línea</th>
                           <th>Componente</th>
+                          <th>Característica / Color</th>
                           <th>Necesidad</th>
                           <th>Almacén</th>
                         </tr>
@@ -571,6 +583,9 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
                               <td>
                                 <strong>{row.need.productCode}</strong>
                                 <div className="muted">{row.need.productName}</div>
+                              </td>
+                              <td>
+                                {[row.need.characteristicName, row.need.colorName].filter(Boolean).join(' · ') || '—'}
                               </td>
                               <td>
                                 {row.need.quantity} {row.need.unitCode}

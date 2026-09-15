@@ -116,18 +116,21 @@ export async function checkOrderMaterialAvailability(
               productId: comp.productId,
               characteristicId: comp.characteristicId,
               characteristicCode: comp.characteristicCode,
+              colorId: comp.colorId,
+              colorCode: comp.colorCode,
             }).catch(() => null);
 
             if (probe) {
               availableItems++;
             } else {
               const dimText = comp.line && comp.output ? `(${comp.line} × ${comp.output} ${comp.lineUnit || 'cm'})` : '';
+              const descSuffix = comp.colorName ? ` · ${comp.colorName}` : '';
               missingMaterials.push({
                 category: 'LONA',
                 lineNo,
                 productId: comp.productId,
                 productCode: comp.productCode,
-                description: comp.productName || 'Lona / Tejido',
+                description: (comp.productName || 'Lona / Tejido') + descSuffix,
                 required: `${comp.quantity || 1} paño ${dimText}`.trim(),
                 available: 'Sin rollo / stock compatible',
                 missingQty: comp.quantity || 1,
@@ -145,18 +148,19 @@ export async function checkOrderMaterialAvailability(
       const compNeeds = resolveOrderLineComponents(line);
       for (const need of compNeeds) {
         totalItems++;
-        const options = await listComponentStockOptions(companyId, need.productId).catch(() => []);
+        const options = await listComponentStockOptions(companyId, need.productId, need.characteristicId, need.colorId).catch(() => []);
         const validStock = options.reduce((sum, opt) => sum + (opt.available || 0), 0);
 
         if (validStock >= need.quantity) {
           availableItems++;
         } else {
+          const descSuffix = [need.characteristicName, need.colorName].filter(Boolean).join(' · ');
           missingMaterials.push({
             category: 'COMPONENT',
             lineNo,
             productId: need.productId,
             productCode: need.productCode,
-            description: need.productName || 'Componente',
+            description: (need.productName || 'Componente') + (descSuffix ? ` · ${descSuffix}` : ''),
             required: `${need.quantity} ${need.unitCode}`,
             available: validStock > 0 ? `${validStock} ${need.unitCode}` : `0 ${need.unitCode}`,
             missingQty: need.quantity - validStock,

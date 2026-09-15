@@ -48,13 +48,14 @@ export function WorkSheetList() {
 
     {error && <div className="inline-error">{error}</div>}
     <div className="table-panel quotation-table">
-      <table><thead><tr><th>Hoja</th><th>Fecha</th><th>Pedido</th><th>Perfil</th><th>Característica</th><th>Necesidad</th><th>Estado</th><th></th></tr></thead>
-        <tbody>{loading ? <tr><td colSpan={8}>Cargando hojas de trabajo…</td></tr> : items.length === 0 ? <tr><td colSpan={8}><div className="empty-state"><Scissors size={32}/><strong>No hay hojas de corte</strong><span>Cuando se confirme un corte de perfil desde un pedido, aparecerá aquí su documento para taller.</span></div></td></tr> : items.map(item => <tr key={item.id}>
+      <table><thead><tr><th>Hoja</th><th>Fecha</th><th>Pedido</th><th>Perfil</th><th>Característica</th><th>Color</th><th>Necesidad</th><th>Estado</th><th></th></tr></thead>
+        <tbody>{loading ? <tr><td colSpan={9}>Cargando hojas de trabajo…</td></tr> : items.length === 0 ? <tr><td colSpan={9}><div className="empty-state"><Scissors size={32}/><strong>No hay hojas de corte</strong><span>Cuando se confirme un corte de perfil desde un pedido, aparecerá aquí su documento para taller.</span></div></td></tr> : items.map(item => <tr key={item.id}>
           <td><strong className="work-sheet-code">{item.code}</strong><small>{item.lines.length ? `${item.lines.length} selección${item.lines.length === 1 ? '' : 'es'}` : 'Hoja de corte'}</small></td>
           <td>{new Date(item.issue_date).toLocaleDateString('es-ES')}</td>
           <td>{item.sales_order_code ? <Link className="primary-link" to={`/ventas/pedidos/${item.sales_order_id}`}>{item.sales_order_code}</Link> : '—'}</td>
           <td><strong>{item.product_code || '—'}</strong><small>{item.product_name || ''}</small></td>
           <td>{item.characteristic_name || item.characteristic_code || '—'}</td>
+          <td>{item.color_name || item.color_code || '—'}</td>
           <td><strong>{item.quantity} × {item.required_length}{item.unit_symbol ? ` ${item.unit_symbol}` : ''}</strong></td>
           <td><span className={`work-sheet-status ${item.status.toLowerCase()}`}>{statusLabel[item.status]}</span></td>
           <td><button className="secondary-button compact" type="button" onClick={() => setSelected(item)}><Eye size={14}/> Ver</button></td>

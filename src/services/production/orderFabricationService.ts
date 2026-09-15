@@ -83,6 +83,8 @@ export type ProfileManualPieceSelection = {
   quantity: number;
   characteristicId: number | null;
   characteristicCode: string | null;
+  colorId: number | null;
+  colorCode: string | null;
 };
 
 export type LonaCutOverride = { cutType: LonaCutType; hem: number; overlap: number };
@@ -149,7 +151,7 @@ export async function buildOrderFabricationOverview(order: SalesOrder, companyId
     if (requirements.needsComponents && !(await isLineComponentsDone(line))) {
       const needs = resolveOrderLineComponents(line);
       for (const need of needs) {
-        const options = await listComponentStockOptions(companyId, need.productId);
+        const options = await listComponentStockOptions(companyId, need.productId, need.characteristicId, need.colorId);
         componentNeeds.push({ lineId, lineNo, key: `${lineId}:${need.productId}`, need, options });
       }
     }
@@ -215,7 +217,7 @@ async function autoFabricateProfileForLine(input: {
     const isManual = input.plan?.profileMode?.[key] === 'MANUAL';
     const manualSelection = isManual ? input.plan?.profileManualSelections?.[key] : undefined;
 
-    let chosen: Array<{ warehouseId: number; length: number; quantity: number; characteristicId: number | null; characteristicCode: string | null }>;
+    let chosen: Array<{ warehouseId: number; length: number; quantity: number; characteristicId: number | null; characteristicCode: string | null; colorId: number | null; colorCode: string | null }>;
     let reason: string;
     let selectionMode: 'AUTOMATIC' | 'MANUAL';
 
@@ -235,6 +237,8 @@ async function autoFabricateProfileForLine(input: {
         productCode: need.profile,
         characteristicId: need.characteristicId,
         characteristicCode: need.characteristicCode,
+        colorId: need.colorId,
+        colorCode: need.colorCode,
         requiredLength: need.length,
       });
       const pieces = rows.slice().sort((a, b) => a.length - b.length || a.warehouseId - b.warehouseId);
@@ -245,12 +249,13 @@ async function autoFabricateProfileForLine(input: {
         if (remaining <= 0) break;
         const take = Math.min(piece.quantity, remaining);
         if (take > 0) {
-          chosen.push({ warehouseId: piece.warehouseId, length: piece.length, quantity: take, characteristicId: piece.characteristicId, characteristicCode: piece.characteristicCode });
+          chosen.push({ warehouseId: piece.warehouseId, length: piece.length, quantity: take, characteristicId: piece.characteristicId, characteristicCode: piece.characteristicCode, colorId: piece.colorId, colorCode: piece.colorCode });
           remaining -= take;
         }
       }
       if (remaining > 0) {
-        throw new Error(`Stock insuficiente para ${need.profile} (${need.characteristic}): faltan ${remaining} pieza(s) de ${need.length} ${need.unit}.`);
+        const colorSuffix = need.colorName ? ` · ${need.colorName}` : '';
+        throw new Error(`Stock insuficiente para ${need.profile} (${need.characteristic}${colorSuffix}): faltan ${remaining} pieza(s) de ${need.length} ${need.unit}.`);
       }
 
       const remnant = chosen.reduce((sum, p) => sum + (p.length - need.length) * p.quantity, 0);
@@ -269,6 +274,9 @@ async function autoFabricateProfileForLine(input: {
       characteristicId: chosen[0]?.characteristicId ?? need.characteristicId ?? null,
       characteristicCode: need.characteristicCode ?? chosen[0]?.characteristicCode ?? null,
       characteristicName: need.characteristic,
+      colorId: chosen[0]?.colorId ?? need.colorId ?? null,
+      colorCode: need.colorCode ?? chosen[0]?.colorCode ?? null,
+      colorName: need.colorName ?? null,
       requiredLength: need.length,
       quantity: need.quantity,
       selections: chosen.map(piece => ({ warehouseId: piece.warehouseId, dimensionValues: [piece.length], quantity: piece.quantity })),
@@ -306,8 +314,13 @@ async function autoFabricateLonaComponent(input: {
     productId: component.productId,
     characteristicId: component.characteristicId,
     characteristicCode: component.characteristicCode,
+    colorId: component.colorId,
+    colorCode: component.colorCode,
   });
-  if (!probe) throw new Error(`Sin material de lona compatible para ${component.productCode} (${component.characteristicName || 'sin característica'}).`);
+  if (!probe) {
+    const colorSuffix = component.colorName ? ` · ${component.colorName}` : '';
+    throw new Error(`Sin material de lona compatible para ${component.productCode} (${component.characteristicName || 'sin característica'}${colorSuffix}).`);
+  }
 
   const calculation = calculateLonaCut({
     type: cutType,
@@ -329,6 +342,8 @@ async function autoFabricateLonaComponent(input: {
     productId: component.productId,
     characteristicId: component.characteristicId,
     characteristicCode: component.characteristicCode,
+    colorId: component.colorId,
+    colorCode: component.colorCode,
     pieces: calculation.pieces.map(piece => ({ width: piece.width, length: piece.length, label: piece.label })),
     unit: component.lineUnit,
   });
@@ -407,15 +422,44 @@ async function autoFabricateComponentsForLine(input: {
   const existing = await getComponentConsumptionWorkSheetBySalesOrderLine(lineId);
   if (existing?.status === 'COMPLETED') return existing;
 
-  const lines: Array<{ warehouseId: number; productId: number; productCode: string; productName: string; unitCode: string; quantity: number }> = [];
+  const lines: Array<{
+    warehouseId: number;
+    productId: number;
+    productCode: string;
+    productName: string;
+    unitCode: string;
+    quantity: number;
+    characteristicId: number | null;
+    characteristicCode: string | null;
+    characteristicName: string | null;
+    colorId: number | null;
+    colorCode: string | null;
+    colorName: string | null;
+  }> = [];
   for (const need of needs) {
-    const options = await listComponentStockOptions(input.companyId, need.productId);
+    const options = await listComponentStockOptions(input.companyId, need.productId, need.characteristicId, need.colorId);
     const overrideWarehouseId = input.plan?.componentWarehouse?.[`${lineId}:${need.productId}`];
     const overridden = overrideWarehouseId != null ? options.find(o => o.warehouseId === overrideWarehouseId) : null;
     const preferred = input.orderWarehouseId ? options.find(o => o.warehouseId === input.orderWarehouseId) : null;
     const chosen = overridden ?? preferred ?? options[0];
-    if (!chosen) throw new Error(`Sin almacén con existencias de ${need.productCode} para descontar.`);
-    lines.push({ warehouseId: chosen.warehouseId, productId: need.productId, productCode: need.productCode, productName: need.productName, unitCode: need.unitCode, quantity: need.quantity });
+    if (!chosen) {
+      const colorSuffix = need.colorName ? ` · ${need.colorName}` : '';
+      throw new Error(`Sin almacén con existencias de ${need.productCode}${colorSuffix} para descontar.`);
+    }
+    lines.push({
+      warehouseId: chosen.warehouseId,
+      productId: need.productId,
+      productCode: need.productCode,
+      productName: need.productName,
+      unitCode: need.unitCode,
+      quantity: need.quantity,
+      characteristicId: need.characteristicId,
+      characteristicCode: need.characteristicCode,
+      characteristicName: need.characteristicName,
+      colorId: need.colorId,
+      colorCode: need.colorCode,
+      colorName: need.colorName,
+    });
   }
 
   return createAndExecuteComponentConsumption({

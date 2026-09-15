@@ -187,6 +187,7 @@ export function StockList() {
                 <th>Almacén</th>
                 <th>Artículo</th>
                 <th>Característica</th>
+                <th>Color</th>
                 <th className="numeric">Físico</th>
                 <th className="numeric">Reservado</th>
                 <th className="numeric">Disponible</th>
@@ -196,11 +197,11 @@ export function StockList() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8}>Cargando…</td>
+                  <td colSpan={9}>Cargando…</td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="empty">
+                  <td colSpan={9} className="empty">
                     No hay existencias registradas.
                   </td>
                 </tr>
@@ -241,6 +242,7 @@ export function StockList() {
                             <span className="secondary-line">{r.characteristic.description}</span>
                           )}
                         </td>
+                        <td>{r.color?.name || r.color?.code || "—"}</td>
                         <td className="numeric">{r.quantity}</td>
                         <td className="numeric">{r.reserved_quantity}</td>
                         <td
@@ -258,7 +260,7 @@ export function StockList() {
                       </tr>
                       {isExpanded && (
                         <tr className="stock-detail-row">
-                          <td colSpan={8}>
+                          <td colSpan={9}>
                             {traceLoading === r.id ? (
                               <div className="stock-detail-loading">Cargando detalle…</div>
                             ) : (
