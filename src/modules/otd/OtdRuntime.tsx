@@ -210,15 +210,12 @@ export function OtdRuntime() {
     if (colorId == null || !runtimeData || !calculation) return;
     setColorSelections((prev) => {
       const next = { ...prev };
-      calculation.components.forEach((comp, idx) => {
+      calculation.components.forEach((comp) => {
         if (!comp.characteristic_id) return;
-        const compDef = customComponents[idx];
-        // Un color_expression que sí resolvió (color_name presente) no se
-        // pisa con el maestro — respeta lo que decidió la fórmula. Pero si no
-        // resolvió (p. ej. no hay ninguna entrada de oficina con ese código),
-        // el maestro sigue siendo la única forma de dar valor al componente.
-        const dynamicResolved = Boolean(compDef?.color_expression?.trim()) && Boolean(comp.color_name);
-        if (compDef?.color_id || dynamicResolved) return;
+        // Fijo o resuelto por fórmula: viene del propio OTD, el maestro no lo
+        // pisa. 'manual' o sin resolver: el maestro es la vía normal de
+        // dárselo (igual que el desplegable propio del componente).
+        if (comp.color_source === "fixed" || comp.color_source === "formula") return;
         if (comp.available_colors.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
@@ -872,14 +869,10 @@ export function OtdRuntime() {
               {calculation?.components.map((c, idx) => {
                 const compDef = customComponents[idx];
                 const isInactive = compDef && !compDef.active;
-                // Un color_expression solo cuenta como "resuelto" (sin dropdown
-                // manual, sin poder recibir el color maestro) si de verdad produjo
-                // un color; si la fórmula no encontró nada, se comporta como
-                // cualquier componente sin color predefinido.
-                const hasPresetColor = Boolean(
-                  compDef?.color_id ||
-                    (compDef?.color_expression?.trim() && c.color_name),
-                );
+                // Solo un color fijo o resuelto por fórmula oculta el
+                // desplegable manual; uno resuelto por el mecanismo manual
+                // (desplegable propio o selector maestro) sigue siendo editable.
+                const hasPresetColor = c.color_source === "fixed" || c.color_source === "formula";
                 const availableColors = !hasPresetColor ? c.available_colors : [];
                 const componentKey = String(c.id ?? idx);
 

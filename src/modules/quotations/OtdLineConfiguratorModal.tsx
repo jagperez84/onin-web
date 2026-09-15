@@ -390,14 +390,12 @@ export function OtdLineConfiguratorModal({
     if (colorId == null || !runtimeData || !calculation) return;
     setColorSelections((prev) => {
       const next = { ...prev };
-      calculation.components.forEach((comp, idx) => {
+      calculation.components.forEach((comp) => {
         if (!comp.characteristic_id) return;
-        const compDef = customComponents[idx];
-        // Un color_expression que sí resolvió (color_name presente) no se
-        // pisa con el maestro; si no resolvió, el maestro sigue siendo la
-        // única forma de dar valor al componente.
-        const dynamicResolved = Boolean(compDef?.color_expression?.trim()) && Boolean(comp.color_name);
-        if (compDef?.color_id || dynamicResolved) return;
+        // Fijo o resuelto por fórmula: viene del propio OTD, el maestro no lo
+        // pisa. 'manual' o sin resolver: el maestro es la vía normal de
+        // dárselo (igual que el desplegable propio del componente).
+        if (comp.color_source === "fixed" || comp.color_source === "formula") return;
         if (comp.available_colors.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }

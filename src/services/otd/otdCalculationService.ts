@@ -166,6 +166,8 @@ export type OtdCalculatedComponent = {
   color_id: number | null;
   color_code: string | null;
   color_name: string | null;
+  /** De dónde salió el color: 'fixed'/'formula' vienen del propio OTD (no editable al configurar); 'manual' es la elección del usuario (desplegable propio o selector maestro), siempre editable aunque ya tenga valor. null si no se resolvió ninguno. */
+  color_source: 'fixed' | 'formula' | 'manual' | null;
   /** Colores disponibles para este componente, ya filtrados por artículo/familia. Vacío si su característica no diferencia por color o no se resolvió ninguna. */
   available_colors: OtdColorOption[];
   pricing_source: 'base' | 'characteristic' | 'scale' | 'scale_characteristic' | 'manual';
@@ -1059,6 +1061,14 @@ export function calculateOtdRuntime(
       let resolvedColorId: number | null = null;
       let resolvedColorCode: string | null = null;
       let resolvedColorName: string | null = null;
+      // Distingue de dónde salió el color, para que la UI sepa si puede
+      // seguir ofreciendo el desplegable manual: 'fixed'/'formula' vienen del
+      // propio OTD (no hace falta ni tiene sentido dejar elegir otro color al
+      // configurar); 'manual' es el mismo mecanismo de siempre (colorSelections,
+      // alimentado por el desplegable propio del componente o por el selector
+      // maestro) y debe seguir siendo editable aunque en este cálculo concreto
+      // ya tenga un valor.
+      let resolvedColorSource: 'fixed' | 'formula' | 'manual' | null = null;
 
       if (comp.color_id) {
         const fixed = availableColors.find(cl => cl.id === Number(comp.color_id)) ?? null;
@@ -1066,6 +1076,7 @@ export function calculateOtdRuntime(
           resolvedColorId = fixed.id;
           resolvedColorCode = fixed.code;
           resolvedColorName = fixed.name;
+          resolvedColorSource = 'fixed';
         }
       } else if (comp.color_expression && comp.color_expression.trim()) {
         const expr = comp.color_expression.trim();
@@ -1084,6 +1095,7 @@ export function calculateOtdRuntime(
             resolvedColorId = matched.id;
             resolvedColorCode = matched.code;
             resolvedColorName = matched.name;
+            resolvedColorSource = 'formula';
           }
         }
       }
@@ -1096,6 +1108,7 @@ export function calculateOtdRuntime(
           resolvedColorId = matched.id;
           resolvedColorCode = matched.code;
           resolvedColorName = matched.name;
+          resolvedColorSource = 'manual';
         } else {
           requiredMissing.push(`Color de ${comp.description || comp.code}`);
         }
@@ -1200,6 +1213,7 @@ export function calculateOtdRuntime(
         color_id: resolvedColorId,
         color_code: resolvedColorCode,
         color_name: resolvedColorName,
+        color_source: resolvedColorSource,
         available_colors: availableColors,
         pricing_source: pricingSource,
         scale_step_used: scaleStepUsed,
@@ -1236,6 +1250,7 @@ export function calculateOtdRuntime(
         color_id: null,
         color_code: null,
         color_name: null,
+        color_source: null,
         available_colors: [],
         pricing_source: 'manual',
         scale_step_used: null,
