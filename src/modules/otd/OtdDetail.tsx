@@ -22,6 +22,7 @@ import {
   type OtdScaleRow,
 } from "../../services/otd/otdScaleRepository";
 import { listUnits, type Unit } from "../../services/catalog/unitRepository";
+import { loadEffectiveCharacteristicsForProducts } from "../../services/otd/otdCalculationService";
 import "./otd.css";
 import "./otd-detail.css";
 
@@ -234,48 +235,24 @@ export function OtdDetail() {
             .from("product")
             .select(
               `
-              id, code, commercial_description, technical_description,
+              id, code, commercial_description, technical_description, family_id,
               measurement_type:measurement_type_id (
                 id, name, dimension_count,
                 dimensions:dimension ( id, code, name, unit:unit_id ( code, name ) )
-              ),
-              characteristics:product_characteristic ( id, code, description )
+              )
             `,
             )
             .in("id", productIds);
 
           if (prods) {
-            const charIds = [
-              ...new Set(
-                (prods as any[]).flatMap((p) =>
-                  (p.characteristics ?? []).map((ch: any) => ch.id),
-                ),
-              ),
-            ];
-            const colorsByChar = new Map<
-              number,
-              Array<{ id: number; code: string; name: string }>
-            >();
-            if (charIds.length > 0) {
-              const { data: ccData } = await supabase
-                .from("characteristic_color")
-                .select("characteristic_id,color:color(id,code,name,active)")
-                .in("characteristic_id", charIds)
-                .eq("active", true)
-                .is("deleted_at", null);
-              for (const row of (ccData ?? []) as any[]) {
-                const color = row.color;
-                if (!color || color.active === false) continue;
-                const chId = Number(row.characteristic_id);
-                const list = colorsByChar.get(chId) ?? [];
-                list.push({
-                  id: Number(color.id),
-                  code: String(color.code),
-                  name: String(color.name),
-                });
-                colorsByChar.set(chId, list);
-              }
-            }
+            const { byProduct: charsByProduct } =
+              await loadEffectiveCharacteristicsForProducts(
+                supabase,
+                (prods as any[]).map((p) => ({
+                  id: Number(p.id),
+                  family_id: p.family_id != null ? Number(p.family_id) : null,
+                })),
+              );
 
             for (const p of prods as any[]) {
               productMap[p.id] = {
@@ -283,10 +260,7 @@ export function OtdDetail() {
                 code: p.code,
                 commercial_description: p.commercial_description,
                 technical_description: p.technical_description,
-                characteristics: (p.characteristics ?? []).map((ch: any) => ({
-                  ...ch,
-                  colors: colorsByChar.get(Number(ch.id)) ?? [],
-                })),
+                characteristics: charsByProduct.get(Number(p.id)) ?? [],
                 measurement_type: p.measurement_type ?? null,
               };
             }

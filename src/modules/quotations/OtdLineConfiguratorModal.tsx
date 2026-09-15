@@ -394,8 +394,7 @@ export function OtdLineConfiguratorModal({
         if (!comp.characteristic_id) return;
         const compDef = customComponents[idx];
         if (compDef?.color_id || compDef?.color_expression?.trim()) return;
-        const options = runtimeData.colorsByCharacteristic.get(comp.characteristic_id) ?? [];
-        if (options.some((o) => o.id === colorId)) {
+        if (comp.available_colors.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
       });

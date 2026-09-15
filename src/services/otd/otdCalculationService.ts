@@ -11,7 +11,7 @@ import {
 } from './formulaEngine';
 import { resolveProductUnitPrice, round2 } from '../catalog/productPricingService';
 import { listOtdScales, resolveOtdBasePriceFromScales, type OtdScaleRow } from './otdScaleRepository';
-import type { Product, ProductCharacteristic } from '../catalog/productRepository';
+import type { Product } from '../catalog/productRepository';
 import type { ProductScaleRow } from '../catalog/productCommercialRepository';
 import { listUnits, type Unit } from '../catalog/unitRepository';
 import {
@@ -81,6 +81,20 @@ export type OtdScale = ProductScaleRow & { product_id: number };
 
 export type OtdColorOption = { id: number; code: string; name: string };
 
+/**
+ * "Característica" a efectos de OTD = product_attribute (familia + asignación de
+ * artículo, la única pantalla real donde se puede dar de alta una característica
+ * con colores — ver ProductFamilyCharacteristicsPanel). product_characteristic no
+ * tiene ninguna pantalla que la enlace desde la ficha del artículo, así que nunca
+ * hay datos reales ahí; por eso el motor de OTD ya no la usa.
+ */
+export type OtdCharacteristicOption = {
+  id: number;
+  code: string;
+  description: string | null;
+  colors: OtdColorOption[];
+};
+
 export type OtdComponentDef = OtdComponentFormula & {
   id: number;
   otd_id: number;
@@ -101,7 +115,7 @@ export type OtdComponentDef = OtdComponentFormula & {
   product?: Product | null;
   dimensions?: OtdDimensionDef[];
   scales?: OtdScale[];
-  characteristics?: ProductCharacteristic[];
+  characteristics?: OtdCharacteristicOption[];
 };
 
 export type OtdRuntimeData = {
@@ -114,7 +128,7 @@ export type OtdRuntimeData = {
   unitsMap: Map<number, Unit>;
   conversions: UnitConversion[];
   workUnit: Unit | null;
-  /** Colores agrupados bajo cada característica (característica id -> colores). Vacío o ausente si la característica no diferencia por color. */
+  /** Unión de colores por característica (attribute_id -> colores), solo para el selector "aplicar a todos" y el listado global de colores del OTD — nunca para resolver el color de un componente concreto (usar comp.characteristics, que respeta las exclusiones de cada artículo/familia). */
   colorsByCharacteristic: Map<number, OtdColorOption[]>;
   loadedAt: string;
 };
@@ -152,6 +166,8 @@ export type OtdCalculatedComponent = {
   color_id: number | null;
   color_code: string | null;
   color_name: string | null;
+  /** Colores disponibles para este componente, ya filtrados por artículo/familia. Vacío si su característica no diferencia por color o no se resolvió ninguna. */
+  available_colors: OtdColorOption[];
   pricing_source: 'base' | 'characteristic' | 'scale' | 'scale_characteristic' | 'manual';
   scale_step_used: {
     dimension_1: number;
@@ -293,6 +309,187 @@ function client() {
   return supabase;
 }
 
+/**
+ * Características efectivas (product_attribute, heredadas de familia + asignación
+ * propia del artículo, con exclusiones) y sus colores disponibles, para un lote de
+ * artículos. Reproduce en bloque la misma fusión que listProductCharacteristicConfiguration
+ * + listEffectiveAttributeColors hacen por artículo, para no lanzar N llamadas por
+ * componente del OTD.
+ */
+export async function loadEffectiveCharacteristicsForProducts(
+  c: ReturnType<typeof client>,
+  products: Array<{ id: number; family_id?: number | null }>
+): Promise<{
+  byProduct: Map<number, OtdCharacteristicOption[]>;
+  colorsByCharacteristic: Map<number, OtdColorOption[]>;
+}> {
+  const productIds = products.map(p => p.id);
+  if (productIds.length === 0) return { byProduct: new Map(), colorsByCharacteristic: new Map() };
+
+  const familyIds = [
+    ...new Set(products.map(p => p.family_id).filter((id): id is number => Number.isFinite(id))),
+  ];
+
+  const [familyAttrsRes, articleAssignRes, exclusionsRes] = await Promise.all([
+    familyIds.length > 0
+      ? c
+          .from('product_family_attribute')
+          .select('id,family_id,attribute_id,product_attribute!inner(id,code,name)')
+          .in('family_id', familyIds)
+          .eq('active', true)
+          .is('deleted_at', null)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    c
+      .from('product_attribute_assignment')
+      .select('id,product_id,attribute_id,product_attribute!inner(id,code,name)')
+      .in('product_id', productIds)
+      .eq('active', true)
+      .is('deleted_at', null),
+    c.from('product_family_attribute_exclusion').select('product_id,attribute_id').in('product_id', productIds),
+  ]);
+
+  const attrOf = (v: any): any => (Array.isArray(v) ? v[0] ?? null : v ?? null);
+
+  const familyAttrsByFamily = new Map<number, any[]>();
+  for (const r of (familyAttrsRes.data ?? []) as any[]) {
+    const fid = Number(r.family_id);
+    const list = familyAttrsByFamily.get(fid) ?? [];
+    list.push(r);
+    familyAttrsByFamily.set(fid, list);
+  }
+  const articleRowsByProduct = new Map<number, any[]>();
+  for (const r of (articleAssignRes.data ?? []) as any[]) {
+    const pid = Number(r.product_id);
+    const list = articleRowsByProduct.get(pid) ?? [];
+    list.push(r);
+    articleRowsByProduct.set(pid, list);
+  }
+  const exclusionsByProduct = new Map<number, Set<number>>();
+  for (const r of (exclusionsRes.data ?? []) as any[]) {
+    const pid = Number(r.product_id);
+    const set = exclusionsByProduct.get(pid) ?? new Set<number>();
+    set.add(Number(r.attribute_id));
+    exclusionsByProduct.set(pid, set);
+  }
+
+  type EffectiveRow = { attribute_id: number; code: string; name: string; source: 'family' | 'article'; assignment_id: number };
+  const effectiveByProduct = new Map<number, Map<number, EffectiveRow>>();
+
+  for (const p of products) {
+    const map = new Map<number, EffectiveRow>();
+    const fid = p.family_id != null && Number.isFinite(p.family_id) ? Number(p.family_id) : null;
+    const excluded = exclusionsByProduct.get(p.id) ?? new Set<number>();
+    if (fid != null) {
+      for (const r of familyAttrsByFamily.get(fid) ?? []) {
+        const attrId = Number(r.attribute_id);
+        if (excluded.has(attrId)) continue;
+        const attr = attrOf(r.product_attribute);
+        map.set(attrId, {
+          attribute_id: attrId,
+          code: String(attr?.code ?? ''),
+          name: String(attr?.name ?? ''),
+          source: 'family',
+          assignment_id: Number(r.id),
+        });
+      }
+    }
+    for (const r of articleRowsByProduct.get(p.id) ?? []) {
+      const attrId = Number(r.attribute_id);
+      const attr = attrOf(r.product_attribute);
+      map.set(attrId, {
+        attribute_id: attrId,
+        code: String(attr?.code ?? ''),
+        name: String(attr?.name ?? ''),
+        source: 'article',
+        assignment_id: Number(r.id),
+      });
+    }
+    effectiveByProduct.set(p.id, map);
+  }
+
+  const attributeIds = new Set<number>();
+  const familyAssignmentIds = new Set<number>();
+  const articleAssignmentIds = new Set<number>();
+  for (const map of effectiveByProduct.values()) {
+    for (const row of map.values()) {
+      attributeIds.add(row.attribute_id);
+      if (row.source === 'family') familyAssignmentIds.add(row.assignment_id);
+      else articleAssignmentIds.add(row.assignment_id);
+    }
+  }
+
+  const [attrColorsRes, familyExclRes, articleExclRes] = await Promise.all([
+    attributeIds.size > 0
+      ? c
+          .from('attribute_color')
+          .select('attribute_id,color:color(id,code,name,active)')
+          .in('attribute_id', [...attributeIds])
+          .is('deleted_at', null)
+      : Promise.resolve({ data: [] as any[], error: null }),
+    familyAssignmentIds.size > 0
+      ? c
+          .from('product_family_attribute_color_exclusion')
+          .select('family_attribute_id,color_id')
+          .in('family_attribute_id', [...familyAssignmentIds])
+      : Promise.resolve({ data: [] as any[], error: null }),
+    articleAssignmentIds.size > 0
+      ? c
+          .from('product_attribute_assignment_color_exclusion')
+          .select('assignment_id,color_id')
+          .in('assignment_id', [...articleAssignmentIds])
+      : Promise.resolve({ data: [] as any[], error: null }),
+  ]);
+
+  const colorsByAttribute = new Map<number, OtdColorOption[]>();
+  for (const row of (attrColorsRes.data ?? []) as any[]) {
+    const color = row.color;
+    if (!color) continue;
+    const attrId = Number(row.attribute_id);
+    const list = colorsByAttribute.get(attrId) ?? [];
+    list.push({ id: Number(color.id), code: String(color.code), name: String(color.name) });
+    colorsByAttribute.set(attrId, list);
+  }
+
+  const familyExclByAssignment = new Map<number, Set<number>>();
+  for (const r of (familyExclRes.data ?? []) as any[]) {
+    const aid = Number(r.family_attribute_id);
+    const set = familyExclByAssignment.get(aid) ?? new Set<number>();
+    set.add(Number(r.color_id));
+    familyExclByAssignment.set(aid, set);
+  }
+  const articleExclByAssignment = new Map<number, Set<number>>();
+  for (const r of (articleExclRes.data ?? []) as any[]) {
+    const aid = Number(r.assignment_id);
+    const set = articleExclByAssignment.get(aid) ?? new Set<number>();
+    set.add(Number(r.color_id));
+    articleExclByAssignment.set(aid, set);
+  }
+
+  const byProduct = new Map<number, OtdCharacteristicOption[]>();
+  const colorsByCharacteristic = new Map<number, OtdColorOption[]>();
+
+  for (const [pid, map] of effectiveByProduct) {
+    const list: OtdCharacteristicOption[] = [];
+    for (const row of map.values()) {
+      const allColors = colorsByAttribute.get(row.attribute_id) ?? [];
+      const excludedSet =
+        row.source === 'family'
+          ? familyExclByAssignment.get(row.assignment_id) ?? new Set<number>()
+          : articleExclByAssignment.get(row.assignment_id) ?? new Set<number>();
+      const colors = allColors.filter(cl => !excludedSet.has(cl.id));
+      list.push({ id: row.attribute_id, code: row.code, description: row.name, colors });
+      // Unión de todos los artículos: solo se usa para el selector "aplicar a todos" y
+      // el listado global de colores del OTD, nunca para resolver el color de un
+      // componente concreto (eso usa comp.characteristics, que es exacto por artículo).
+      colorsByCharacteristic.set(row.attribute_id, colors);
+    }
+    list.sort((a, b) => a.code.localeCompare(b.code));
+    byProduct.set(pid, list);
+  }
+
+  return { byProduct, colorsByCharacteristic };
+}
+
 export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData> {
   const c = client();
   const [otdRes, selRes, varRes, compRes, otdScales, latestVersionRes] = await Promise.all([
@@ -324,9 +521,10 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
 
   let products: Product[] = [];
   let scales: any[] = [];
-  let characteristics: ProductCharacteristic[] = [];
   let dimensions: any[] = [];
   let familyMap: Record<number, any> = {};
+  let byProductChars = new Map<number, OtdCharacteristicOption[]>();
+  let colorsByCharacteristic = new Map<number, OtdColorOption[]>();
 
   if (productIds.length > 0) {
     const { data: pData, error: pe } = await c.from('product').select('*').in('id', productIds);
@@ -362,7 +560,7 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
       dimensions = dData ?? [];
     }
 
-    const [scalesRes, charsRes] = await Promise.all([
+    const [scalesRes, effectiveChars] = await Promise.all([
       c
         .from('product_scale')
         .select('id, product_id, dimension_values, dimension_1, dimension_2, price, characteristic_id, attribute_values, deleted_at, deleted_by')
@@ -370,36 +568,15 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
         .is('deleted_at', null)
         .order('dimension_1')
         .order('dimension_2'),
-      c
-        .from('product_characteristic')
-        .select('*')
-        .in('product_id', productIds)
-        .eq('active', true)
-        .is('deleted_at', null)
-        .order('code'),
+      loadEffectiveCharacteristicsForProducts(
+        c,
+        products.map(p => ({ id: Number(p.id), family_id: p.family_id != null ? Number(p.family_id) : null })),
+      ),
     ]);
 
     scales = scalesRes.data ?? [];
-    characteristics = (charsRes.data ?? []) as ProductCharacteristic[];
-  }
-
-  const colorsByCharacteristic = new Map<number, OtdColorOption[]>();
-  const characteristicIdsForColors = [...new Set(characteristics.map(ch => Number(ch.id)))];
-  if (characteristicIdsForColors.length > 0) {
-    const { data: ccData } = await c
-      .from('characteristic_color')
-      .select('characteristic_id,color:color(id,code,name,active)')
-      .in('characteristic_id', characteristicIdsForColors)
-      .eq('active', true)
-      .is('deleted_at', null);
-    for (const row of (ccData ?? []) as any[]) {
-      const color = row.color;
-      if (!color || color.active === false) continue;
-      const chId = Number(row.characteristic_id);
-      const list = colorsByCharacteristic.get(chId) ?? [];
-      list.push({ id: Number(color.id), code: String(color.code), name: String(color.name) });
-      colorsByCharacteristic.set(chId, list);
-    }
+    byProductChars = effectiveChars.byProduct;
+    colorsByCharacteristic = effectiveChars.colorsByCharacteristic;
   }
 
   const productsMap = new Map<number, Product>(products.map(p => [Number(p.id), p]));
@@ -418,14 +595,6 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
       attribute_values: r.attribute_values && typeof r.attribute_values === 'object' ? r.attribute_values : {},
     });
     byProductScales.set(pid, list);
-  }
-
-  const byProductChars = new Map<number, ProductCharacteristic[]>();
-  for (const ch of characteristics) {
-    const pid = Number(ch.product_id);
-    const list = byProductChars.get(pid) ?? [];
-    list.push(ch);
-    byProductChars.set(pid, list);
   }
 
   const getDimensionsForProduct = (p: Product): OtdDimensionDef[] => {
@@ -570,7 +739,7 @@ export async function fetchProductForOtdComponent(productId: number): Promise<{
   product: Product;
   dimensions: OtdDimensionDef[];
   scales: OtdScale[];
-  characteristics: ProductCharacteristic[];
+  characteristics: OtdCharacteristicOption[];
 }> {
   const c = client();
   const { data: prod, error: pe } = await c.from('product').select('*').eq('id', productId).single();
@@ -621,7 +790,7 @@ export async function fetchProductForOtdComponent(productId: number): Promise<{
     }
   }
 
-  const [scalesRes, charsRes] = await Promise.all([
+  const [scalesRes, effectiveChars] = await Promise.all([
     c
       .from('product_scale')
       .select(
@@ -631,13 +800,9 @@ export async function fetchProductForOtdComponent(productId: number): Promise<{
       .is('deleted_at', null)
       .order('dimension_1')
       .order('dimension_2'),
-    c
-      .from('product_characteristic')
-      .select('*')
-      .eq('product_id', productId)
-      .eq('active', true)
-      .is('deleted_at', null)
-      .order('code'),
+    loadEffectiveCharacteristicsForProducts(c, [
+      { id: productId, family_id: prod.family_id != null ? Number(prod.family_id) : null },
+    ]),
   ]);
 
   const scales: OtdScale[] = (scalesRes.data ?? []).map((r: any) => ({
@@ -651,7 +816,7 @@ export async function fetchProductForOtdComponent(productId: number): Promise<{
       r.attribute_values && typeof r.attribute_values === 'object' ? r.attribute_values : {},
   }));
 
-  const characteristics = (charsRes.data ?? []) as ProductCharacteristic[];
+  const characteristics = effectiveChars.byProduct.get(productId) ?? [];
 
   return {
     product: prod as Product,
@@ -850,7 +1015,7 @@ export function calculateOtdRuntime(
       const orderedDimensions = (comp.dimensions ?? []).map(d => dimensions[d.code] ?? null);
 
       // Characteristic resolution (Fixed vs Dynamic)
-      let resolvedChar: ProductCharacteristic | null = null;
+      let resolvedChar: OtdCharacteristicOption | null = null;
 
       if (comp.characteristic_id) {
         resolvedChar =
@@ -876,15 +1041,21 @@ export function calculateOtdRuntime(
       }
 
       // Resolución de color: si la característica resuelta agrupa colores
-      // (characteristic_color), el componente puede fijar uno en el propio OTD
-      // (color_id), resolverlo dinámicamente (color_expression, igual que
-      // characteristic_expression) o, si no se definió ninguno de los dos, pedirlo
-      // al usuario en el propio formulario de configuración (colorSelections). El
-      // precio no depende del color, solo de la característica, así que esto nunca
-      // cambia basePrice.
-      const availableColors = resolvedChar
-        ? runtimeData.colorsByCharacteristic.get(resolvedChar.id) ?? []
-        : [];
+      // (attribute_color, vía comp.characteristics — ya filtrado por las
+      // exclusiones propias de este artículo o su familia), el componente puede
+      // fijar uno en el propio OTD (color_id), resolverlo dinámicamente
+      // (color_expression, igual que characteristic_expression) o, si no se
+      // definió ninguno de los dos, pedirlo al usuario en el propio formulario de
+      // configuración (colorSelections). El precio no depende del color, solo de
+      // la característica, así que esto nunca cambia basePrice.
+      //
+      // Importante: se usa resolvedChar.colors (ya resuelto por artículo), no el
+      // mapa global runtimeData.colorsByCharacteristic — el mismo attribute_id
+      // puede tener distintas exclusiones de color en cada artículo/familia, así
+      // que ese mapa global (pensado solo para el selector "aplicar a todos" y el
+      // listado de colores del OTD) no es válido para resolver el color de un
+      // componente concreto.
+      const availableColors = resolvedChar?.colors ?? [];
       let resolvedColorId: number | null = null;
       let resolvedColorCode: string | null = null;
       let resolvedColorName: string | null = null;
@@ -947,9 +1118,14 @@ export function calculateOtdRuntime(
       } else {
         // Fallback: Component article scaling
         if (prod) {
+          // resolvedChar ahora es una característica de tipo product_attribute
+          // (ver OtdCharacteristicOption): no tiene forma de product_characteristic
+          // (pvp, price_increment) ni encaja con product_scale.characteristic_id,
+          // así que este fallback de precio por artículo no la usa — solo aplica
+          // cuando el OTD no tiene escalado propio.
           const pricingRes = resolveProductUnitPrice({
             product: prod,
-            characteristic: resolvedChar,
+            characteristic: null,
             dimension1: orderedDimensions[0] ?? null,
             dimension2: orderedDimensions[1] ?? null,
             scales: comp.scales ?? [],
@@ -1024,6 +1200,7 @@ export function calculateOtdRuntime(
         color_id: resolvedColorId,
         color_code: resolvedColorCode,
         color_name: resolvedColorName,
+        available_colors: availableColors,
         pricing_source: pricingSource,
         scale_step_used: scaleStepUsed,
         base_price: basePrice,
@@ -1059,6 +1236,7 @@ export function calculateOtdRuntime(
         color_id: null,
         color_code: null,
         color_name: null,
+        available_colors: [],
         pricing_source: 'manual',
         scale_step_used: null,
         base_price: 0,
@@ -1242,12 +1420,7 @@ export interface OninProduct {
   measurement_type_id?: number | null;
   unit_id?: number | null;
   unit?: { id: number; code: string; name: string; symbol?: string | null } | null;
-  characteristics: Array<{
-    id: number;
-    code: string;
-    description: string | null;
-    colors: Array<{ id: number; code: string; name: string }>;
-  }>;
+  characteristics: OtdCharacteristicOption[];
   measurement_type?: {
     id: number;
     name: string;
@@ -1350,49 +1523,11 @@ export async function fetchOninProducts(productIds: number[]): Promise<Record<nu
     }
   }
 
-  // Fetch characteristics
-  const { data: chars } = await c
-    .from('product_characteristic')
-    .select('id, product_id, code, description, active')
-    .in('product_id', uniqueIds)
-    .is('deleted_at', null)
-    .order('code');
-
-  const charIds = (chars ?? []).map((ch: any) => Number(ch.id));
-  const colorsByCharacteristic = new Map<number, Array<{ id: number; code: string; name: string }>>();
-  if (charIds.length > 0) {
-    const { data: ccData } = await c
-      .from('characteristic_color')
-      .select('characteristic_id,color:color(id,code,name,active)')
-      .in('characteristic_id', charIds)
-      .eq('active', true)
-      .is('deleted_at', null);
-    for (const row of (ccData ?? []) as any[]) {
-      const color = row.color;
-      if (!color || color.active === false) continue;
-      const chId = Number(row.characteristic_id);
-      const list = colorsByCharacteristic.get(chId) ?? [];
-      list.push({ id: Number(color.id), code: String(color.code), name: String(color.name) });
-      colorsByCharacteristic.set(chId, list);
-    }
-  }
-
-  const charsByProduct = new Map<
-    number,
-    Array<{ id: number; code: string; description: string | null; colors: Array<{ id: number; code: string; name: string }> }>
-  >();
-  for (const ch of chars ?? []) {
-    const pid = Number(ch.product_id);
-    const chId = Number(ch.id);
-    const list = charsByProduct.get(pid) ?? [];
-    list.push({
-      id: chId,
-      code: String(ch.code),
-      description: ch.description || null,
-      colors: colorsByCharacteristic.get(chId) ?? [],
-    });
-    charsByProduct.set(pid, list);
-  }
+  // Fetch effective characteristics (product_attribute, family + article level, with colors)
+  const { byProduct: charsByProduct } = await loadEffectiveCharacteristicsForProducts(
+    c,
+    prods.map((p: any) => ({ id: Number(p.id), family_id: p.family_id != null ? Number(p.family_id) : null })),
+  );
 
   const result: Record<number, OninProduct> = {};
   for (const p of prods) {

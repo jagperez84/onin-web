@@ -214,8 +214,7 @@ export function OtdRuntime() {
         if (!comp.characteristic_id) return;
         const compDef = customComponents[idx];
         if (compDef?.color_id || compDef?.color_expression?.trim()) return;
-        const options = runtimeData.colorsByCharacteristic.get(comp.characteristic_id) ?? [];
-        if (options.some((o) => o.id === colorId)) {
+        if (comp.available_colors.some((o) => o.id === colorId)) {
           next[String(comp.id)] = colorId;
         }
       });
@@ -871,10 +870,7 @@ export function OtdRuntime() {
                 const hasPresetColor = Boolean(
                   compDef?.color_id || compDef?.color_expression?.trim(),
                 );
-                const availableColors =
-                  c.characteristic_id && !hasPresetColor
-                    ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
-                    : [];
+                const availableColors = !hasPresetColor ? c.available_colors : [];
                 const componentKey = String(c.id ?? idx);
 
                 return (

@@ -406,10 +406,7 @@ export function OtdBreakdownPanel({
                 const hasPresetColor = Boolean(
                   compDef?.color_id || compDef?.color_expression?.trim(),
                 );
-                const availableColors =
-                  c.characteristic_id && !hasPresetColor
-                    ? runtimeData.colorsByCharacteristic.get(c.characteristic_id) ?? []
-                    : [];
+                const availableColors = !hasPresetColor ? c.available_colors : [];
                 const componentKey = String(c.id ?? ci);
 
                 return (
