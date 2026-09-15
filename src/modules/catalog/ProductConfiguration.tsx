@@ -46,12 +46,6 @@ const CONFIGS: CatalogConfig[] = [
     description:
       "Conceptos de medida reutilizables por la configuración dimensional.",
   },
-  {
-    key: "colors",
-    label: "Colores",
-    singular: "Color",
-    description: "Catálogo auxiliar de colores reutilizable por artículos.",
-  },
 ];
 type FormState = {
   id?: number;
