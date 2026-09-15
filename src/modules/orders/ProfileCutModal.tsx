@@ -213,8 +213,9 @@ export function ProfileCutModal({
         }
 
         if (remaining > 0) {
+          const colorSuffix = need.colorName ? ` · ${need.colorName}` : '';
           throw new Error(
-            `Stock insuficiente para ${need.profile} (${need.characteristic}): Faltan ${remaining} pieza(s) de ${need.length} ${getUnit(idx)}.`
+            `Stock insuficiente para ${need.profile} (${need.characteristic}${colorSuffix}): Faltan ${remaining} pieza(s) de ${need.length} ${getUnit(idx)}.`
           );
         }
 
@@ -435,6 +436,7 @@ export function ProfileCutModal({
                     <div className="profile-cut-tab-meta">
                       <span>
                         {n.quantity} × {u(n.length, idx)}
+                        {n.colorName ? ` · ${n.colorName}` : ''}
                       </span>
                       {sheet ? (
                         <span className="profile-cut-badge done">
@@ -550,7 +552,8 @@ export function ProfileCutModal({
               {batchProposals.map((prop, idx) => (
                 <div key={idx} style={{ marginBottom: '14px' }}>
                   <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '6px', color: 'var(--text)' }}>
-                    Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic}) · {prop.need.quantity} ×{' '}
+                    Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic}
+                    {prop.need.colorName ? ` · ${prop.need.colorName}` : ''}) · {prop.need.quantity} ×{' '}
                     {u(prop.need.length, prop.need.componentIndex)}
                   </div>
                   {prop.pieces.map((piece, pIdx) => (
@@ -631,7 +634,10 @@ export function ProfileCutModal({
                           <span>
                             {n.quantity} × {u(n.length, idx)}
                           </span>
-                          <small>{n.characteristic}</small>
+                          <small>
+                            {n.characteristic}
+                            {n.colorName ? ` · ${n.colorName}` : ''}
+                          </small>
                         </div>
                       ))}
                     </div>
@@ -905,7 +911,8 @@ export function ProfileCutModal({
                         }}
                       >
                         <span>
-                          Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic})
+                          Perfil {idx + 1}: {prop.need.profile} ({prop.need.characteristic}
+                          {prop.need.colorName ? ` · ${prop.need.colorName}` : ''})
                         </span>
                         <span>
                           Necesidad: {prop.need.quantity} × {u(prop.need.length, prop.need.componentIndex)}
