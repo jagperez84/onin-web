@@ -12,6 +12,7 @@ import {
   type SalesOrderDraft,
 } from '../../services/sales/salesOrderService';
 import { CoreRepositoryError } from '../../services/core/coreRepository';
+import { QuotationLineConfigPreview } from '../quotations/QuotationLineConfigPreview';
 import './sales-order.css';
 
 const money = (n: number) => n.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
@@ -272,6 +273,7 @@ export function SalesOrderCreateFromQuotation() {
                     <td>
                       <strong>{line.description || line.product?.commercial_description || line.product?.code || '—'}</strong>
                       {line.product?.code && <div className="muted">{line.product.code}</div>}
+                      <QuotationLineConfigPreview dimensions={line.dimensions} characteristics={line.characteristics} />
                       {converted > 0 && (
                         <div className="muted">Ya convertido: {converted} / {Number(line.quantity)}</div>
                       )}

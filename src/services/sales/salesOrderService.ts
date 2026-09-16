@@ -85,7 +85,7 @@ export async function getQuotationForSalesOrderDraft(quotationId: number): Promi
   const c = client();
   const cid = await companyId();
   const { data, error } = await c.from('quotation').select(
-    'id,code,issue_date,valid_until,status,reference,notes,measurement_id,customer_id,contact_name,contact_email,contact_phone,net_amount,discount_amount,tax_amount,total_amount,customer:customer_id(id,party:party_id(legal_name,trade_name)),contact:contact_id(id,first_name,last_name,email,phone,mobile),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description))'
+    'id,code,issue_date,valid_until,status,reference,notes,measurement_id,customer_id,contact_name,contact_email,contact_phone,net_amount,discount_amount,tax_amount,total_amount,customer:customer_id(id,party:party_id(legal_name,trade_name)),contact:contact_id(id,first_name,last_name,email,phone,mobile),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description),dimensions:quotation_line_dimension(code,name,value,unit_id,unit:unit_id(code,symbol)),characteristics:quotation_line_characteristic(attribute_id,color_id,attribute:product_attribute(code,name),color:color(code,name,hex)))'
   ).eq('company_id', cid).eq('id', quotationId).maybeSingle();
   if (error) throw new CoreRepositoryError(error.message);
   if (!data) throw new CoreRepositoryError('Presupuesto no encontrado.');

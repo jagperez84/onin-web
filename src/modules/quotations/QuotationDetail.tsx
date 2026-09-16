@@ -37,6 +37,7 @@ import { generateAndDownloadQuotationPdf } from "../../services/sales/quotationP
 import { getQuotationConversionStatus } from "../../services/sales/salesOrderService";
 import { listQuotationComments, type QuotationComment } from "../../services/sales/quotationCommentService";
 import { CommentsPanel } from "./CommentsPanel";
+import { QuotationLineConfigPreview } from "./QuotationLineConfigPreview";
 import { QuotationLineSnapshotModal } from "./QuotationLineSnapshotModal";
 import { QuotationEmailModal } from "./QuotationEmailModal";
 import { QuotationRenewModal } from "./QuotationRenewModal";
@@ -185,7 +186,7 @@ export function QuotationDetail() {
       const { data: qWithContacts, error: qeWithContacts } = await supabase
         .from("quotation")
         .select(
-          "id,code,issue_date,valid_until,status,reference,notes,measurement_id,customer_id,measurement:measurement_id(id,code,status,customer_name_snapshot),contact_id,contact_name,contact_email,contact_phone,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),net_amount,discount_amount,tax_amount,total_amount,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,installation_address_street,installation_address_city,installation_address_postal_code,installation_address_region,customer:customer_id(id,party:party_id(legal_name,trade_name,tax_id,email,phone)),commercial:commercial_id(party:party_id(legal_name,trade_name)),warehouse:warehouse_id(id,code,name),payment_method:payment_method_id(code,name),payment_term:payment_term_id(code,name),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description,include_measurements_in_stock,family:family_id(recuttable)))",
+          "id,code,issue_date,valid_until,status,reference,notes,measurement_id,customer_id,measurement:measurement_id(id,code,status,customer_name_snapshot),contact_id,contact_name,contact_email,contact_phone,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),net_amount,discount_amount,tax_amount,total_amount,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,installation_address_street,installation_address_city,installation_address_postal_code,installation_address_region,customer:customer_id(id,party:party_id(legal_name,trade_name,tax_id,email,phone)),commercial:commercial_id(party:party_id(legal_name,trade_name)),warehouse:warehouse_id(id,code,name),payment_method:payment_method_id(code,name),payment_term:payment_term_id(code,name),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description,include_measurements_in_stock,family:family_id(recuttable)),dimensions:quotation_line_dimension(code,name,value,unit_id,unit:unit_id(code,symbol)),characteristics:quotation_line_characteristic(attribute_id,color_id,attribute:product_attribute(code,name),color:color(code,name,hex)))",
         )
         .eq("company_id", cid)
         .eq("id", Number(id))
@@ -196,7 +197,7 @@ export function QuotationDetail() {
         const { data: qWithContactId, error: qeWithContactId } = await supabase
           .from("quotation")
           .select(
-            "id,code,issue_date,valid_until,status,reference,notes,measurement_id,customer_id,measurement:measurement_id(id,code,status,customer_name_snapshot),contact_id,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),net_amount,discount_amount,tax_amount,total_amount,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,installation_address_street,installation_address_city,installation_address_postal_code,installation_address_region,customer:customer_id(id,party:party_id(legal_name,trade_name,tax_id,email,phone)),commercial:commercial_id(party:party_id(legal_name,trade_name)),warehouse:warehouse_id(id,code,name),payment_method:payment_method_id(code,name),payment_term:payment_term_id(code,name),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description,include_measurements_in_stock,family:family_id(recuttable)))",
+            "id,code,issue_date,valid_until,status,reference,notes,measurement_id,customer_id,measurement:measurement_id(id,code,status,customer_name_snapshot),contact_id,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),net_amount,discount_amount,tax_amount,total_amount,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,installation_address_street,installation_address_city,installation_address_postal_code,installation_address_region,customer:customer_id(id,party:party_id(legal_name,trade_name,tax_id,email,phone)),commercial:commercial_id(party:party_id(legal_name,trade_name)),warehouse:warehouse_id(id,code,name),payment_method:payment_method_id(code,name),payment_term:payment_term_id(code,name),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description,include_measurements_in_stock,family:family_id(recuttable)),dimensions:quotation_line_dimension(code,name,value,unit_id,unit:unit_id(code,symbol)),characteristics:quotation_line_characteristic(attribute_id,color_id,attribute:product_attribute(code,name),color:color(code,name,hex)))",
           )
           .eq("company_id", cid)
           .eq("id", Number(id))
@@ -209,7 +210,7 @@ export function QuotationDetail() {
           const { data: qFallback, error: qeFallback } = await supabase
             .from("quotation")
             .select(
-              "id,code,issue_date,valid_until,status,reference,notes,measurement_id,measurement:measurement_id(id,code,status,customer_name_snapshot),net_amount,discount_amount,tax_amount,total_amount,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,installation_address_street,installation_address_city,installation_address_postal_code,installation_address_region,customer:customer_id(id,party:party_id(legal_name,trade_name,tax_id,email,phone)),commercial:commercial_id(party:party_id(legal_name,trade_name)),warehouse:warehouse_id(id,code,name),payment_method:payment_method_id(code,name),payment_term:payment_term_id(code,name),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description,include_measurements_in_stock,family:family_id(recuttable)))",
+              "id,code,issue_date,valid_until,status,reference,notes,measurement_id,measurement:measurement_id(id,code,status,customer_name_snapshot),net_amount,discount_amount,tax_amount,total_amount,billing_address_street,billing_address_city,billing_address_postal_code,billing_address_region,installation_address_street,installation_address_city,installation_address_postal_code,installation_address_region,customer:customer_id(id,party:party_id(legal_name,trade_name,tax_id,email,phone)),commercial:commercial_id(party:party_id(legal_name,trade_name)),warehouse:warehouse_id(id,code,name),payment_method:payment_method_id(code,name),payment_term:payment_term_id(code,name),lines:quotation_line(id,line_no,description,quantity,unit_price,discount_percent,tax_percent,net_amount,tax_amount,total_amount,specific_data,product:product_id(id,code,commercial_description,technical_description,include_measurements_in_stock,family:family_id(recuttable)),dimensions:quotation_line_dimension(code,name,value,unit_id,unit:unit_id(code,symbol)),characteristics:quotation_line_characteristic(attribute_id,color_id,attribute:product_attribute(code,name),color:color(code,name,hex)))",
             )
             .eq("company_id", cid)
             .eq("id", Number(id))
@@ -894,6 +895,12 @@ export function QuotationDetail() {
                                       : ""
                                   }`}
                             </div>
+                          )}
+                          {!snapshot && (
+                            <QuotationLineConfigPreview
+                              dimensions={l.dimensions}
+                              characteristics={l.characteristics}
+                            />
                           )}
                           {comments.some((c) => c.quotationLineId === l.id) && (
                             <CommentsPanel
