@@ -124,6 +124,72 @@ export async function listUnitConversions(companyId: number): Promise<UnitConver
   }));
 }
 
+/** Igual que listUnitConversions(), pero incluye también las inactivas (para la pantalla de gestión). */
+export async function listAllUnitConversions(companyId: number): Promise<UnitConversion[]> {
+  if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+  const { data, error } = await supabase
+    .from('unit_conversion')
+    .select('id,company_id,from_unit_id,to_unit_id,factor,offset_val,active')
+    .eq('company_id', companyId)
+    .order('id');
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data ?? []).map((row: any) => ({
+    id: Number(row.id),
+    company_id: Number(row.company_id),
+    from_unit_id: Number(row.from_unit_id),
+    to_unit_id: Number(row.to_unit_id),
+    factor: Number(row.factor),
+    offset_val: Number(row.offset_val ?? 0),
+    active: Boolean(row.active),
+  }));
+}
+
+export async function upsertUnitConversion(
+  companyId: number,
+  input: { id?: number; from_unit_id: number; to_unit_id: number; factor: number; offset_val: number; active: boolean },
+): Promise<UnitConversion> {
+  if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+  if (input.from_unit_id === input.to_unit_id) {
+    throw new CoreRepositoryError('La unidad de origen y de destino no pueden ser la misma.');
+  }
+  if (!(input.factor > 0)) {
+    throw new CoreRepositoryError('El factor debe ser mayor que cero.');
+  }
+  const payload = {
+    company_id: companyId,
+    from_unit_id: input.from_unit_id,
+    to_unit_id: input.to_unit_id,
+    factor: input.factor,
+    offset_val: input.offset_val,
+    active: input.active,
+  };
+  const query = input.id
+    ? supabase.from('unit_conversion').update(payload).eq('id', input.id).select().single()
+    : supabase.from('unit_conversion').insert(payload).select().single();
+  const { data, error } = await query;
+  if (error) {
+    if (error.message.includes('uq_unit_conversion') || error.code === '23505') {
+      throw new CoreRepositoryError('Ya existe una conversión configurada entre estas dos unidades.');
+    }
+    throw new CoreRepositoryError(error.message);
+  }
+  return {
+    id: Number(data.id),
+    company_id: Number(data.company_id),
+    from_unit_id: Number(data.from_unit_id),
+    to_unit_id: Number(data.to_unit_id),
+    factor: Number(data.factor),
+    offset_val: Number(data.offset_val ?? 0),
+    active: Boolean(data.active),
+  };
+}
+
+export async function deleteUnitConversion(id: number): Promise<void> {
+  if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
+  const { error } = await supabase.from('unit_conversion').delete().eq('id', id);
+  if (error) throw new CoreRepositoryError(error.message);
+}
+
 export function getConversionFactorFromCodes(
   fromCode: string,
   toCode: string

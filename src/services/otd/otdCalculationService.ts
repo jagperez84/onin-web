@@ -506,8 +506,9 @@ export async function loadOtdRuntimeData(otdId: number): Promise<OtdRuntimeData>
   ]);
 
   if (otdRes.error) throw new CoreRepositoryError(otdRes.error.message);
+  if (otdRes.data.company_id == null) throw new CoreRepositoryError('El OTD no tiene empresa asignada.');
 
-  const companyId = Number(otdRes.data.company_id || 1);
+  const companyId = Number(otdRes.data.company_id);
   const snap = latestVersionRes.data?.snapshot;
 
   // Load all company units and conversions
@@ -997,7 +998,9 @@ export function calculateOtdRuntime(
               unitsMap: runtimeData.unitsMap,
             });
           } catch (convErr: any) {
-            console.warn(`Error converting dimension ${dimCode} for component ${comp.code}:`, convErr);
+            errors.push(
+              `No se pudo convertir la dimensión ${dimCode} del componente ${comp.code} de ${sourceUnit.code} a ${targetUnit.code}: ${convErr?.message || convErr}`,
+            );
           }
         }
 

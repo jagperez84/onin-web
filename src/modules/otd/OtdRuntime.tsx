@@ -782,6 +782,13 @@ export function OtdRuntime() {
                   </span>
                 </div>
               )}
+
+            {calculation?.errors && calculation.errors.length > 0 && (
+              <div className="runtime-warning">
+                <Info size={16} />
+                <span>{calculation.errors.join(" · ")}</span>
+              </div>
+            )}
           </section>
 
           {/* 3-Pill Mathematical Composition Bar */}
