@@ -5,10 +5,31 @@
 -- convención de CLAUDE.md de mantener las migraciones en el repo). Reconstrucción best-effort a
 -- partir de cómo las llama el cliente y del resto de funciones equivalentes del proyecto.
 
--- delete_customer / restore_customer: borrado lógico simple sobre customer.deleted_at, mismo
--- patrón que address/contact (ver customerRepository.ts) pero como función porque el cliente ya
--- la invoca vía rpc(). No toca party ni party_role: un party puede tener otros roles además de
--- CUSTOMER, así que borrar el cliente no debe desactivar la entidad completa.
+-- restore_customer: definición copiada tal cual de la que ya existía aplicada a mano en Supabase
+-- (confirmada con pg_get_functiondef). Restaura customer.deleted_at, y también party.active y
+-- party_role.active (solo el rol CUSTOMER) — a diferencia de lo que se había asumido al
+-- reconstruirla sin verificar, el borrado/restauración sí toca party y party_role.
+create or replace function public.restore_customer(p_customer_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path to 'public'
+as $function$
+declare
+  v_party_id bigint;
+begin
+  select party_id into v_party_id from public.customer where id=p_customer_id and deleted_at is not null;
+  if v_party_id is null then raise exception 'Cliente no marcado para borrado'; end if;
+  update public.customer set deleted_at=null, deleted_by=null, updated_at=now() where id=p_customer_id;
+  update public.party set active=true, updated_at=now() where id=v_party_id;
+  update public.party_role set active=true where party_id=v_party_id and role_code='CUSTOMER';
+end;
+$function$;
+revoke all on function public.restore_customer(bigint) from public;
+grant execute on function public.restore_customer(bigint) to authenticated;
+
+-- delete_customer: pendiente de confirmar contra la definición real (mismo proceso que
+-- restore_customer/list_measurement_users) antes de fusionar esta migración.
 create or replace function public.delete_customer(p_customer_id bigint)
 returns void
 language plpgsql
@@ -29,45 +50,26 @@ $$;
 revoke all on function public.delete_customer(bigint) from public;
 grant execute on function public.delete_customer(bigint) to authenticated;
 
-create or replace function public.restore_customer(p_customer_id bigint)
-returns void
-language plpgsql
-security invoker
-as $$
-begin
-  update public.customer
-  set deleted_at = null, deleted_by = null
-  where id = p_customer_id and deleted_at is not null;
-  if not found then
-    raise exception 'El cliente no existe o no está marcado para borrado';
-  end if;
-end;
-$$;
-revoke all on function public.restore_customer(bigint) from public;
-grant execute on function public.restore_customer(bigint) to authenticated;
-
 -- list_measurement_users: selector de medidor en Mediciones > Nueva medición. Mismo bypass de
 -- RLS que list_field_staff (20260921210001_list_field_staff_rpc.sql) — user_account solo permite
 -- SELECT de la fila propia o, si eres ADMIN, de tu empresa, así que un usuario no-ADMIN vería
--- ese selector vacío sin esto. p_company_id se conserva en la firma por compatibilidad con la
--- llamada existente del cliente, pero se ignora: la empresa siempre se resuelve del propio
--- llamante (admin_company_id()), nunca de lo que envíe el cliente.
-create or replace function public.list_measurement_users(p_company_id bigint default null)
-returns table (auth_user_id uuid, username text, display_name text, role_code text, can_measure boolean)
-language plpgsql
+-- ese selector vacío sin esto. Definición copiada tal cual de la que ya existía aplicada a mano
+-- en Supabase (confirmada con pg_get_functiondef) — usa current_company_id()
+-- (20260901100000_harden_multi_tenant_rls.sql), no admin_company_id().
+create or replace function public.list_measurement_users(p_company_id bigint)
+returns table(auth_user_id uuid, username character varying, display_name character varying, role_code character varying, can_measure boolean)
+language sql
 stable
 security definer
-set search_path = public
-as $$
-begin
-  return query
-    select ua.auth_user_id, ua.username, ua.display_name, ua.role_code, ua.can_measure
-    from public.user_account ua
-    where ua.company_id = public.admin_company_id()
-      and ua.active = true
-      and ua.can_measure = true
-    order by ua.display_name;
-end;
-$$;
+set search_path to 'public'
+as $function$
+  select ua.auth_user_id, ua.username, ua.display_name, ua.role_code, ua.can_measure
+  from public.user_account ua
+  where ua.active
+    and ua.can_measure
+    and ua.company_id = public.current_company_id()
+    and (p_company_id is null or p_company_id = public.current_company_id())
+  order by ua.display_name;
+$function$;
 revoke all on function public.list_measurement_users(bigint) from public;
 grant execute on function public.list_measurement_users(bigint) to authenticated;
