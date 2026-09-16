@@ -28,6 +28,10 @@ import {
   type MeasurementActivity,
   type MeasurementStatus,
 } from "../../services/measurements/measurementRepository";
+import {
+  listMeasurementUsers,
+  type UserAccount,
+} from "../../services/core/userRepository";
 import { useAuth } from "../../auth/AuthContext";
 import { AddressLookup } from "../customers/AddressLookup";
 import type { AddressForm } from "../customers/types";
@@ -106,6 +110,12 @@ export function MeasurementDetail({
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [assignedUserName, setAssignedUserName] = useState<string | null>(null);
+  const [measurers, setMeasurers] = useState<
+    Pick<
+      UserAccount,
+      "auth_user_id" | "username" | "display_name" | "role_code" | "can_measure"
+    >[]
+  >([]);
   const [linkedQuotation, setLinkedQuotation] = useState<LinkedQuotationSummary | null>(null);
   const [draft, setDraft] = useState<Partial<Measurement>>({
     status: "PLANNED",
@@ -118,6 +128,11 @@ export function MeasurementDetail({
   useEffect(() => {
     if (measurementId) load();
   }, [measurementId]);
+  useEffect(() => {
+    listMeasurementUsers(null)
+      .then(setMeasurers)
+      .catch(() => setMeasurers([]));
+  }, []);
   async function load() {
     setLoading(true);
     setError("");
@@ -724,20 +739,32 @@ export function MeasurementDetail({
                 Medidor
                 <select
                   disabled={!editing}
-                  value={current.assigned_mode || "UNASSIGNED"}
+                  value={
+                    current.assigned_mode === "USER"
+                      ? current.assigned_user_id || ""
+                      : ""
+                  }
                   onChange={(e) => {
-                    const mode = e.target.value as AssignedMode;
-                    update("assigned_mode", mode);
-                    update(
-                      "assigned_user_id",
-                      mode === "USER" ? current.assigned_user_id : null,
-                    );
+                    const value = e.target.value;
+                    update("assigned_mode", value ? "USER" : "UNASSIGNED");
+                    update("assigned_user_id", value || null);
                   }}
                 >
-                  <option value="UNASSIGNED">Sin asignar</option>
-                  <option value="USER">
-                    {assignedUserName || "Usuario asignado"}
-                  </option>
+                  <option value="">Sin asignar</option>
+                  {current.assigned_mode === "USER" &&
+                    current.assigned_user_id &&
+                    !measurers.some(
+                      (m) => m.auth_user_id === current.assigned_user_id,
+                    ) && (
+                      <option value={current.assigned_user_id}>
+                        {assignedUserName || "Usuario asignado"}
+                      </option>
+                    )}
+                  {measurers.map((m) => (
+                    <option key={m.auth_user_id} value={m.auth_user_id}>
+                      {m.display_name}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
