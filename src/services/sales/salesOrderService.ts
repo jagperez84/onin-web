@@ -15,6 +15,7 @@ export type SalesOrder = {
   issue_date: string;
   requested_delivery_date: string | null;
   status: SalesOrderStatus;
+  blocked_from_status?: SalesOrderStatus | null;
   reference: string | null;
   notes: string | null;
   created_at?: string;
@@ -217,26 +218,20 @@ export async function blockSalesOrder(
   const cid = await companyId();
   const trimmedReason = reason.trim();
   const tag = `[BLOQUEADO: ${trimmedReason}]`;
-  
+
   const current = await getSalesOrder(id);
-  const existingNotes = current?.notes || '';
+  if (!current) throw new CoreRepositoryError('El pedido no existe.');
+  const existingNotes = current.notes || '';
   const newNotes = existingNotes ? `${existingNotes}\n${tag}` : tag;
 
-  // Try updating status to 'BLOCKED'
-  const { error: statusError } = await c.from('sales_order').update({
+  // blocked_from_status guarda el estado real para poder restaurarlo al desbloquear.
+  const { error } = await c.from('sales_order').update({
     status: 'BLOCKED',
+    blocked_from_status: current.status,
     notes: newNotes,
     updated_at: new Date().toISOString(),
   }).eq('company_id', cid).eq('id', id);
-
-  if (statusError) {
-    // If status check constraint fails in database, update notes with tag
-    const { error: noteError } = await c.from('sales_order').update({
-      notes: newNotes,
-      updated_at: new Date().toISOString(),
-    }).eq('company_id', cid).eq('id', id);
-    if (noteError) throw new CoreRepositoryError(noteError.message);
-  }
+  if (error) throw new CoreRepositoryError(error.message);
 
   // Audit trail comment
   try {
@@ -251,25 +246,21 @@ export async function blockSalesOrder(
 export async function unblockSalesOrder(
   id: number,
   unblockNote?: string,
-  targetStatus: SalesOrderStatus = 'PENDING_MANUFACTURING'
 ): Promise<void> {
   const c = client();
   const cid = await companyId();
   const current = await getSalesOrder(id);
-  
+  if (!current) throw new CoreRepositoryError('El pedido no existe.');
+
   // Clean up any [BLOQUEADO...] tags from notes
-  const newNotes = (current?.notes || '').replace(/\[BLOQUEADO(?::\s*[^\]]+)?\]\s*\n?/g, '').trim() || null;
-  
-  const updatePayload: any = {
+  const newNotes = (current.notes || '').replace(/\[BLOQUEADO(?::\s*[^\]]+)?\]\s*\n?/g, '').trim() || null;
+
+  const { error } = await c.from('sales_order').update({
+    status: current.status === 'BLOCKED' ? (current.blocked_from_status || 'PENDING_MANUFACTURING') : current.status,
+    blocked_from_status: null,
     notes: newNotes,
     updated_at: new Date().toISOString(),
-  };
-
-  if (current?.status === 'BLOCKED') {
-    updatePayload.status = targetStatus;
-  }
-
-  const { error } = await c.from('sales_order').update(updatePayload).eq('company_id', cid).eq('id', id);
+  }).eq('company_id', cid).eq('id', id);
   if (error) throw new CoreRepositoryError(error.message);
 
   // Audit trail comment
