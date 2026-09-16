@@ -161,6 +161,17 @@
   background: var(--canvas-stripe);
   box-sizing: border-box;
 }
+.quotation-lines-table tbody tr.line-details-row > td {
+  padding: 8px 10px;
+  background: var(--canvas-stripe);
+  box-sizing: border-box;
+}
+.line-inline-params-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
 .quotation-lines-table td {
   padding: 10px;
   vertical-align: top;

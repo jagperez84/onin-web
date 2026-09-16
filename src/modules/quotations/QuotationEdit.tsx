@@ -1169,6 +1169,14 @@ export function QuotationEdit() {
                   const priceMissing = Boolean(
                     line.specific_data?.price_missing,
                   );
+                  const lineColorOptions =
+                    !isOtd && definition?.characteristics?.length
+                      ? buildCharacteristicColorOptions(definition.characteristics)
+                      : [];
+                  const hasInlineParams =
+                    !isOtd &&
+                    ((line.dimensions && line.dimensions.length > 0) ||
+                      lineColorOptions.length > 0);
 
                   const dimensionsToDisplay =
                     snapshot?.dimensions && snapshot.dimensions.length > 0
@@ -1330,144 +1338,6 @@ export function QuotationEdit() {
                           </div>
                         )}
 
-                        {/* Artículos simples: Cajas de texto directas para dimensiones */}
-                        {!isOtd &&
-                          line.dimensions &&
-                          line.dimensions.length > 0 && (
-                            <div className="line-inline-params-block">
-                              <div className="line-inline-params-header">
-                                <span>
-                                  Dimensiones (
-                                  {definition?.dimensions?.length ||
-                                    line.dimensions.length}
-                                  )
-                                </span>
-                              </div>
-                              <div className="line-dim-inputs-grid">
-                                {line.dimensions.map((d, di) => {
-                                  const dimDef = definition?.dimensions?.[di];
-                                  const unitObj = dimDef?.unit_id
-                                    ? opts?.units?.find(
-                                        (u: any) => u.id === dimDef.unit_id,
-                                      )
-                                    : null;
-                                  const unitLabel = unitObj?.code || "mm";
-                                  const step =
-                                    1 /
-                                    10 **
-                                      Math.max(
-                                        0,
-                                        Number(dimDef?.decimals ?? 2),
-                                      );
-                                  return (
-                                    <div
-                                      key={`${d.code}-${di}`}
-                                      className="line-dim-box"
-                                      title={d.name}
-                                    >
-                                      <span className="dim-name">{d.name}</span>
-                                      <div className="dim-input-group">
-                                        <input
-                                          type="number"
-                                          step={step}
-                                          placeholder="0"
-                                          className="dim-input-val"
-                                          value={d.value ?? ""}
-                                          onChange={(e) =>
-                                            updateDimensionValue(
-                                              i,
-                                              di,
-                                              e.target.value === ""
-                                                ? null
-                                                : Number(e.target.value),
-                                            )
-                                          }
-                                        />
-                                        <span className="dim-unit">
-                                          {unitLabel}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                        {/* Artículos simples: un único selector de color; la característica/acabado
-                            se deriva de la elección (igual que en el editor de OTD) */}
-                        {!isOtd &&
-                          definition?.characteristics &&
-                          definition.characteristics.length > 0 &&
-                          (() => {
-                            const colorOptions = buildCharacteristicColorOptions(
-                              definition.characteristics,
-                            );
-                            if (colorOptions.length === 0) return null;
-                            const current = line.characteristics?.[0];
-                            const selectedKey =
-                              current?.attribute_id != null && current?.color_id != null
-                                ? `${current.attribute_id}:${current.color_id}`
-                                : "";
-                            const selectedOption =
-                              colorOptions.find((o) => o.key === selectedKey) ?? null;
-                            const derivedCharacteristic = selectedOption
-                              ? definition.characteristics.find(
-                                  (c) => c.attribute_id === selectedOption.attributeId,
-                                )
-                              : null;
-                            return (
-                              <div className="line-inline-params-block">
-                                <div className="line-inline-params-header">
-                                  <span>Color ({colorOptions.length})</span>
-                                  {derivedCharacteristic && (
-                                    <span className="line-char-derived">
-                                      Acabado:{" "}
-                                      {derivedCharacteristic.attribute_name ||
-                                        derivedCharacteristic.attribute_code}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="line-char-inputs-grid">
-                                  <div
-                                    className="line-char-box"
-                                    style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "6px" }}
-                                  >
-                                    <select
-                                      className="char-select-val"
-                                      value={selectedKey}
-                                      onChange={(e) => {
-                                        const opt = colorOptions.find(
-                                          (o) => o.key === e.target.value,
-                                        );
-                                        updateCharacteristic(
-                                          i,
-                                          opt
-                                            ? { attribute_id: opt.attributeId, color_id: opt.colorId }
-                                            : null,
-                                        );
-                                      }}
-                                    >
-                                      <option value="">Seleccionar color…</option>
-                                      {colorOptions.map((o) => (
-                                        <option key={o.key} value={o.key}>
-                                          {o.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    {selectedOption && (
-                                      <ColorSwatch
-                                        hex={selectedOption.hex}
-                                        code={selectedOption.code}
-                                        name={selectedOption.name}
-                                        size="sm"
-                                      />
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })()}
                       </td>
                       <td className="col-quantity">
                         <input
@@ -1587,6 +1457,145 @@ export function QuotationEdit() {
                         </div>
                       </td>
                     </tr>
+                    {hasInlineParams && (
+                      <tr className="line-details-row">
+                        <td colSpan={9}>
+                          <div className="line-inline-params-row">
+                            {/* Artículos simples: Cajas de texto directas para dimensiones */}
+                            {line.dimensions && line.dimensions.length > 0 && (
+                              <div className="line-inline-params-block">
+                                <div className="line-inline-params-header">
+                                  <span>
+                                    Dimensiones (
+                                    {definition?.dimensions?.length ||
+                                      line.dimensions.length}
+                                    )
+                                  </span>
+                                </div>
+                                <div className="line-dim-inputs-grid">
+                                  {line.dimensions.map((d, di) => {
+                                    const dimDef = definition?.dimensions?.[di];
+                                    const unitObj = dimDef?.unit_id
+                                      ? opts?.units?.find(
+                                          (u: any) => u.id === dimDef.unit_id,
+                                        )
+                                      : null;
+                                    const unitLabel = unitObj?.code || "mm";
+                                    const step =
+                                      1 /
+                                      10 **
+                                        Math.max(
+                                          0,
+                                          Number(dimDef?.decimals ?? 2),
+                                        );
+                                    return (
+                                      <div
+                                        key={`${d.code}-${di}`}
+                                        className="line-dim-box"
+                                        title={d.name}
+                                      >
+                                        <span className="dim-name">{d.name}</span>
+                                        <div className="dim-input-group">
+                                          <input
+                                            type="number"
+                                            step={step}
+                                            placeholder="0"
+                                            className="dim-input-val"
+                                            value={d.value ?? ""}
+                                            onChange={(e) =>
+                                              updateDimensionValue(
+                                                i,
+                                                di,
+                                                e.target.value === ""
+                                                  ? null
+                                                  : Number(e.target.value),
+                                              )
+                                            }
+                                          />
+                                          <span className="dim-unit">
+                                            {unitLabel}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Artículos simples: un único selector de color; la característica/acabado
+                                se deriva de la elección (igual que en el editor de OTD) */}
+                            {lineColorOptions.length > 0 &&
+                              (() => {
+                                const colorOptions = lineColorOptions;
+                                const current = line.characteristics?.[0];
+                                const selectedKey =
+                                  current?.attribute_id != null && current?.color_id != null
+                                    ? `${current.attribute_id}:${current.color_id}`
+                                    : "";
+                                const selectedOption =
+                                  colorOptions.find((o) => o.key === selectedKey) ?? null;
+                                const derivedCharacteristic = selectedOption
+                                  ? definition?.characteristics.find(
+                                      (c) => c.attribute_id === selectedOption.attributeId,
+                                    )
+                                  : null;
+                                return (
+                                  <div className="line-inline-params-block">
+                                    <div className="line-inline-params-header">
+                                      <span>Color ({colorOptions.length})</span>
+                                      {derivedCharacteristic && (
+                                        <span className="line-char-derived">
+                                          Acabado:{" "}
+                                          {derivedCharacteristic.attribute_name ||
+                                            derivedCharacteristic.attribute_code}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="line-char-inputs-grid">
+                                      <div
+                                        className="line-char-box"
+                                        style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "6px" }}
+                                      >
+                                        <select
+                                          className="char-select-val"
+                                          value={selectedKey}
+                                          onChange={(e) => {
+                                            const opt = colorOptions.find(
+                                              (o) => o.key === e.target.value,
+                                            );
+                                            updateCharacteristic(
+                                              i,
+                                              opt
+                                                ? { attribute_id: opt.attributeId, color_id: opt.colorId }
+                                                : null,
+                                            );
+                                          }}
+                                        >
+                                          <option value="">Seleccionar color…</option>
+                                          {colorOptions.map((o) => (
+                                            <option key={o.key} value={o.key}>
+                                              {o.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        {selectedOption && (
+                                          <ColorSwatch
+                                            hex={selectedOption.hex}
+                                            code={selectedOption.code}
+                                            name={selectedOption.name}
+                                            size="sm"
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                     <tr className="line-comments-row">
                       <td colSpan={9}>
                         <CommentsPanel
