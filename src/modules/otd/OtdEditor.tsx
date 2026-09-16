@@ -23,6 +23,8 @@ import {
   type OninProduct,
 } from "../../services/otd/otdCalculationService";
 import { listUnits, type Unit } from "../../services/catalog/unitRepository";
+import { getActiveCompanies } from "../../services/core/coreRepository";
+import { resolveOtdVariables, validateFormulaReferences } from "../../services/otd/formulaEngine";
 import { OtdIdentificationSection } from "./editor/OtdIdentificationSection";
 import { OtdSelectionsSection } from "./editor/OtdSelectionsSection";
 import { OtdScalesSection } from "./editor/OtdScalesSection";
@@ -104,11 +106,14 @@ export function OtdEditor() {
     }
   }
 
-  // Load Units of measure catalog
+  // Load Units of measure catalog (de la empresa activa, no de una empresa fija)
   useEffect(() => {
     (async () => {
       try {
-        const uList = await listUnits();
+        const companies = await getActiveCompanies();
+        const companyId = companies[0]?.id;
+        if (!companyId) return;
+        const uList = await listUnits(companyId);
         setUnits(uList);
       } catch (err) {
         console.error("Error cargando unidades de medida:", err);
@@ -304,6 +309,33 @@ export function OtdEditor() {
     }
   }
 
+  function validateOtdFormulas(): string | null {
+    const knownCodes = new Set(
+      [...selections.map((s) => s.code), ...variables.map((v) => v.code)].filter(Boolean)
+    );
+    const selectionSeed = Object.fromEntries(
+      selections.filter((s) => s.code?.trim()).map((s) => [s.code.trim(), 1])
+    );
+    try {
+      resolveOtdVariables(variables, selectionSeed);
+    } catch (e) {
+      return e instanceof Error ? e.message : "Fórmula de variable no válida.";
+    }
+    for (const c of components) {
+      if (c.active === false) continue;
+      const label = c.code || c.description || "componente sin código";
+      try {
+        validateFormulaReferences(c.quantity_expression, knownCodes);
+        for (const expr of Object.values(c.dimension_expressions ?? {})) {
+          validateFormulaReferences(expr, knownCodes);
+        }
+      } catch (e) {
+        return `${label}: ${e instanceof Error ? e.message : "Fórmula no válida."}`;
+      }
+    }
+    return null;
+  }
+
   async function save(e?: FormEvent) {
     if (e) e.preventDefault();
     if (!supabase) {
@@ -312,6 +344,11 @@ export function OtdEditor() {
     }
     if (!otd.code || !otd.name) {
       setMessage("El código y el nombre del OTD son obligatorios.");
+      return;
+    }
+    const formulaError = validateOtdFormulas();
+    if (formulaError) {
+      setMessage(`No se puede guardar: ${formulaError}`);
       return;
     }
 

@@ -169,21 +169,34 @@ Deno.serve(async (req) => {
     const vars = Array.isArray(body?.existingVariables) ? body.existingVariables : [];
     const context = `Unidades disponibles: ${units.length ? units.join(", ") : "ninguna"}.\nEntradas existentes: ${sels.length ? sels.map((x: any) => x.code).filter(Boolean).join(", ") : "ninguna"}.\nVariables existentes: ${vars.length ? vars.map((x: any) => x.code).filter(Boolean).join(", ") : "ninguna"}.\n\nPetición del usuario:\n${prompt}`;
 
-    const response = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        model: MODEL,
-        system_instruction: SYSTEM,
-        input: context,
-        generation_config: { max_output_tokens: 4096 },
-        response_format: {
-          type: "text",
-          mime_type: "application/json",
-          schema: SCHEMA,
-        },
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    let response: Response;
+    try {
+      response = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify({
+          model: MODEL,
+          system_instruction: SYSTEM,
+          input: context,
+          generation_config: { max_output_tokens: 4096 },
+          response_format: {
+            type: "text",
+            mime_type: "application/json",
+            schema: SCHEMA,
+          },
+        }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        return out({ error: "Gemini no respondió a tiempo (30s). Prueba a reformular el prompt o inténtalo de nuevo." }, 504);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const result = await response.json().catch(() => null);
     if (!response.ok) {

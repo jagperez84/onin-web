@@ -20,7 +20,7 @@ export type Unit = {
   active: boolean;
 };
 
-export async function listUnits(companyId: number = 1): Promise<Unit[]> {
+export async function listUnits(companyId: number): Promise<Unit[]> {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
   const { data, error } = await supabase
     .from('unit')

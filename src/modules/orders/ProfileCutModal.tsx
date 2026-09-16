@@ -244,9 +244,13 @@ export function ProfileCutModal({
     setCutError('');
     try {
       const createdSheets: WorkSheet[] = [];
+      let knownSheets = existingWorkSheets;
 
       for (const prop of batchProposals) {
         const need = prop.need;
+        // Si un reintento tras un fallo parcial repite este lote, esta necesidad puede
+        // haberse cortado ya en un intento anterior — no volver a cortarla ni consumir stock otra vez.
+        if (getSheetForNeed(need, knownSheets)) continue;
         const reason = mode === 'automatic' ? prop.reason : 'Selección manual realizada por el usuario.';
         const selectedPieces = prop.pieces.filter(p => p.selectedQuantity > 0);
 
@@ -279,9 +283,10 @@ export function ProfileCutModal({
         });
 
         createdSheets.push(created);
+        knownSheets = [created, ...knownSheets];
+        setExistingWorkSheets(prev => [created, ...prev]);
       }
 
-      setExistingWorkSheets(prev => [...createdSheets, ...prev]);
       setStep('completed');
     } catch (err) {
       setCutError(err instanceof CoreRepositoryError || err instanceof Error ? err.message : 'Error al ejecutar corte.');

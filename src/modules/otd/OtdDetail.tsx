@@ -22,6 +22,7 @@ import {
   type OtdScaleRow,
 } from "../../services/otd/otdScaleRepository";
 import { listUnits, type Unit } from "../../services/catalog/unitRepository";
+import { getActiveCompanies } from "../../services/core/coreRepository";
 import { loadEffectiveCharacteristicsForProducts } from "../../services/otd/otdCalculationService";
 import "./otd.css";
 import "./otd-detail.css";
@@ -210,7 +211,9 @@ export function OtdDetail() {
               .order("version_number", { ascending: false })
               .limit(1)
               .maybeSingle(),
-            listUnits().catch(() => [] as Unit[]),
+            getActiveCompanies()
+              .then((companies) => listUnits(companies[0]?.id))
+              .catch(() => [] as Unit[]),
           ]);
 
         if (o.error) throw o.error;
