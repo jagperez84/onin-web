@@ -87,6 +87,7 @@ export function QuotationLineConfigurator({
     useState<MasterProductConfiguration | null>(null);
   const [loadingMaster, setLoadingMaster] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string>("");
+  const [confirmError, setConfirmError] = useState<string>("");
 
   // Form State
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
@@ -350,6 +351,14 @@ export function QuotationLineConfigurator({
 
   const handleConfirm = () => {
     if (!previewSnapshot) return;
+
+    if (previewSnapshot.breakdown.formula_errors.length > 0) {
+      setConfirmError(
+        "Hay errores en las fórmulas de despiece de este artículo. Corrige la configuración del artículo (Catálogo) antes de añadir esta línea — ver detalle en el paso 5.",
+      );
+      return;
+    }
+    setConfirmError("");
 
     const lineDimensions: QuotationLineDimensionDraft[] =
       previewSnapshot.dimensions.map((d) => ({
@@ -1229,6 +1238,34 @@ export function QuotationLineConfigurator({
                       {/* Sub tab 1: BOM */}
                       {subTab === "bom" && (
                         <div>
+                          {previewSnapshot.breakdown.formula_errors.length > 0 && (
+                            <div
+                              style={{
+                                color: "var(--status-danger-fg)",
+                                background: "var(--danger-soft)",
+                                padding: "8px 12px",
+                                borderRadius: "6px",
+                                marginBottom: "10px",
+                                fontSize: "13px",
+                              }}
+                            >
+                              <strong>
+                                Error en la fórmula de despiece de este artículo.
+                              </strong>{" "}
+                              No se puede añadir esta línea hasta corregirla en
+                              la configuración del artículo:
+                              <ul style={{ margin: "6px 0 0 18px" }}>
+                                {previewSnapshot.breakdown.formula_errors.map(
+                                  (err) => (
+                                    <li key={err.component_id}>
+                                      <strong>{err.component_code}</strong> (
+                                      {err.expression}): {err.message}
+                                    </li>
+                                  ),
+                                )}
+                              </ul>
+                            </div>
+                          )}
                           {previewSnapshot.breakdown.components.length > 0 ? (
                             <div className="table-panel">
                             <table>
@@ -1746,6 +1783,19 @@ export function QuotationLineConfigurator({
             </>
           )}
         </div>
+
+        {confirmError && (
+          <div
+            style={{
+              color: "var(--status-danger-fg)",
+              background: "var(--danger-soft)",
+              padding: "8px 16px",
+              fontSize: "13px",
+            }}
+          >
+            {confirmError}
+          </div>
+        )}
 
         {/* Footer Navigation & Actions */}
         <div className="configurator-footer">

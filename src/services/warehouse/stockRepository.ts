@@ -155,83 +155,11 @@ async function fetchCharacteristicLabels(
  * Ensures physical items in warehouse_stock_item table are synchronized with dimensional stock movements
  */
 export async function syncWarehouseStockItems(companyId: number, productId: number): Promise<void> {
-  const c = client();
-  const { data: movements, error: mErr } = await c
-    .from('stock_movement')
-    .select('id,company_id,warehouse_id,product_id,characteristic_id,color_id,quantity,dimension_values,movement_type:stock_movement_type(direction)')
-    .eq('company_id', companyId)
-    .eq('product_id', productId);
-  if (mErr || !movements) return;
-
-  const { data: wsList } = await c
-    .from('warehouse_stock')
-    .select('id,warehouse_id,product_id,characteristic_id,color_id')
-    .eq('product_id', productId);
-
-  const { data: wsiList } = await c
-    .from('warehouse_stock_item')
-    .select('id,warehouse_stock_id,product_id,characteristic_id,color_id,dimension_values,status')
-    .eq('product_id', productId)
-    .in('status', ['AVAILABLE', 'RESERVED']);
-
-  const activeWsi = wsiList || [];
-  const groups = new Map<string, { warehouseId: number; characteristicId: number | null; colorId: number | null; length: number; quantity: number; sourceMovementId: number }>();
-
-  for (const m of (movements as any[])) {
-    const dims = m.dimension_values;
-    if (!Array.isArray(dims) || dims.length === 0) continue;
-    const length = Number(dims[0]);
-    if (!Number.isFinite(length) || length <= 0) continue;
-
-    const key = [m.warehouse_id, m.characteristic_id ?? '', m.color_id ?? '', length].join('|');
-    const dir = Number(m.movement_type?.direction ?? 0);
-    const signed = dir * Number(m.quantity || 0);
-    const cur = groups.get(key) || { warehouseId: m.warehouse_id, characteristicId: m.characteristic_id, colorId: m.color_id, length, quantity: 0, sourceMovementId: m.id };
-    cur.quantity += signed;
-    groups.set(key, cur);
-  }
-
-  for (const [, g] of groups.entries()) {
-    if (g.quantity <= 0) continue;
-    const existingCount = activeWsi.filter(w => {
-      const wLength = Array.isArray(w.dimension_values) ? Number(w.dimension_values[0]) : null;
-      return (w.characteristic_id ?? null) === (g.characteristicId ?? null) && (w.color_id ?? null) === (g.colorId ?? null) && wLength === g.length;
-    }).length;
-
-    const diff = g.quantity - existingCount;
-    if (diff > 0) {
-      let ws = (wsList || []).find(w => w.warehouse_id === g.warehouseId && (w.characteristic_id ?? null) === (g.characteristicId ?? null) && (w.color_id ?? null) === (g.colorId ?? null));
-      if (!ws) {
-        // Create warehouse_stock if missing
-        const { data: newWs } = await c
-          .from('warehouse_stock')
-          .insert({
-            warehouse_id: g.warehouseId,
-            product_id: productId,
-            characteristic_id: g.characteristicId ?? null,
-            color_id: g.colorId ?? null,
-            quantity: g.quantity,
-            reserved_quantity: 0
-          })
-          .select('id,warehouse_id,product_id,characteristic_id,color_id')
-          .single();
-        if (newWs) ws = newWs;
-      }
-      if (!ws) continue;
-
-      const toInsert = Array.from({ length: diff }, () => ({
-        warehouse_stock_id: ws.id,
-        product_id: productId,
-        characteristic_id: g.characteristicId ?? null,
-        color_id: g.colorId ?? null,
-        quantity: 1,
-        dimension_values: [g.length],
-        status: 'AVAILABLE',
-        source_stock_movement_id: g.sourceMovementId
-      }));
-      await c.from('warehouse_stock_item').insert(toInsert);
-    }
-  }
+  const { error } = await client().rpc('sync_warehouse_stock_items', {
+    p_company_id: companyId,
+    p_product_id: productId,
+  });
+  if (error) throw new CoreRepositoryError(error.message);
 }
 
 export async function searchStockProducts(companyId: number, search = ''): Promise<StockProduct[]> {

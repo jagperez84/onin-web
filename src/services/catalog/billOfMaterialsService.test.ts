@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { calculateBillOfMaterials, evaluateFormula, type BomComponentDefinition } from './billOfMaterialsService';
+import { calculateBillOfMaterials, evaluateFormula, evaluateFormulaWithDiagnostics, type BomComponentDefinition } from './billOfMaterialsService';
 
 function component(overrides: Partial<BomComponentDefinition> = {}): BomComponentDefinition {
   return {
@@ -42,21 +42,23 @@ describe('evaluateFormula (billOfMaterialsService)', () => {
     expect(evaluateFormula('sqrt(9)', {})).toBe(3);
   });
 
-  it('HALLAZGO (silencioso, no lanza error): una variable inexistente en el contexto no falla, cae a 1', () => {
-    // A diferencia de src/services/otd/formulaEngine.ts (que lanza un error
-    // claro cuando una fórmula referencia un código que no existe), este
-    // evaluador atrapa cualquier excepción de ReferenceError y devuelve 1
-    // en silencio (solo deja un console.warn). Un typo en el código de una
-    // dimensión en un componente de despiece no bloquea nada: simplemente
-    // calcula mal la cantidad del componente sin avisar al usuario.
+  it('una variable inexistente en el contexto cae a 1, pero evaluateFormulaWithDiagnostics informa del error', () => {
+    // evaluateFormula() (usada directamente) mantiene el valor de respaldo 1
+    // por compatibilidad, pero calculateBillOfMaterials() ya no consume esta
+    // función a ciegas: usa evaluateFormulaWithDiagnostics() y expone el
+    // fallo en formula_errors (ver describe('calculateBillOfMaterials')
+    // más abajo) en vez de tragárselo en silencio.
     expect(evaluateFormula('VARIABLE_QUE_NO_EXISTE*2', { ANCHO: 100 })).toBe(1);
+    const diagnostics = evaluateFormulaWithDiagnostics('VARIABLE_QUE_NO_EXISTE*2', { ANCHO: 100 });
+    expect(diagnostics.value).toBe(1);
+    expect(diagnostics.error).toMatch(/no está definida/);
   });
 
-  it('HALLAZGO (silencioso): una división entre cero no lanza error, cae a 1 en vez de Infinity', () => {
-    // 5/0 en JS da Infinity, que no es Number.isFinite -> el guard `typeof
-    // result === 'number' && Number.isFinite(result)` lo descarta y cae a 1
-    // sin ningún aviso, igual que el caso anterior.
+  it('una división entre cero cae a 1 (Infinity no es finito), y el error queda reflejado en el diagnóstico', () => {
     expect(evaluateFormula('5/0', {})).toBe(1);
+    const diagnostics = evaluateFormulaWithDiagnostics('5/0', {});
+    expect(diagnostics.value).toBe(1);
+    expect(diagnostics.error).toBeTruthy();
   });
 
   it('una sintaxis no reconocida por la gramática (comillas, corchetes, punto y coma) cae a 1', () => {
@@ -196,5 +198,32 @@ describe('calculateBillOfMaterials', () => {
       quantity: 1,
     });
     expect(result.components[0].code).toBe('PRD-1');
+  });
+
+  it('no reporta formula_errors cuando todas las fórmulas evalúan bien (incluida la ausencia de fórmula)', () => {
+    const result = calculateBillOfMaterials({
+      components: [component({ quantity_expression: null }), component({ id: 2, quantity_expression: 'ANCHO*2' })],
+      dimensions: { ancho: 100 },
+      quantity: 1,
+    });
+    expect(result.formula_errors).toHaveLength(0);
+  });
+
+  it('reporta en formula_errors el componente cuya fórmula referencia una variable inexistente, sin dejar de calcular el resto', () => {
+    const result = calculateBillOfMaterials({
+      components: [
+        component({ id: 1, code: 'MAL', quantity_expression: 'VARIABLE_QUE_NO_EXISTE' }),
+        component({ id: 2, code: 'BIEN', quantity_expression: 'ANCHO*2' }),
+      ],
+      dimensions: { ancho: 100 },
+      quantity: 1,
+    });
+    expect(result.formula_errors).toHaveLength(1);
+    expect(result.formula_errors[0].component_code).toBe('MAL');
+    expect(result.formula_errors[0].expression).toBe('VARIABLE_QUE_NO_EXISTE');
+    // El componente afectado sigue calculándose (cae a cantidad 1) en vez de romper todo el despiece.
+    expect(result.components.find((c) => c.code === 'MAL')?.quantity).toBe(1);
+    // El resto de componentes con fórmulas válidas no se ven afectados.
+    expect(result.components.find((c) => c.code === 'BIEN')?.quantity).toBe(200);
   });
 });

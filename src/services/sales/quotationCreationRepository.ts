@@ -158,19 +158,6 @@ export async function createQuotation(input: {
   ]);
 
   const year = Number(input.issue_date.slice(0, 4));
-  const { data: last, error: le } = await c
-    .from('quotation')
-    .select('number')
-    .eq('company_id', cid)
-    .eq('year', year)
-    .order('number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (le) throw new CoreRepositoryError(le.message);
-
-  const number = Number(last?.number || 0) + 1;
-  const code = `${year}/${number}`;
 
   const lines = input.lines.map((line, i) => {
     const taxPercent = Math.max(0, Number(line.tax_percent) || 0);
@@ -218,70 +205,103 @@ export async function createQuotation(input: {
   const ba = input.billing_address;
   const ia = input.installation_address;
 
-  const insertPayload: Record<string, any> = {
-    company_id: cid,
-    year,
-    number,
-    code,
-    customer_id: input.customer_id,
-    commercial_id: input.commercial_id,
-    warehouse_id: input.warehouse_id,
-    contact_id: input.contact_id ?? null,
-    contact_name: input.contact_name?.trim() || null,
-    contact_email: input.contact_email?.trim() || null,
-    contact_phone: input.contact_phone?.trim() || null,
-    billing_address_id: input.billing_address_id,
-    installation_address_id: input.installation_address_id,
-    billing_address_street: ba?.street || null,
-    billing_address_postal_code: ba?.postal_code || null,
-    billing_address_city: ba?.city || null,
-    billing_address_region: ba?.region || null,
-    installation_address_street: ia?.street || null,
-    installation_address_postal_code: ia?.postal_code || null,
-    installation_address_city: ia?.city || null,
-    installation_address_region: ia?.region || null,
-    payment_method_id: input.payment_method_id,
-    payment_term_id: input.payment_term_id,
-    measurement_id: input.measurement_id,
-    issue_date: input.issue_date,
-    valid_until: input.valid_until || null,
-    status: 'DRAFT',
-    reference: input.reference.trim() || null,
-    net_amount: net,
-    discount_amount: discount,
-    tax_amount: tax,
-    total_amount: net + tax,
-    created_by: authData.user?.id ?? null,
-  };
+  // El number de presupuesto se calcula como "máximo actual + 1" sin lock: si dos
+  // presupuestos se crean a la vez para la misma empresa/año, ambos pueden leer el
+  // mismo máximo. uq_quotation_company_year_number (company_id, year, number) hace
+  // que el segundo insert falle con 23505 en vez de duplicar silenciosamente el
+  // code; aquí se reintenta con el siguiente number hasta 5 veces.
+  let header: { id: number } | null = null;
+  let headerError: { message: string; code?: string } | null = null;
 
-  let { data: header, error: headerError } = await c.from('quotation').insert(insertPayload).select('id').single();
-  if (
-    headerError &&
-    (headerError.message.includes('contact_') ||
-      headerError.code === '42703' ||
-      headerError.code === 'PGRST100' ||
-      headerError.code === 'PGRST204')
-  ) {
-    // Attempt 1: Keep contact_id, omit only custom columns contact_name, contact_email, contact_phone
-    const payloadWithContactId = { ...insertPayload };
-    delete payloadWithContactId.contact_name;
-    delete payloadWithContactId.contact_email;
-    delete payloadWithContactId.contact_phone;
-    const retry1 = await c.from('quotation').insert(payloadWithContactId).select('id').single();
-    if (!retry1.error && retry1.data) {
-      header = retry1.data;
-      headerError = null;
-    } else {
-      // Attempt 2: If contact_id also fails, remove all contact fields
-      const payloadWithoutAnyContact = { ...payloadWithContactId };
-      delete payloadWithoutAnyContact.contact_id;
-      const retry2 = await c.from('quotation').insert(payloadWithoutAnyContact).select('id').single();
-      header = retry2.data;
-      headerError = retry2.error;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data: last, error: le } = await c
+      .from('quotation')
+      .select('number')
+      .eq('company_id', cid)
+      .eq('year', year)
+      .order('number', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (le) throw new CoreRepositoryError(le.message);
+
+    const number = Number(last?.number || 0) + 1;
+    const code = `${year}/${number}`;
+
+    const insertPayload: Record<string, any> = {
+      company_id: cid,
+      year,
+      number,
+      code,
+      customer_id: input.customer_id,
+      commercial_id: input.commercial_id,
+      warehouse_id: input.warehouse_id,
+      contact_id: input.contact_id ?? null,
+      contact_name: input.contact_name?.trim() || null,
+      contact_email: input.contact_email?.trim() || null,
+      contact_phone: input.contact_phone?.trim() || null,
+      billing_address_id: input.billing_address_id,
+      installation_address_id: input.installation_address_id,
+      billing_address_street: ba?.street || null,
+      billing_address_postal_code: ba?.postal_code || null,
+      billing_address_city: ba?.city || null,
+      billing_address_region: ba?.region || null,
+      installation_address_street: ia?.street || null,
+      installation_address_postal_code: ia?.postal_code || null,
+      installation_address_city: ia?.city || null,
+      installation_address_region: ia?.region || null,
+      payment_method_id: input.payment_method_id,
+      payment_term_id: input.payment_term_id,
+      measurement_id: input.measurement_id,
+      issue_date: input.issue_date,
+      valid_until: input.valid_until || null,
+      status: 'DRAFT',
+      reference: input.reference.trim() || null,
+      net_amount: net,
+      discount_amount: discount,
+      tax_amount: tax,
+      total_amount: net + tax,
+      created_by: authData.user?.id ?? null,
+    };
+
+    const attemptResult = await c.from('quotation').insert(insertPayload).select('id').single();
+    header = attemptResult.data;
+    headerError = attemptResult.error;
+
+    if (
+      headerError &&
+      (headerError.message.includes('contact_') ||
+        headerError.code === '42703' ||
+        headerError.code === 'PGRST100' ||
+        headerError.code === 'PGRST204')
+    ) {
+      // Attempt 1: Keep contact_id, omit only custom columns contact_name, contact_email, contact_phone
+      const payloadWithContactId = { ...insertPayload };
+      delete payloadWithContactId.contact_name;
+      delete payloadWithContactId.contact_email;
+      delete payloadWithContactId.contact_phone;
+      const retry1 = await c.from('quotation').insert(payloadWithContactId).select('id').single();
+      if (!retry1.error && retry1.data) {
+        header = retry1.data;
+        headerError = null;
+      } else {
+        // Attempt 2: If contact_id also fails, remove all contact fields
+        const payloadWithoutAnyContact = { ...payloadWithContactId };
+        delete payloadWithoutAnyContact.contact_id;
+        const retry2 = await c.from('quotation').insert(payloadWithoutAnyContact).select('id').single();
+        header = retry2.data;
+        headerError = retry2.error;
+      }
     }
+
+    if (!headerError && header) break;
+    if (headerError?.code !== '23505' || attempt === 4) {
+      throw new CoreRepositoryError(headerError?.message || 'No se pudo crear la cabecera del presupuesto.');
+    }
+    // 23505: otro presupuesto se ha adelantado con este number, reintenta con el siguiente.
   }
 
-  if (headerError || !header) throw new CoreRepositoryError(headerError?.message || 'No se pudo crear la cabecera del presupuesto.');
+  if (!header) throw new CoreRepositoryError('No se pudo crear la cabecera del presupuesto.');
 
   const { data: createdLines, error: lineError } = await c
     .from('quotation_line')
