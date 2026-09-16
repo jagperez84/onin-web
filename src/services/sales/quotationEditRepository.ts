@@ -23,7 +23,7 @@ export type QuotationEditLine = {
 };
 
 export type QuotationEditData = {
-  id: number; code: string; customer_id: number | null; commercial_id: number | null; warehouse_id: number | null;
+  id: number; code: string; measurement_id: number | null; customer_id: number | null; commercial_id: number | null; warehouse_id: number | null;
   contact_id: number | null; contact_name: string; contact_email: string; contact_phone: string;
   billing_address_id: number | null; installation_address_id: number | null;
   billing_address: { label: string; street: string; postal_code: string; city: string; region: string }; installation_address: { label: string; street: string; postal_code: string; city: string; region: string };
@@ -44,7 +44,7 @@ export async function quotationForEdit(id: number): Promise<QuotationEditData> {
   const { data: qWithContacts, error: qeWithContacts } = await c
     .from('quotation')
     .select(
-      'id,code,customer_id,commercial_id,warehouse_id,contact_id,contact_name,contact_email,contact_phone,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),billing_address_id,installation_address_id,billing_address_street,billing_address_postal_code,billing_address_city,billing_address_region,installation_address_street,installation_address_postal_code,installation_address_city,installation_address_region,payment_method_id,payment_term_id,tax_rate_id,tax_percent,issue_date,valid_until,reference,notes,status,lines:quotation_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_rate_id,tax_percent,line_behavior_id,line_behavior_snapshot,product_definition_snapshot,specific_data,dimensions:quotation_line_dimension(code,name,value,unit_id,sort_order),characteristics:quotation_line_characteristic(attribute_id,attribute_value_id,value_text,value_number,value_boolean,color_id))'
+      'id,code,measurement_id,customer_id,commercial_id,warehouse_id,contact_id,contact_name,contact_email,contact_phone,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),billing_address_id,installation_address_id,billing_address_street,billing_address_postal_code,billing_address_city,billing_address_region,installation_address_street,installation_address_postal_code,installation_address_city,installation_address_region,payment_method_id,payment_term_id,tax_rate_id,tax_percent,issue_date,valid_until,reference,notes,status,lines:quotation_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_rate_id,tax_percent,line_behavior_id,line_behavior_snapshot,product_definition_snapshot,specific_data,dimensions:quotation_line_dimension(code,name,value,unit_id,sort_order),characteristics:quotation_line_characteristic(attribute_id,attribute_value_id,value_text,value_number,value_boolean,color_id))'
     )
     .eq('company_id', cid)
     .eq('id', id)
@@ -55,7 +55,7 @@ export async function quotationForEdit(id: number): Promise<QuotationEditData> {
     const { data: qWithContactId, error: qeWithContactId } = await c
       .from('quotation')
       .select(
-        'id,code,customer_id,commercial_id,warehouse_id,contact_id,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),billing_address_id,installation_address_id,billing_address_street,billing_address_postal_code,billing_address_city,billing_address_region,installation_address_street,installation_address_postal_code,installation_address_city,installation_address_region,payment_method_id,payment_term_id,tax_rate_id,tax_percent,issue_date,valid_until,reference,notes,status,lines:quotation_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_rate_id,tax_percent,line_behavior_id,line_behavior_snapshot,product_definition_snapshot,specific_data,dimensions:quotation_line_dimension(code,name,value,unit_id,sort_order),characteristics:quotation_line_characteristic(attribute_id,attribute_value_id,value_text,value_number,value_boolean,color_id))'
+        'id,code,measurement_id,customer_id,commercial_id,warehouse_id,contact_id,contact:contact_id(id,first_name,last_name,email,phone,mobile,job_title,department),billing_address_id,installation_address_id,billing_address_street,billing_address_postal_code,billing_address_city,billing_address_region,installation_address_street,installation_address_postal_code,installation_address_city,installation_address_region,payment_method_id,payment_term_id,tax_rate_id,tax_percent,issue_date,valid_until,reference,notes,status,lines:quotation_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_rate_id,tax_percent,line_behavior_id,line_behavior_snapshot,product_definition_snapshot,specific_data,dimensions:quotation_line_dimension(code,name,value,unit_id,sort_order),characteristics:quotation_line_characteristic(attribute_id,attribute_value_id,value_text,value_number,value_boolean,color_id))'
       )
       .eq('company_id', cid)
       .eq('id', id)
@@ -68,7 +68,7 @@ export async function quotationForEdit(id: number): Promise<QuotationEditData> {
       const { data: qFallback, error: qeFallback } = await c
         .from('quotation')
         .select(
-          'id,code,customer_id,commercial_id,warehouse_id,billing_address_id,installation_address_id,billing_address_street,billing_address_postal_code,billing_address_city,billing_address_region,installation_address_street,installation_address_postal_code,installation_address_city,installation_address_region,payment_method_id,payment_term_id,tax_rate_id,tax_percent,issue_date,valid_until,reference,notes,status,lines:quotation_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_rate_id,tax_percent,line_behavior_id,line_behavior_snapshot,product_definition_snapshot,specific_data,dimensions:quotation_line_dimension(code,name,value,unit_id,sort_order),characteristics:quotation_line_characteristic(attribute_id,attribute_value_id,value_text,value_number,value_boolean,color_id))'
+          'id,code,measurement_id,customer_id,commercial_id,warehouse_id,billing_address_id,installation_address_id,billing_address_street,billing_address_postal_code,billing_address_city,billing_address_region,installation_address_street,installation_address_postal_code,installation_address_city,installation_address_region,payment_method_id,payment_term_id,tax_rate_id,tax_percent,issue_date,valid_until,reference,notes,status,lines:quotation_line(id,line_no,product_id,description,quantity,unit_price,discount_percent,tax_rate_id,tax_percent,line_behavior_id,line_behavior_snapshot,product_definition_snapshot,specific_data,dimensions:quotation_line_dimension(code,name,value,unit_id,sort_order),characteristics:quotation_line_characteristic(attribute_id,attribute_value_id,value_text,value_number,value_boolean,color_id))'
         )
         .eq('company_id', cid)
         .eq('id', id)
@@ -160,6 +160,7 @@ export async function quotationForEdit(id: number): Promise<QuotationEditData> {
   return {
     id: Number(q.id),
     code: q.code,
+    measurement_id: q.measurement_id == null ? null : Number(q.measurement_id),
     customer_id: q.customer_id == null ? null : Number(q.customer_id),
     commercial_id: q.commercial_id == null ? null : Number(q.commercial_id),
     warehouse_id: q.warehouse_id == null ? null : Number(q.warehouse_id),

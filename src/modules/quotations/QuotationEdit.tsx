@@ -12,7 +12,12 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { Toast } from "../../components/ui/Toast";
 import { EntitySearchField } from "../../components/ui/EntitySearchField";
-import { CoreRepositoryError } from "../../services/core/coreRepository";
+import { CoreRepositoryError, getCurrentCompanyId } from "../../services/core/coreRepository";
+import { listCatalog } from "../../services/catalog/catalogRepository";
+import {
+  listMeasurementOpenings,
+  type MeasurementOpeningFull,
+} from "../../services/measurements/measurementOpeningRepository";
 import {
   getProductLineDefinition,
   buildCharacteristicColorOptions,
@@ -64,7 +69,7 @@ type EditLine = Omit<QuotationEditLine, "comments"> & {
   comments: CommentItem[];
   configuration_snapshot?: QuotationLineSnapshot | any | null;
 };
-type Option = { id: number; label: string; code?: string; price?: number };
+type Option = { id: number; label: string; code?: string; price?: number; familyId?: number | null };
 
 function blankLine(): EditLine {
   return {
@@ -130,6 +135,9 @@ export function QuotationEdit() {
   const [data, setData] = useState<QuotationEditData | null>(null);
   const [opts, setOpts] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [openings, setOpenings] = useState<MeasurementOpeningFull[]>([]);
+  const [openingFamilyNames, setOpeningFamilyNames] = useState<Map<number, string>>(new Map());
+  const [lineFamilyFilter, setLineFamilyFilter] = useState<Record<number, number | null>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loadingDefinition, setLoadingDefinition] = useState<number | null>(
@@ -265,6 +273,80 @@ export function QuotationEdit() {
       active = false;
     };
   }, [id]);
+
+  // Huecos medidos de la medición que originó este presupuesto (si la hay),
+  // para poder crear líneas a partir de ellos sin volver a teclear medidas.
+  useEffect(() => {
+    const measurementId = data?.measurement_id;
+    if (!measurementId) {
+      setOpenings([]);
+      return;
+    }
+    let active = true;
+    (async () => {
+      try {
+        const cid = await getCurrentCompanyId();
+        const [ops, families] = await Promise.all([
+          listMeasurementOpenings(measurementId),
+          listCatalog("families", cid),
+        ]);
+        if (!active) return;
+        setOpenings(ops);
+        setOpeningFamilyNames(new Map(families.map((f: any) => [f.id, f.name])));
+      } catch {
+        if (active) {
+          setOpenings([]);
+          setOpeningFamilyNames(new Map());
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [data?.measurement_id]);
+
+  const usedOpeningIds = useMemo(
+    () =>
+      new Set(
+        lines
+          .map((l) => l.specific_data?.measurement_opening_id)
+          .filter((v): v is number => typeof v === "number"),
+      ),
+    [lines],
+  );
+  const pendingOpenings = useMemo(
+    () => openings.filter((o) => !usedOpeningIds.has(o.id)),
+    [openings, usedOpeningIds],
+  );
+
+  function getLineProducts(i: number): Option[] {
+    const all = (opts?.products ?? []) as Option[];
+    const familyId = lineFamilyFilter[i];
+    if (!familyId) return all;
+    const filtered = all.filter((p) => p.familyId === familyId);
+    return filtered.length ? filtered : all;
+  }
+
+  function addLineFromOpening(o: MeasurementOpeningFull) {
+    const newIndex = lines.length;
+    const newLine: EditLine = {
+      ...blankLine(),
+      line_no: newIndex + 1,
+      description: o.label || "Hueco medido",
+      dimensions: o.dimensions.map((d, i) => ({
+        code: d.code,
+        name: d.name,
+        value: d.value,
+        unit_id: d.unit_id,
+        sort_order: i,
+      })),
+      specific_data: { measurement_opening_id: o.id },
+    };
+    setLines((xs) => [...xs, newLine]);
+    if (o.product_family_id != null) {
+      setLineFamilyFilter((prev) => ({ ...prev, [newIndex]: o.product_family_id }));
+    }
+  }
 
   // Handle incoming OTD snapshot edit or addition
   useEffect(() => {
@@ -510,7 +592,7 @@ export function QuotationEdit() {
         line_behavior_id: p?.lineBehavior?.id ?? null,
         line_behavior_snapshot: p?.lineBehavior ?? null,
         product_definition_snapshot: clone(definition),
-        dimensions: dimensionsFromDefinition(definition, []),
+        dimensions: dimensionsFromDefinition(definition, lines[i]?.dimensions ?? []),
         characteristics: characteristicsFromDefinition(definition),
         configuration_snapshot: null,
         specific_data: { price_missing: false },
@@ -1137,6 +1219,37 @@ export function QuotationEdit() {
             </div>
           </div>
 
+          {pendingOpenings.length > 0 && (
+            <div style={{ marginBottom: "14px" }}>
+              <p style={{ fontSize: "12.5px", color: "var(--muted)", margin: "0 0 8px" }}>
+                Huecos medidos en la visita de campo, pendientes de convertir en línea:
+              </p>
+              {/* Reutiliza .opening-card(-list|-main) de measurements.css: el CSS es un
+                  bundle global (ver CLAUDE.md), no hace falta duplicar estas reglas aquí. */}
+              <div className="opening-card-list">
+                {pendingOpenings.map((o) => {
+                  const familyName =
+                    o.product_family_id != null ? openingFamilyNames.get(o.product_family_id) : undefined;
+                  const dims = o.dimensions
+                    .filter((d) => d.value != null)
+                    .map((d) => String(d.value))
+                    .join(" × ");
+                  return (
+                    <div className="opening-card" key={o.id}>
+                      <div className="opening-card-main">
+                        <strong>{o.label || "Hueco medido"}</strong>
+                        <span>{[familyName, dims].filter(Boolean).join(" · ") || "Sin medidas capturadas"}</span>
+                      </div>
+                      <button type="button" className="secondary-button" onClick={() => addLineFromOpening(o)}>
+                        <Plus size={14} /> Añadir línea
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="table-panel quotation-lines-table">
             <table>
               <thead>
@@ -1262,7 +1375,7 @@ export function QuotationEdit() {
                               compact
                               matchExactCode
                               portal
-                              options={opts?.products ?? []}
+                              options={getLineProducts(i)}
                               value={(opts?.products ?? []).find((p: Option) => p.id === line.product_id) ?? null}
                               onChange={(opt) => {
                                 void selectProduct(i, opt?.id ?? null);
