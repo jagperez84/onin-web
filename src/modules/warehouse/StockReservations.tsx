@@ -147,7 +147,7 @@ export function StockReservations() {
                       <div className="row-actions">
                         <button
                           className="icon-action"
-                          title="Consumir reserva"
+                          title="Consumir reserva (descuenta el stock físico)"
                           onClick={() => void changeReservation(r, "consume")}
                         >
                           <Check size={14} />
