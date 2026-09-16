@@ -22,6 +22,7 @@ export type SalesOrder = {
   installation_latitude: number | null;
   installation_longitude: number | null;
   zone_id: number | null;
+  requires_installation: boolean;
   net_amount: number;
   discount_amount: number;
   tax_amount: number;
@@ -172,7 +173,7 @@ export async function listSalesOrders(search = '', sortBy: SalesOrderSortField =
   const c = client();
   const cid = await companyId();
   let q = c.from('sales_order')
-    .select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,notes,total_amount,created_at,installation_latitude,installation_longitude,zone_id,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name)),lines:sales_order_line(id,line_no,description,quantity,product_id,specific_data)')
+    .select('id,code,quotation_id,customer_id,issue_date,requested_delivery_date,status,reference,notes,total_amount,created_at,installation_latitude,installation_longitude,zone_id,requires_installation,quotation:quotation_id(code),customer:customer_id(party:party_id(legal_name,trade_name)),lines:sales_order_line(id,line_no,description,quantity,product_id,specific_data)')
     .eq('company_id', cid)
     .order(sortBy, { ascending, nullsFirst: false })
     .order('id', { ascending: false });
@@ -283,11 +284,13 @@ export async function unblockSalesOrder(
 export async function createSalesOrderFromQuotation(
   quotationId: number,
   lines: { quotationLineId: number; quantity: number }[],
+  requiresInstallation: boolean,
 ): Promise<SalesOrder> {
   const c = client();
   const { data, error } = await c.rpc('create_sales_order_from_quotation', {
     p_quotation_id: quotationId,
     p_lines: lines.map((l) => ({ quotation_line_id: l.quotationLineId, quantity: l.quantity })),
+    p_requires_installation: requiresInstallation,
   });
   if (error) throw new CoreRepositoryError(error.message);
   const order = await getSalesOrder(Number(data));

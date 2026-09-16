@@ -281,6 +281,12 @@ export function SalesOrderLifecycleStepper({
     latestInstallation,
   } = useLifecycleState({ order, cutSheets, lonaSheets, componentSheets, installations, invoice, pendingDeliveryLines, totalDeliveryLines });
 
+  // Un pedido sin montaje (solo artículos simples que el cliente recoge o instala él mismo) no
+  // pasa por esa fase: se omite del stepper y, de cara al "próximo paso", se trata como ya
+  // completada para que la cadena de comprobaciones pase directamente a entrega/facturación.
+  const requiresInstallation = order.requires_installation;
+  const effectiveInstallationState: StageState = requiresInstallation ? installationState : 'done';
+
   const stages: Stage[] = [
     ...(order.measurement_id
       ? [
@@ -322,25 +328,29 @@ export function SalesOrderLifecycleStepper({
       icon: <Scissors size={17} />,
       onClick: hasStartedFabrication ? onViewProductionSheets : undefined,
     },
-    {
-      key: 'installation',
-      label: 'Montaje',
-      detail: blockedInstallation
-        ? 'Bloqueado por incidencia'
-        : openIncident
-          ? 'Incidencia abierta'
-          : installationState === 'done'
-            ? `Completado${installations.length > 1 ? ` · ${installations.length} visitas` : ''}`
-            : installationState === 'active'
-              ? `Programado · ${shortDate(latestInstallation?.scheduledDate) || '—'}${installations.length > 1 ? ` (${installations.length} visitas)` : ''}`
-              : installationState === 'pending'
-                ? 'Pendiente'
-                : 'No disponible aún',
-      state: installationState,
-      tone: installationTone,
-      icon: blockedInstallation || openIncident ? <AlertTriangle size={17} /> : <CalendarClock size={17} />,
-      onClick: installationState === 'active' || installationState === 'done' || installationState === 'pending' ? onInstall : undefined,
-    },
+    ...(requiresInstallation
+      ? [
+          {
+            key: 'installation',
+            label: 'Montaje',
+            detail: blockedInstallation
+              ? 'Bloqueado por incidencia'
+              : openIncident
+                ? 'Incidencia abierta'
+                : installationState === 'done'
+                  ? `Completado${installations.length > 1 ? ` · ${installations.length} visitas` : ''}`
+                  : installationState === 'active'
+                    ? `Programado · ${shortDate(latestInstallation?.scheduledDate) || '—'}${installations.length > 1 ? ` (${installations.length} visitas)` : ''}`
+                    : installationState === 'pending'
+                      ? 'Pendiente'
+                      : 'No disponible aún',
+            state: installationState,
+            tone: installationTone,
+            icon: blockedInstallation || openIncident ? <AlertTriangle size={17} /> : <CalendarClock size={17} />,
+            onClick: installationState === 'active' || installationState === 'done' || installationState === 'pending' ? onInstall : undefined,
+          },
+        ]
+      : []),
     {
       key: 'delivery',
       label: 'Entrega',
@@ -397,7 +407,7 @@ export function SalesOrderLifecycleStepper({
               actionLabel: 'Fabricar pedido',
               onAction: onFabricate,
             }
-          : installationState === 'pending'
+          : effectiveInstallationState === 'pending'
         ? {
             tone: 'info' as const,
             title: 'Próximo paso: programar el montaje',
@@ -405,7 +415,7 @@ export function SalesOrderLifecycleStepper({
             actionLabel: 'Programar montaje',
             onAction: onInstall,
           }
-        : installationState === 'active'
+        : effectiveInstallationState === 'active'
           ? {
               tone: 'info' as const,
               title: 'Montaje programado',
@@ -421,7 +431,7 @@ export function SalesOrderLifecycleStepper({
                 actionLabel: null,
                 onAction: undefined,
               }
-            : installationState === 'done' || deliveryState === 'done'
+            : effectiveInstallationState === 'done' || deliveryState === 'done'
               ? invoice
                 ? {
                     tone: 'success' as const,

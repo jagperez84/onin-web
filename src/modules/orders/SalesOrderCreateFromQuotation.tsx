@@ -30,6 +30,7 @@ export function SalesOrderCreateFromQuotation() {
   const [deliveryDate, setDeliveryDate] = useState('');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
+  const [requiresInstallation, setRequiresInstallation] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -97,18 +98,31 @@ export function SalesOrderCreateFromQuotation() {
     [selectedLines],
   );
 
+  // Un artículo OTD/a medida no tiene otra forma de entregarse que a través de un montaje
+  // (el albarán solo se genera al completar la visita), así que si hay alguno seleccionado el
+  // pedido requiere montaje siempre — no es una elección real en ese caso.
+  const hasOtdLine = selectedLines.some(({ line }) => !line.product);
+  useEffect(() => {
+    if (hasOtdLine) setRequiresInstallation(true);
+  }, [hasOtdLine]);
+
   const fullyConverted = data
     ? data.lines.length > 0 && data.lines.every((line: any) => remainingFor(line.id, Number(line.quantity)) <= 0)
     : false;
 
   async function save() {
     if (!data || saving || selectedLines.length === 0) return;
+    if (requiresInstallation === null) {
+      setError('Indica si el pedido requiere montaje.');
+      return;
+    }
     try {
       setSaving(true);
       setError('');
       const order = await createSalesOrderFromQuotation(
         data.id,
         selectedLines.map(({ line, qty }) => ({ quotationLineId: line.id, quantity: qty })),
+        requiresInstallation,
       );
       await updateSalesOrder(order.id, { requested_delivery_date: deliveryDate || null, reference, notes });
       navigate(`/ventas/pedidos/${order.id}`, { replace: true });
@@ -232,6 +246,25 @@ export function SalesOrderCreateFromQuotation() {
         <div className="sales-order-form-grid">
           <label><span>Fecha de entrega solicitada</span><input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} /></label>
           <label><span>Referencia</span><input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Referencia del cliente o del pedido" /></label>
+          <label>
+            <span>¿Requiere montaje? *</span>
+            {hasOtdLine ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '38px', fontSize: '13px', color: 'var(--muted)' }}>
+                <Check size={14} color="var(--status-success-fg)" /> Sí — incluye artículos a medida (OTD)
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', height: '38px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 400 }}>
+                  <input type="radio" name="requiresInstallation" checked={requiresInstallation === true} onChange={() => setRequiresInstallation(true)} />
+                  Sí
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 400 }}>
+                  <input type="radio" name="requiresInstallation" checked={requiresInstallation === false} onChange={() => setRequiresInstallation(false)} />
+                  No
+                </label>
+              </div>
+            )}
+          </label>
           <label className="full"><span>Observaciones</span><textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="Observaciones para el pedido" /></label>
         </div>
       </section>
