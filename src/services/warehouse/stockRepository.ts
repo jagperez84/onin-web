@@ -525,7 +525,6 @@ export async function registerStockMovement(input: {
   movementDate?: string;
 }): Promise<number> {
   const c = client();
-  let movementId: number | null = null;
 
   const { data, error } = await c.rpc('register_stock_movement', {
     p_company_id: input.companyId,
@@ -541,102 +540,13 @@ export async function registerStockMovement(input: {
     p_transfer_group_id: null,
     p_color_id: input.colorId ?? null
   });
+  if (error) throw new CoreRepositoryError(error.message);
+  const movementId = Number(data);
 
-  if (error) {
-    // If the database RPC returned an error related to characteristic or stock_enabled requirement,
-    // verify whether the product actually has characteristics and perform direct registration fallback
-    if (error.message.includes('característica') || error.message.includes('requiere característica') || error.message.includes('stock activada')) {
-      // 1. Get movement type
-      const { data: mType, error: tErr } = await c
-        .from('stock_movement_type')
-        .select('id,direction')
-        .eq('company_id', input.companyId)
-        .eq('code', input.movementTypeCode)
-        .eq('active', true)
-        .maybeSingle();
-      if (tErr || !mType) throw new CoreRepositoryError(tErr?.message || 'Tipo de movimiento no válido');
-
-      // Ensure product has stock_enabled = true
-      await c.from('product').update({ stock_enabled: true }).eq('id', input.productId);
-
-      const signedQty = Number(input.quantity) * Number(mType.direction);
-
-      // 2. Find or create warehouse_stock row
-      let qStock = c
-        .from('warehouse_stock')
-        .select('id,quantity')
-        .eq('warehouse_id', input.warehouseId)
-        .eq('product_id', input.productId);
-      
-      if (input.characteristicId) {
-        qStock = qStock.eq('characteristic_id', input.characteristicId);
-      } else {
-        qStock = qStock.is('characteristic_id', null);
-      }
-      if (input.colorId) {
-        qStock = qStock.eq('color_id', input.colorId);
-      } else {
-        qStock = qStock.is('color_id', null);
-      }
-
-      const { data: stockRow, error: sErr } = await qStock.maybeSingle();
-      if (sErr) throw new CoreRepositoryError(sErr.message);
-
-      if (stockRow) {
-        const { error: uErr } = await c
-          .from('warehouse_stock')
-          .update({
-            quantity: Number(stockRow.quantity || 0) + signedQty,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', stockRow.id);
-        if (uErr) throw new CoreRepositoryError(uErr.message);
-      } else {
-        const { error: iErr } = await c
-          .from('warehouse_stock')
-          .insert({
-            warehouse_id: input.warehouseId,
-            product_id: input.productId,
-            characteristic_id: input.characteristicId ?? null,
-            color_id: input.colorId ?? null,
-            quantity: Math.max(0, signedQty),
-            reserved_quantity: 0
-          });
-        if (iErr) throw new CoreRepositoryError(iErr.message);
-      }
-
-      // 3. Insert stock_movement
-      const { data: newMov, error: movErr } = await c
-        .from('stock_movement')
-        .insert({
-          company_id: input.companyId,
-          warehouse_id: input.warehouseId,
-          product_id: input.productId,
-          movement_type_id: mType.id,
-          characteristic_id: input.characteristicId ?? null,
-          color_id: input.colorId ?? null,
-          quantity: input.quantity,
-          movement_date: input.movementDate ? new Date(input.movementDate).toISOString() : new Date().toISOString(),
-          reference: input.reference ?? null,
-          notes: input.notes ?? null,
-          dimension_values: input.dimensionValues ?? null
-        })
-        .select('id')
-        .single();
-      if (movErr || !newMov) throw new CoreRepositoryError(movErr?.message || 'Error al registrar el movimiento.');
-
-      movementId = Number(newMov.id);
-    } else {
-      throw new CoreRepositoryError(error.message);
-    }
-  } else {
-    movementId = Number(data);
-  }
-  
   if (input.dimensionValues && Object.keys(input.dimensionValues).length > 0) {
     await syncWarehouseStockItems(input.companyId, input.productId).catch(() => {});
   }
-  
+
   return movementId ?? 0;
 }
 
