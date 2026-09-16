@@ -44,11 +44,20 @@ export type EvaluatedBomComponent = {
   }>;
 };
 
+export type BomFormulaError = {
+  component_id: number;
+  component_code: string;
+  component_description: string;
+  expression: string;
+  message: string;
+};
+
 export type BillOfMaterialsCalculation = {
   components: EvaluatedBomComponent[];
   total_breakdown_price: number;
   total_breakdown_cost: number;
   formula_variables_used: Record<string, number>;
+  formula_errors: BomFormulaError[];
 };
 
 const BOM_FUNCTIONS = new Set(['MIN', 'MAX', 'CEIL', 'FLOOR', 'ROUND', 'ABS', 'SQRT']);
@@ -221,31 +230,45 @@ function parseBomExpression(source: string, context: Record<string, number>): nu
 }
 
 /**
+ * Igual que evaluateFormula(), pero además informa si la expresión no era un
+ * número/vacío legítimo y falló al evaluarse (variable no definida, sintaxis
+ * inválida, división por cero...), para que el llamante pueda decidir avisar
+ * en vez de consumir en silencio el valor de respaldo `1`.
+ */
+export function evaluateFormulaWithDiagnostics(
+  expression: string,
+  context: Record<string, number>,
+): { value: number; error: string | null } {
+  if (!expression || !expression.trim()) return { value: 1, error: null };
+
+  const trimmed = expression.trim();
+  // Check if it's just a raw number
+  const num = Number(trimmed);
+  if (!Number.isNaN(num)) {
+    return { value: num, error: null };
+  }
+
+  try {
+    const result = parseBomExpression(trimmed, context);
+    if (typeof result === 'number' && Number.isFinite(result)) {
+      return { value: round2(result), error: null };
+    }
+    return { value: 1, error: `La fórmula "${expression}" no produce un número válido.` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`Error evaluating expression "${expression}":`, err);
+    return { value: 1, error: message };
+  }
+}
+
+/**
  * Evalúa una expresión de fórmula con el contexto de variables dado.
  * Soporta aritmética estándar, funciones (min, max, ceil, floor, round, abs,
  * sqrt), comparaciones y condicionales ternarios — mediante un parser propio,
  * sin depender de `eval`/`new Function` en ningún punto.
  */
 export function evaluateFormula(expression: string, context: Record<string, number>): number {
-  if (!expression || !expression.trim()) return 1;
-
-  const trimmed = expression.trim();
-  // Check if it's just a raw number
-  const num = Number(trimmed);
-  if (!Number.isNaN(num)) {
-    return num;
-  }
-
-  try {
-    const result = parseBomExpression(trimmed, context);
-    if (typeof result === 'number' && Number.isFinite(result)) {
-      return round2(result);
-    }
-    return 1;
-  } catch (err) {
-    console.warn(`Error evaluating expression "${expression}":`, err);
-    return 1;
-  }
+  return evaluateFormulaWithDiagnostics(expression, context).value;
 }
 
 /**
@@ -284,6 +307,7 @@ export function calculateBillOfMaterials(input: {
   if (context['ALTO'] == null && rawDimEntries[2]) context['ALTO'] = rawDimEntries[2][1] ?? 0;
 
   const evaluatedList: EvaluatedBomComponent[] = [];
+  const formulaErrors: BomFormulaError[] = [];
   let totalBreakdownPrice = 0;
   let totalBreakdownCost = 0;
 
@@ -291,7 +315,17 @@ export function calculateBillOfMaterials(input: {
     if (comp.active === false) continue;
 
     const expr = comp.quantity_expression || '1';
-    const computedUnitQty = Math.max(0, evaluateFormula(expr, context));
+    const { value, error } = evaluateFormulaWithDiagnostics(expr, context);
+    if (error) {
+      formulaErrors.push({
+        component_id: comp.id,
+        component_code: comp.code || comp.product_code || `COMP-${comp.id}`,
+        component_description: comp.description || comp.product_name || '',
+        expression: expr,
+        message: error,
+      });
+    }
+    const computedUnitQty = Math.max(0, value);
     const totalQty = round2(computedUnitQty);
 
     const unitPrice = round2(Number(comp.unit_price ?? 0));
@@ -334,5 +368,6 @@ export function calculateBillOfMaterials(input: {
     total_breakdown_price: round2(totalBreakdownPrice),
     total_breakdown_cost: round2(totalBreakdownCost),
     formula_variables_used: context,
+    formula_errors: formulaErrors,
   };
 }
