@@ -732,6 +732,14 @@ a {
 .secondary-button:hover {
   background: var(--primary-soft);
 }
+.primary-button.compact,
+.secondary-button.compact,
+.danger-button.compact {
+  padding: 4px 8px;
+  min-height: 28px;
+  font-size: 12px;
+  gap: 4px;
+}
 .toolbar {
   display: flex;
   align-items: center;

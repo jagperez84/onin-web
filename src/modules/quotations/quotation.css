@@ -221,14 +221,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.primary-button.compact,
-.secondary-button.compact {
-  padding: 4px 8px;
-  min-height: 28px;
-  font-size: 12px;
-  gap: 4px;
-}
-
 /* =========================================================
    3. Status Badges & Quick Row Actions
    ========================================================= */

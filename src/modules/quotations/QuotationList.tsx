@@ -9,7 +9,6 @@ import {
   Mail,
   RefreshCw,
   Eye,
-  Truck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -138,14 +137,11 @@ export function QuotationList() {
           </p>
         </div>
         <div className="quotation-head-actions">
-          <Link className="secondary-button" to="/facturacion/albaranes">
-            <Truck size={15} /> Ver Albaranes
-          </Link>
-          <button className="secondary-button" type="button" onClick={() => void load()}>
-            <RotateCcw size={15} /> Actualizar
+          <button className="secondary-button compact" type="button" onClick={() => void load()}>
+            <RotateCcw size={14} /> Actualizar
           </button>
-          <Link className="primary-button" to="/ventas/presupuestos/nuevo">
-            <Plus size={16} /> Nuevo presupuesto
+          <Link className="primary-button compact" to="/ventas/presupuestos/nuevo">
+            <Plus size={14} /> Nuevo presupuesto
           </Link>
         </div>
       </div>

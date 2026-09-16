@@ -91,10 +91,6 @@
 .icon-action.danger {
   color: var(--danger);
 }
-.secondary-button.compact {
-  padding: 6px 9px;
-  font-size: 12px;
-}
 .inline-check {
   display: flex !important;
   grid-template-columns: none !important;

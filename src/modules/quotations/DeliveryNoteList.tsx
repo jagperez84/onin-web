@@ -78,11 +78,11 @@ export function DeliveryNoteList() {
           <p>Documentos de expedición y entrega generados desde pedidos fabricados (e instalaciones completadas).</p>
         </div>
         <div className="quotation-head-actions">
-          <button className="secondary-button" type="button" onClick={() => void load()}>
-            <RotateCcw size={15} /> Actualizar
+          <button className="secondary-button compact" type="button" onClick={() => void load()}>
+            <RotateCcw size={14} /> Actualizar
           </button>
-          <Link className="primary-button" to="/ventas/pedidos">
-            <Truck size={15} /> Ir a Pedidos
+          <Link className="primary-button compact" to="/ventas/pedidos">
+            <Truck size={14} /> Ir a Pedidos
           </Link>
         </div>
       </div>
