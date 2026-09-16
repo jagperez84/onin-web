@@ -703,6 +703,12 @@ export function QuotationEdit() {
       setError("La cantidad debe ser mayor que cero.");
       return;
     }
+    if (lines.some((l) => Boolean(l.specific_data?.price_missing))) {
+      setError(
+        "Hay líneas sin precio para la combinación seleccionada. Añade manualmente el precio de cada línea marcada en rojo.",
+      );
+      return;
+    }
     setSaving(true);
     try {
       await updateQuotation({

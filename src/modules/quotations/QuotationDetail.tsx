@@ -1011,6 +1011,7 @@ export function QuotationDetail() {
           onClose={() => setStatusModalOpen(false)}
           targetStatus={targetStatus}
           quotation={data}
+          hasLinkedOrder={orderConversionState !== "none"}
           onSuccess={(newStatus) => {
             setToast(
               `Presupuesto actualizado a estado ${statusLabel(newStatus)}.`,

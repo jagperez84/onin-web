@@ -23,6 +23,7 @@ interface Props {
     notes?: string | null;
   };
   onSuccess: (newStatus: string) => void;
+  hasLinkedOrder?: boolean;
 }
 
 export function QuotationStatusModal({
@@ -31,6 +32,7 @@ export function QuotationStatusModal({
   targetStatus,
   quotation,
   onSuccess,
+  hasLinkedOrder = false,
 }: Props) {
   const customerName =
     quotation.customer?.party?.trade_name ||
@@ -209,14 +211,30 @@ export function QuotationStatusModal({
           )}
 
           {!isAccept && !isReject && (
-            <div className="status-confirm-box neutral">
-              <FileText size={24} />
+            <div
+              className={`status-confirm-box ${hasLinkedOrder ? "reject" : "neutral"}`}
+            >
+              {hasLinkedOrder ? (
+                <AlertCircle size={24} />
+              ) : (
+                <FileText size={24} />
+              )}
               <div>
                 <strong>¿Reabrir como Borrador?</strong>
                 <p>
                   El presupuesto volverá al estado <strong>Borrador</strong>{" "}
                   para permitir realizar modificaciones adicionales.
                 </p>
+                {hasLinkedOrder && (
+                  <p>
+                    <strong>
+                      Este presupuesto ya tiene un pedido generado.
+                    </strong>{" "}
+                    Los cambios que hagas aquí no se trasladarán a ese
+                    pedido, que seguirá su curso con los datos actuales —
+                    revísalo manualmente si el cliente pide algo distinto.
+                  </p>
+                )}
               </div>
             </div>
           )}
