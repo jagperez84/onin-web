@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { CoreRepositoryError } from '../core/coreRepository';
-import { listUsers } from '../core/userRepository';
+import { listFieldStaffAccounts } from '../core/userRepository';
 import { getSalesOrderDeliveryStatus } from '../sales/deliveryNoteService';
 
 function one<T>(value: T | T[] | null | undefined): T | null {
@@ -182,19 +182,18 @@ export async function listInstallationTypes(companyId: number): Promise<Installa
   return (data ?? []).map((r: any) => ({ id: Number(r.id), companyId: Number(r.company_id), description: r.description, active: Boolean(r.active) }));
 }
 
-export async function listInstallers(companyId: number): Promise<Installer[]> {
-  const users = await listUsers('', 'active');
-  const scoped = users.filter(u => u.company_id === companyId);
-  const installers = scoped.filter(u => u.role_code === 'INSTALLER');
-  const source = installers.length ? installers : scoped;
+export async function listInstallers(_companyId: number): Promise<Installer[]> {
+  const users = await listFieldStaffAccounts();
+  const installers = users.filter(u => u.role_code === 'INSTALLER');
+  const source = installers.length ? installers : users;
   return source.map(u => ({ id: u.id, name: u.display_name || u.username }));
 }
 
 /** Candidatos a formar parte de una cuadrilla: instaladores y cualquiera marcado como medidor — en una pyme la misma persona suele hacer ambas cosas. */
-export async function listFieldStaff(companyId: number): Promise<Installer[]> {
-  const users = await listUsers('', 'active');
+export async function listFieldStaff(_companyId: number): Promise<Installer[]> {
+  const users = await listFieldStaffAccounts();
   return users
-    .filter(u => u.company_id === companyId && (u.role_code === 'INSTALLER' || u.can_measure))
+    .filter(u => u.role_code === 'INSTALLER' || u.can_measure)
     .map(u => ({ id: u.id, name: u.display_name || u.username }));
 }
 

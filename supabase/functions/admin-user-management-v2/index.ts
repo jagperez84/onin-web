@@ -91,6 +91,18 @@ Deno.serve(async (req) => {
         return out({ error: "Faltan datos obligatorios o la contraseña es demasiado corta." }, 400);
       }
 
+      if (targetCompanyId !== companyId) {
+        const { data: targetMembership } = await admin
+          .from("user_company")
+          .select("user_account_id")
+          .eq("user_account_id", callerAccount.id)
+          .eq("company_id", targetCompanyId)
+          .maybeSingle();
+        if (!targetMembership) {
+          return out({ error: "No puedes crear usuarios en una empresa a la que no perteneces." }, 403);
+        }
+      }
+
       const { data: created, error: createError } = await admin.auth.admin.createUser({
         email, password, email_confirm: true,
       });
