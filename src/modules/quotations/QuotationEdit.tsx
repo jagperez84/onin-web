@@ -15,8 +15,10 @@ import { EntitySearchField } from "../../components/ui/EntitySearchField";
 import { CoreRepositoryError } from "../../services/core/coreRepository";
 import {
   getProductLineDefinition,
+  buildCharacteristicColorOptions,
   type ProductLineDefinition,
 } from "../../services/catalog/productDefinitionRepository";
+import { ColorSwatch } from "../../components/ui/ColorSwatch";
 import {
   quotationForEdit,
   quotationOptions,
@@ -104,26 +106,20 @@ function dimensionsFromDefinition(
   }));
 }
 
-function characteristicsFromDefinition(
-  definition: ProductLineDefinition,
-  old: EditLine["characteristics"],
-) {
-  const values = new Map(
-    old
-      .filter((v) => v.attribute_id != null)
-      .map((v) => [Number(v.attribute_id), v]),
-  );
-  return definition.characteristics.map((c) => {
-    const v = values.get(c.attribute_id);
-    return {
-      attribute_id: c.attribute_id,
-      attribute_value_id: v?.attribute_value_id ?? null,
-      value_text: v?.value_text ?? null,
-      value_number: v?.value_number ?? null,
-      value_boolean: v?.value_boolean ?? null,
-      color_id: v?.color_id ?? c.colors[0]?.color_id ?? null,
-    };
-  });
+function characteristicsFromDefinition(definition: ProductLineDefinition) {
+  const colorOptions = buildCharacteristicColorOptions(definition.characteristics);
+  const first = colorOptions[0];
+  if (!first) return [];
+  return [
+    {
+      attribute_id: first.attributeId,
+      attribute_value_id: null,
+      value_text: null,
+      value_number: null,
+      value_boolean: null,
+      color_id: first.colorId,
+    },
+  ];
 }
 
 export function QuotationEdit() {
@@ -457,14 +453,22 @@ export function QuotationEdit() {
 
   const updateCharacteristic = (
     i: number,
-    c: number,
-    patch: Partial<QuotationLineCharacteristicDraft>,
+    patch: { attribute_id: number; color_id: number } | null,
   ) => {
     const line = lines[i];
     if (!line) return;
-    const characteristics = line.characteristics.map((x, k) =>
-      k === c ? { ...x, ...patch } : x,
-    );
+    const characteristics: QuotationLineCharacteristicDraft[] = patch
+      ? [
+          {
+            attribute_id: patch.attribute_id,
+            attribute_value_id: null,
+            value_text: null,
+            value_number: null,
+            value_boolean: null,
+            color_id: patch.color_id,
+          },
+        ]
+      : [];
     updateLine(i, { characteristics });
     if (line.product_id !== null)
       void recalculateLine(
@@ -507,7 +511,7 @@ export function QuotationEdit() {
         line_behavior_snapshot: p?.lineBehavior ?? null,
         product_definition_snapshot: clone(definition),
         dimensions: dimensionsFromDefinition(definition, []),
-        characteristics: characteristicsFromDefinition(definition, []),
+        characteristics: characteristicsFromDefinition(definition),
         configuration_snapshot: null,
         specific_data: { price_missing: false },
       };
@@ -1390,64 +1394,80 @@ export function QuotationEdit() {
                             </div>
                           )}
 
-                        {/* Artículos simples: Cajas / selectores directos para características */}
+                        {/* Artículos simples: un único selector de color; la característica/acabado
+                            se deriva de la elección (igual que en el editor de OTD) */}
                         {!isOtd &&
                           definition?.characteristics &&
-                          definition.characteristics.length > 0 && (
-                            <div className="line-inline-params-block">
-                              <div className="line-inline-params-header">
-                                <span>
-                                  Características (
-                                  {definition.characteristics.length})
-                                </span>
-                              </div>
-                              <div className="line-char-inputs-grid">
-                                {definition.characteristics.map((c, ci) => {
-                                  const current = line.characteristics?.[ci];
-                                  return (
-                                    <div
-                                      key={
-                                        c.assignment_id || c.attribute_id || ci
-                                      }
-                                      className="line-char-box"
-                                      title={
-                                        c.attribute_name || c.attribute_code
-                                      }
+                          definition.characteristics.length > 0 &&
+                          (() => {
+                            const colorOptions = buildCharacteristicColorOptions(
+                              definition.characteristics,
+                            );
+                            if (colorOptions.length === 0) return null;
+                            const current = line.characteristics?.[0];
+                            const selectedKey =
+                              current?.attribute_id != null && current?.color_id != null
+                                ? `${current.attribute_id}:${current.color_id}`
+                                : "";
+                            const selectedOption =
+                              colorOptions.find((o) => o.key === selectedKey) ?? null;
+                            const derivedCharacteristic = selectedOption
+                              ? definition.characteristics.find(
+                                  (c) => c.attribute_id === selectedOption.attributeId,
+                                )
+                              : null;
+                            return (
+                              <div className="line-inline-params-block">
+                                <div className="line-inline-params-header">
+                                  <span>Color ({colorOptions.length})</span>
+                                  {derivedCharacteristic && (
+                                    <span className="line-char-derived">
+                                      Acabado:{" "}
+                                      {derivedCharacteristic.attribute_name ||
+                                        derivedCharacteristic.attribute_code}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="line-char-inputs-grid">
+                                  <div
+                                    className="line-char-box"
+                                    style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "6px" }}
+                                  >
+                                    <select
+                                      className="char-select-val"
+                                      value={selectedKey}
+                                      onChange={(e) => {
+                                        const opt = colorOptions.find(
+                                          (o) => o.key === e.target.value,
+                                        );
+                                        updateCharacteristic(
+                                          i,
+                                          opt
+                                            ? { attribute_id: opt.attributeId, color_id: opt.colorId }
+                                            : null,
+                                        );
+                                      }}
                                     >
-                                      <span className="char-name">
-                                        {c.attribute_name || c.attribute_code}
-                                        {c.required && (
-                                          <span className="req-star">*</span>
-                                        )}
-                                      </span>
-                                      <select
-                                        className="char-select-val"
-                                        value={current?.color_id ?? ""}
-                                        onChange={(e) =>
-                                          updateCharacteristic(i, ci, {
-                                            attribute_id: c.attribute_id,
-                                            color_id: e.target.value
-                                              ? Number(e.target.value)
-                                              : null,
-                                          })
-                                        }
-                                      >
-                                        <option value="">Seleccionar…</option>
-                                        {c.colors.map((v) => (
-                                          <option
-                                            key={v.color_id}
-                                            value={v.color_id}
-                                          >
-                                            {v.name}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
-                                  );
-                                })}
+                                      <option value="">Seleccionar color…</option>
+                                      {colorOptions.map((o) => (
+                                        <option key={o.key} value={o.key}>
+                                          {o.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    {selectedOption && (
+                                      <ColorSwatch
+                                        hex={selectedOption.hex}
+                                        code={selectedOption.code}
+                                        name={selectedOption.name}
+                                        size="sm"
+                                      />
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                       </td>
                       <td className="col-quantity">
                         <input

@@ -770,6 +770,16 @@
   letter-spacing: 0.03em;
 }
 
+.line-char-derived {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--status-info-fg);
+  background: var(--primary-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
 .line-dim-inputs-grid {
   display: flex;
   flex-wrap: wrap;
@@ -891,7 +901,7 @@
   color: var(--text);
   outline: none;
   padding: 0 2px;
-  max-width: 160px;
+  max-width: 220px;
   cursor: pointer;
 }
 

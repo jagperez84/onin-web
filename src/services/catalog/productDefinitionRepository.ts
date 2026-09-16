@@ -20,7 +20,7 @@ export type ProductCharacteristicDefinition = {
   sort_order: number;
   scaled: boolean;
   pvp: number | null;
-  colors: { color_id: number; code: string; name: string }[];
+  colors: { color_id: number; code: string; name: string; hex: string | null }[];
 };
 
 export type ProductLineDefinition = {
@@ -29,6 +29,55 @@ export type ProductLineDefinition = {
   dimensions: ProductDimensionDefinition[];
   characteristics: ProductCharacteristicDefinition[];
 };
+
+/**
+ * Aplana las características que agrupan colores (acabados alternativos entre sí, cada uno
+ * con su propio precio) en una única lista de opciones de color, para que el usuario elija
+ * directamente el color y la característica/acabado se derive de esa elección — igual que en
+ * el editor de OTD. Las características sin colores propios (recargos fijos u obligatorios que
+ * no dependen de ningún color) no generan opción aquí: se aplican solas en el motor de precio.
+ * Cuando el mismo color existe en más de una característica, el nombre del acabado se añade a
+ * la etiqueta para poder distinguirlas.
+ */
+export type CharacteristicColorOption = {
+  key: string;
+  attributeId: number;
+  colorId: number;
+  code: string;
+  name: string;
+  hex: string | null;
+  label: string;
+};
+
+export function buildCharacteristicColorOptions(
+  characteristics: ProductCharacteristicDefinition[],
+): CharacteristicColorOption[] {
+  const colorBearing = characteristics.filter((c) => c.colors.length > 0);
+  const colorCount = new Map<number, number>();
+  for (const c of colorBearing) {
+    for (const cl of c.colors) {
+      colorCount.set(cl.color_id, (colorCount.get(cl.color_id) ?? 0) + 1);
+    }
+  }
+  const options: CharacteristicColorOption[] = [];
+  for (const c of colorBearing) {
+    for (const cl of c.colors) {
+      const ambiguous = (colorCount.get(cl.color_id) ?? 0) > 1;
+      options.push({
+        key: `${c.attribute_id}:${cl.color_id}`,
+        attributeId: c.attribute_id,
+        colorId: cl.color_id,
+        code: cl.code,
+        name: cl.name,
+        hex: cl.hex ?? null,
+        label: ambiguous
+          ? `${cl.code} · ${cl.name} (${c.attribute_name || c.attribute_code})`
+          : `${cl.code} · ${cl.name}`,
+      });
+    }
+  }
+  return options.sort((a, b) => a.label.localeCompare(b.label));
+}
 
 function client() {
   if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.');
@@ -72,7 +121,7 @@ export async function getProductLineDefinition(productId: number): Promise<Produ
   // en vez de una fusión propia que podía quedarse desactualizada frente a ellas.
   const effectiveAttrs = (await listProductCharacteristicConfiguration(productId)).filter(a => !a.excluded);
 
-  const colorsByAttribute = new Map<number, { color_id: number; code: string; name: string }[]>();
+  const colorsByAttribute = new Map<number, { color_id: number; code: string; name: string; hex: string | null }[]>();
   await Promise.all(effectiveAttrs.map(async a => {
     colorsByAttribute.set(a.attribute_id, await listEffectiveAttributeColors(a.attribute_id, a.source, a.assignment_id));
   }));

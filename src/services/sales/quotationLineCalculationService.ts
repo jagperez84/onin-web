@@ -18,17 +18,31 @@ function selectedAttributeValues(attributes:QuotationLineCharacteristicDraft[]):
 
 /**
  * Precio propio de las características Sistema→Familia→Artículo (product_attribute_assignment,
- * heredado o materializado — ver listProductCharacteristicConfiguration). Una obligatoria siempre
- * suma su precio; una opcional solo si el usuario ha elegido algo para ella en esta línea.
+ * heredado o materializado — ver listProductCharacteristicConfiguration). Dos familias de
+ * característica, con reglas distintas:
+ * - Sin colores propios (recargo fijo u obligatorio ajeno a cualquier elección de color): una
+ *   obligatoria siempre suma su precio; una opcional solo si el usuario ha elegido algo para ella.
+ * - Con colores propios (acabados alternativos entre sí — Color, Preciosos… — el usuario elige
+ *   uno solo, nunca varios a la vez, igual que en el editor de OTD): su precio solo suma cuando
+ *   es la que realmente se ha elegido para esta línea; las demás de su mismo artículo, aunque
+ *   sean "obligatorias" a nivel de catálogo, no se cuentan aparte (la obligatoriedad de elegir
+ *   un color ya se valida en la propia pantalla).
  */
 export function computeAttributeIncrements(attributes:MasterProductConfiguration['attributes'],selectedAttributes:QuotationLineCharacteristicDraft[],dimensionValues:Record<string,number|null>):CharacteristicIncrementItem[]{
  const dimValuesArr=Object.values(dimensionValues).filter((v):v is number=>v!=null&&Number.isFinite(v));
  const dim1=Math.trunc(dimValuesArr[0]??0),dim2=Math.trunc(dimValuesArr[1]??0);
  const increments:CharacteristicIncrementItem[]=[];
  for(const attrDef of attributes){
+  const isColorCharacteristic=attrDef.colors.length>0;
   const draft=selectedAttributes.find(a=>a.attribute_id===attrDef.attribute_id);
-  const hasSelection=!!draft&&(draft.color_id!=null||draft.attribute_value_id!=null||!!draft.value_text||draft.value_number!=null||draft.value_boolean!=null);
-  if(!attrDef.required&&!hasSelection)continue;
+  const hasSelection=isColorCharacteristic
+   ?!!draft&&draft.color_id!=null
+   :!!draft&&(draft.color_id!=null||draft.attribute_value_id!=null||!!draft.value_text||draft.value_number!=null||draft.value_boolean!=null);
+  if(isColorCharacteristic){
+   if(!hasSelection)continue;
+  }else if(!attrDef.required&&!hasSelection){
+   continue;
+  }
   if(attrDef.scaled){
    const candidates=attrDef.scaleRows.filter(r=>r.dimension_1>=dim1&&(r.dimension_2==null||r.dimension_2>=dim2)).sort((a,b)=>a.dimension_1-b.dimension_1||(a.dimension_2??0)-(b.dimension_2??0));
    const row=candidates[0];

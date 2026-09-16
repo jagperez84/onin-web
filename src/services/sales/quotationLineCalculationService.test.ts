@@ -101,4 +101,28 @@ describe('computeAttributeIncrements', () => {
     );
     expect(increments).toHaveLength(0);
   });
+
+  it('entre varias características que agrupan colores (acabados alternativos), aunque sean obligatorias, solo suma la que el usuario ha elegido de verdad', () => {
+    const color = { attribute_id: 1, colors: [{ color_id: 10, code: 'RAL9016', name: 'Blanco' }] };
+    const preciosos = { attribute_id: 2, colors: [{ color_id: 20, code: 'ORO', name: 'Amarillo oro' }] };
+    const increments = computeAttributeIncrements(
+      [
+        baseAttr({ ...color, required: true, pvp: 15 }),
+        baseAttr({ assignment_id: 2, ...preciosos, required: true, pvp: 40 }),
+      ],
+      [draft({ attribute_id: 1, color_id: 10 })],
+      {},
+    );
+    expect(increments).toHaveLength(1);
+    expect(increments[0].amount).toBe(15);
+  });
+
+  it('una característica que agrupa colores no suma nada mientras no se haya elegido ningún color para ella, aunque sea obligatoria', () => {
+    const increments = computeAttributeIncrements(
+      [baseAttr({ required: true, pvp: 15, colors: [{ color_id: 10, code: 'RAL9016', name: 'Blanco' }] })],
+      [],
+      {},
+    );
+    expect(increments).toHaveLength(0);
+  });
 });
