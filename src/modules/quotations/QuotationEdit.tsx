@@ -1097,10 +1097,11 @@ export function QuotationEdit() {
                 Gestión directa de artículos simples y artículos a medida OTD.
               </p>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "8px" }}>
               <button
                 type="button"
                 className="secondary-button"
+                style={{ padding: "6px 12px", fontSize: "12.5px", whiteSpace: "nowrap" }}
                 onClick={() =>
                   setLines((xs) => [
                     ...xs,
@@ -1108,7 +1109,7 @@ export function QuotationEdit() {
                   ])
                 }
               >
-                <Plus size={15} /> + Añadir Artículo Simple
+                <Plus size={14} /> Añadir artículo
               </button>
               <button
                 type="button"
@@ -1119,10 +1120,13 @@ export function QuotationEdit() {
                   borderColor: "#5c7a74",
                   color: "#ffffff",
                   fontWeight: 600,
+                  padding: "6px 12px",
+                  fontSize: "12.5px",
+                  whiteSpace: "nowrap",
                 }}
                 title="Añadir producto técnico a medida (OTD) con configurador interactivo"
               >
-                <Sparkles size={15} /> + Añadir OTD / A Medida
+                <Sparkles size={14} /> Añadir OTD
               </button>
             </div>
           </div>
