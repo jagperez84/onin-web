@@ -225,6 +225,38 @@ export async function listInstallations(filters: InstallationFilters): Promise<I
   return rows;
 }
 
+export type InstallationConflict = { installation: Installation; reason: 'crew' | 'installer' };
+
+/**
+ * Otras visitas ya programadas el mismo día para la cuadrilla o alguno de los instaladores
+ * indicados — para avisar de un posible doble-reservado antes de guardar. Es una comprobación
+ * por fecha (no por franja horaria: estimatedDuration es texto libre, no una duración
+ * estructurada con la que calcular solapamiento fino).
+ */
+export async function findInstallationConflicts(input: {
+  companyId: number;
+  scheduledDate: string | null;
+  crewId: number | null;
+  installerIds: number[];
+  excludeInstallationId?: number | null;
+}): Promise<InstallationConflict[]> {
+  if (!input.scheduledDate) return [];
+  const sameDay = await listInstallations({ companyId: input.companyId, status: 'ALL', from: input.scheduledDate, to: input.scheduledDate });
+  const conflicts: InstallationConflict[] = [];
+  for (const inst of sameDay) {
+    if (inst.id === input.excludeInstallationId) continue;
+    if (inst.status === 'CANCELLED') continue;
+    if (input.crewId != null && inst.crewId === input.crewId) {
+      conflicts.push({ installation: inst, reason: 'crew' });
+      continue;
+    }
+    if (input.installerIds.length && inst.installers.some(i => input.installerIds.includes(i.id))) {
+      conflicts.push({ installation: inst, reason: 'installer' });
+    }
+  }
+  return conflicts;
+}
+
 export async function upsertInstallation(input: {
   id?: number | null;
   companyId: number;

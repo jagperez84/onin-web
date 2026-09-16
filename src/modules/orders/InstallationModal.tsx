@@ -7,6 +7,7 @@ import {
   addInstallationSession,
   cancelInstallation,
   completeInstallation,
+  findInstallationConflicts,
   getInstallation,
   INSTALLATION_STATUS_LABEL as STATUS_LABEL,
   INSTALLATION_STATUS_TONE as STATUS_TONE,
@@ -20,6 +21,7 @@ import {
   type InstallationType,
   type Installer,
 } from '../../services/production/installationService';
+import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import { downloadInstallationSheetPdf } from '../../services/production/installationPdfService';
 import './component-consumption.css';
 import './lona-confection.css';
@@ -170,6 +172,29 @@ export function InstallationModal({ order, companyId, installation: initialInsta
     if (!installation && selectedLineIds.size === 0) {
       setSaveError('Selecciona al menos una línea a instalar en esta visita.');
       return;
+    }
+    if (scheduledDate) {
+      const conflicts = await findInstallationConflicts({
+        companyId,
+        scheduledDate,
+        crewId,
+        installerIds: selectedInstallers.map((i) => i.id),
+        excludeInstallationId: installation?.id ?? null,
+      }).catch(() => []);
+      if (conflicts.length) {
+        const crewName = crews.find((c) => c.id === crewId)?.name || 'La cuadrilla';
+        const detail = conflicts
+          .map((c) => `${c.installation.salesOrderCode || `#${c.installation.salesOrderId}`} (${c.reason === 'crew' ? crewName : 'instalador compartido'})`)
+          .join(', ');
+        const dateLabel = new Date(`${scheduledDate}T00:00:00`).toLocaleDateString('es-ES');
+        const ok = await confirmDialog({
+          title: 'Posible doble reserva',
+          message: `Ya hay otra visita programada el ${dateLabel} con la misma cuadrilla o algún instalador en común: ${detail}. ¿Programar igualmente?`,
+          danger: true,
+          confirmLabel: 'Programar igualmente',
+        });
+        if (!ok) return;
+      }
     }
     setSaving(true);
     setSaveError('');
