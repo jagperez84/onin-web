@@ -117,12 +117,17 @@ describe('checkStockAvailability', () => {
     expect(result.mainProduct.inStock).toBe(7);
   });
 
-  it('un characteristic_id null en la fila de stock actúa como comodín (cuenta para cualquier característica pedida)', async () => {
+  it('un characteristic_id null en la fila de stock NO cuenta para una característica concreta pedida (evita sobreestimar disponibilidad)', async () => {
+    // Antes el filtro era un OR laxo (characteristicIdX==null || match || b.characteristic_id==null)
+    // que trataba cualquier fila sin característica como comodín para cualquier característica
+    // pedida, sobreestimando el stock disponible de una característica concreta. Ahora la
+    // comparación es de igualdad estricta, igual que el IS NOT DISTINCT FROM de los RPC en SQL:
+    // una fila sin característica solo cuenta cuando lo pedido tampoco especifica ninguna.
     mockTables({
       warehouse_stock: { data: [{ warehouse_id: 1, product_id: 100, characteristic_id: null, quantity: 10, reserved_quantity: 0 }], error: null },
     });
     const result = await checkStockAvailability({ ...baseInput, characteristicId: 42 });
-    expect(result.mainProduct.inStock).toBe(10);
+    expect(result.mainProduct.inStock).toBe(0);
   });
 
   describe('stock dimensional (piezas cortadas a medida)', () => {

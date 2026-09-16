@@ -23,6 +23,9 @@ export type CatalogRow = {
   base_unit_id?:number|null; stock_enabled?:boolean; stock_minimum?:number|null; allow_negative_stock?:boolean;
   include_measurements_in_stock?:boolean; include_stock_by_color?:boolean;
   scaled?:boolean; scaled_by_characteristic?:boolean; smooth_cut?:boolean;
+  // Solo kind='units': símbolo de visualización y magnitud a la que pertenece
+  // (necesaria para validar compatibilidad de conversión entre unidades).
+  symbol?:string|null; magnitude_id?:number|null;
 };
 
 type CatalogInput = {
@@ -36,6 +39,7 @@ type CatalogInput = {
   base_unit_id?:number|null; stock_enabled?:boolean; stock_minimum?:number|null; allow_negative_stock?:boolean;
   include_measurements_in_stock?:boolean; include_stock_by_color?:boolean;
   scaled?:boolean; scaled_by_characteristic?:boolean; smooth_cut?:boolean;
+  symbol?:string|null; magnitude_id?:number|null;
 };
 
 function client(){
@@ -77,6 +81,10 @@ export async function upsertCatalog(kind:CatalogKind,companyId:number,input:Cata
    base.scaled=!!input.scaled;
    base.scaled_by_characteristic=input.scaled?!!input.scaled_by_characteristic:false;
    base.smooth_cut=!!input.smooth_cut;
+ }
+ if(kind==='units') {
+   base.symbol=input.symbol?.trim()||null;
+   base.magnitude_id=input.magnitude_id??null;
  }
  if(kind==='lineBehaviors') {
    base.description=input.description?.trim()||null;

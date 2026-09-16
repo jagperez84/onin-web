@@ -189,6 +189,27 @@ export function OtdBreakdownPanel({
             {calculation.requiredMissing.join(", ")}
           </div>
         )}
+
+        {calculation.errors.length > 0 && (
+          <div
+            style={{
+              marginTop: "10px",
+              padding: "6px 10px",
+              background: "#f4eae6",
+              border: "1px solid #fecaca",
+              borderRadius: "6px",
+              color: "#991b1b",
+              fontSize: "11.5px",
+            }}
+          >
+            <strong>Errores de cálculo:</strong>
+            <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+              {calculation.errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Sub-tabs for Components, Cuts, and Variables */}
