@@ -30,6 +30,7 @@ import {
   type MeasurementOpeningDraft,
   type OpeningPhotoDraft,
 } from "./MeasurementOpeningModal";
+import { compressImage } from "./MeasurementPhotos";
 import "./measurements.css";
 
 type FamilyOption = { id: number; name: string; measurement_type_id: number | null };
@@ -205,7 +206,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
     setSaving(true);
     setError("");
     try {
-      for (const file of files) await uploadMeasurementPhoto(measurementId, file, activeOpeningId);
+      for (const file of files) await uploadMeasurementPhoto(measurementId, await compressImage(file), activeOpeningId);
       await loadPhotosFor(activeOpeningId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo adjuntar la fotografía.");

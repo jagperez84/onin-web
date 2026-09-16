@@ -19,7 +19,7 @@ function formatPhotoDate(value: string) {
   }).format(new Date(value));
 }
 
-async function compressImage(file: File): Promise<File> {
+export async function compressImage(file: File): Promise<File> {
   if (!file.type.startsWith("image/"))
     throw new Error("El archivo seleccionado no es una imagen.");
   const bitmap = await createImageBitmap(file);
