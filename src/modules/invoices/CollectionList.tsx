@@ -20,6 +20,7 @@ function CollectModal({row,onClose,onDone}:{row:CollectionRow;onClose:()=>void;o
  async function submit(){
   const value=Number(amount);
   if(!value){setError('Indica el importe cobrado.');return;}
+  if(value<row.amount-0.01){setError(`Los cobros parciales no están soportados todavía: indica el importe completo del plazo (${money(row.amount)}) y regístralo cuando se reciba el resto.`);return;}
   setSaving(true);setError('');
   try{await markInstallmentCollected(row.id,{collected_amount:value,collected_date:collectedDate,collected_notes:notes||null});onDone();}
   catch(e){setError(e instanceof CoreRepositoryError?e.message:'No se pudo registrar el cobro.');}
@@ -47,7 +48,7 @@ function CollectModal({row,onClose,onDone}:{row:CollectionRow;onClose:()=>void;o
     </div>
     <div className="form-group">
      <label>Notas <span className="label-hint">(opcional)</span></label>
-     <textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Transferencia, efectivo, cobro parcial…"/>
+     <textarea rows={2} value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Transferencia, efectivo…"/>
     </div>
    </div>
    <div className="modal-actions-footer">
