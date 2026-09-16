@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Boxes, CheckCircle2, Factory, FileText, Loader2, Scissors, X } from 'lucide-react';
-import type { SalesOrder } from '../../services/sales/salesOrderService';
+import { Boxes, CheckCircle2, Factory, FileText, Loader2, Lock, Scissors, X } from 'lucide-react';
+import { isOrderBlocked, getOrderBlockReason, type SalesOrder } from '../../services/sales/salesOrderService';
 import { getWorkSheetsBySalesOrderLine, type WorkSheet } from '../../services/production/workSheetService';
 import { getLonaConfectionWorkSheetBySalesOrderLine, type LonaConfectionWorkSheet } from '../../services/production/lonaConfectionQueryService';
 import { getComponentConsumptionWorkSheetBySalesOrderLine, type ComponentConsumptionWorkSheet } from '../../services/production/componentConsumptionService';
@@ -298,7 +298,12 @@ export function OrderFabricationModal({ order, companyId, onClose, onDone }: Pro
           </button>
         </header>
 
-        {loading ? (
+        {isOrderBlocked(order) ? (
+          <div className="lona-error">
+            <Lock size={16} style={{ marginRight: 6, verticalAlign: 'text-bottom' }} />
+            Este pedido está bloqueado{getOrderBlockReason(order) ? `: ${getOrderBlockReason(order)}` : ''}. Desbloquéalo antes de continuar la fabricación.
+          </div>
+        ) : loading ? (
           <div className="lona-empty">Analizando el pedido…</div>
         ) : loadError ? (
           <div className="lona-error">{loadError}</div>

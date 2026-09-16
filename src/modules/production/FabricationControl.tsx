@@ -529,7 +529,8 @@ export function FabricationControl() {
                           type="button"
                           className="primary-button compact"
                           onClick={() => setFabricatingOrder(order)}
-                          title="Abrir Centro de Fabricación para cortar, confeccionar o descontar componentes"
+                          disabled={blocked}
+                          title={blocked ? 'Pedido bloqueado: desbloquéalo antes de fabricar' : 'Abrir Centro de Fabricación para cortar, confeccionar o descontar componentes'}
                         >
                           <Hammer size={13} /> Fabricar
                         </button>
