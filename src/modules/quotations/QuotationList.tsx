@@ -28,7 +28,8 @@ function customerName(row: QuotationSummary) {
   return (
     row.customer?.party?.trade_name ||
     row.customer?.party?.legal_name ||
-    "Sin cliente"
+    row.contact_name ||
+    "Cliente potencial"
   );
 }
 
