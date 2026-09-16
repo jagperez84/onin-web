@@ -664,8 +664,8 @@ export function QuotationCreate() {
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!customerId) {
-      setError("Selecciona un cliente.");
+    if (!customerId && !contactName.trim()) {
+      setError("Selecciona un cliente o indica el nombre de contacto para el cliente potencial.");
       return;
     }
     if (lines.some((l) => !l.description.trim())) {
@@ -804,13 +804,12 @@ export function QuotationCreate() {
                 />
               </label>
               <EntitySearchField
-                label="Cliente"
-                required
+                label="Cliente (opcional)"
                 matchExactCode
                 options={opts?.customers ?? []}
                 value={(opts?.customers ?? []).find((c: Option) => c.id === customerId) ?? null}
                 onChange={(opt) => requestCustomerChange(opt?.id ?? null)}
-                placeholder="Buscar cliente por nombre…"
+                placeholder="Buscar cliente, o deja vacío para un cliente potencial…"
               />
               <label>
                 Comercial
@@ -984,7 +983,20 @@ export function QuotationCreate() {
                       >
                         Cabecera / Personalizado
                       </span>
-                    ) : null}
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: "0.75rem",
+                          background: "var(--accent-soft)",
+                          color: "var(--status-warning-fg)",
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Cliente potencial
+                      </span>
+                    )}
                   </div>
                   {customerId && (
                     <button
@@ -1018,12 +1030,16 @@ export function QuotationCreate() {
                   }}
                 >
                   <label>
-                    Nombre de contacto
+                    {customerId ? "Nombre de contacto" : "Nombre de contacto *"}
                     <input
                       type="text"
                       value={contactName}
                       onChange={(e) => setContactName(e.target.value)}
-                      placeholder="Nombre del destinatario o empresa"
+                      placeholder={
+                        customerId
+                          ? "Nombre del destinatario o empresa"
+                          : "Nombre del cliente potencial"
+                      }
                     />
                   </label>
                   <label>

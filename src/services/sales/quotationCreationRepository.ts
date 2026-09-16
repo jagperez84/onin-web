@@ -126,7 +126,7 @@ export async function customerContactsData(customerId: number): Promise<Customer
 }
 
 export async function createQuotation(input: {
-  customer_id: number;
+  customer_id: number | null;
   commercial_id: number | null;
   warehouse_id: number | null;
   contact_id?: number | null;
