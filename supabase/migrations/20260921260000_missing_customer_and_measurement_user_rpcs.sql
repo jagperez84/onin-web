@@ -1,9 +1,9 @@
 -- delete_customer, restore_customer y list_measurement_users se usan desde el código
 -- (src/services/core/customerRepository.ts, src/services/core/userRepository.ts) pero no
--- existían en ninguna migración versionada del repo — solo podían estar funcionando si alguien
--- las creó a mano en el editor SQL de Supabase, sin dejar constancia aquí (contradice la
--- convención de CLAUDE.md de mantener las migraciones en el repo). Reconstrucción best-effort a
--- partir de cómo las llama el cliente y del resto de funciones equivalentes del proyecto.
+-- existían en ninguna migración versionada del repo — estaban aplicadas a mano en Supabase, sin
+-- dejar constancia aquí (contradice la convención de CLAUDE.md de mantener las migraciones en el
+-- repo). Las tres definiciones de abajo se han verificado contra las reales con
+-- pg_get_functiondef antes de incluirlas, no son una reconstrucción a ciegas.
 
 -- restore_customer: definición copiada tal cual de la que ya existía aplicada a mano en Supabase
 -- (confirmada con pg_get_functiondef). Restaura customer.deleted_at, y también party.active y
@@ -28,25 +28,27 @@ $function$;
 revoke all on function public.restore_customer(bigint) from public;
 grant execute on function public.restore_customer(bigint) to authenticated;
 
--- delete_customer: pendiente de confirmar contra la definición real (mismo proceso que
--- restore_customer/list_measurement_users) antes de fusionar esta migración.
+-- delete_customer: definición copiada tal cual de la que ya existía aplicada a mano en Supabase
+-- (confirmada con pg_get_functiondef) — simétrica a restore_customer: SECURITY DEFINER,
+-- deleted_by guarda auth.uid() directamente (uuid, no un id de user_account), y desactiva
+-- también party.active y party_role.active (solo el rol CUSTOMER).
 create or replace function public.delete_customer(p_customer_id bigint)
 returns void
 language plpgsql
-security invoker
-as $$
+security definer
+set search_path to 'public'
+as $function$
 declare
-  v_deleted_by bigint;
+  v_party_id bigint;
+  v_user uuid := auth.uid();
 begin
-  select id into v_deleted_by from public.user_account where auth_user_id = auth.uid();
-  update public.customer
-  set deleted_at = now(), deleted_by = v_deleted_by
-  where id = p_customer_id and deleted_at is null;
-  if not found then
-    raise exception 'El cliente no existe o ya está marcado para borrado';
-  end if;
+  select party_id into v_party_id from public.customer where id = p_customer_id and deleted_at is null;
+  if v_party_id is null then raise exception 'Cliente no encontrado'; end if;
+  update public.customer set deleted_at=now(), deleted_by=v_user, updated_at=now() where id=p_customer_id;
+  update public.party set active=false, updated_at=now() where id=v_party_id;
+  update public.party_role set active=false where party_id=v_party_id and role_code='CUSTOMER';
 end;
-$$;
+$function$;
 revoke all on function public.delete_customer(bigint) from public;
 grant execute on function public.delete_customer(bigint) to authenticated;
 
