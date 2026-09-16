@@ -45,7 +45,18 @@ export async function listMeasurementPhotos(measurementId:number):Promise<Measur
   const signedByPath=new Map((signed??[]).map(item=>[item.path,item.signedUrl]));
   return(rows??[]).map(row=>{const path=String(row.storage_path);return{path,signedUrl:signedByPath.get(path)??'',createdAt:row.created_at??new Date().toISOString(),size:null};}).filter(item=>!!item.signedUrl);
 }
-export async function uploadMeasurementPhoto(measurementId:number,file:File):Promise<string>{const c=client();const{data:user}=await c.auth.getUser();if(!user.user)throw new CoreRepositoryError('La sesión de usuario no está disponible.');const path=`measurements/${measurementId}/${crypto.randomUUID()}.jpg`;const{error}=await c.storage.from('measurement-photos').upload(path,file,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(error)throw new CoreRepositoryError(error.message);const{error:dbError}=await c.from('measurement_photo').insert({measurement_id:measurementId,storage_path:path,created_by:user.user.id});if(dbError){await c.storage.from('measurement-photos').remove([path]);throw new CoreRepositoryError(dbError.message);}return path;}
+export async function uploadMeasurementPhoto(measurementId:number,file:File,openingId:number|null=null):Promise<string>{const c=client();const{data:user}=await c.auth.getUser();if(!user.user)throw new CoreRepositoryError('La sesión de usuario no está disponible.');const path=`measurements/${measurementId}/${crypto.randomUUID()}.jpg`;const{error}=await c.storage.from('measurement-photos').upload(path,file,{contentType:'image/jpeg',cacheControl:'3600',upsert:false});if(error)throw new CoreRepositoryError(error.message);const{error:dbError}=await c.from('measurement_photo').insert({measurement_id:measurementId,storage_path:path,opening_id:openingId,created_by:user.user.id});if(dbError){await c.storage.from('measurement-photos').remove([path]);throw new CoreRepositoryError(dbError.message);}return path;}
+export async function listMeasurementOpeningPhotos(openingId:number):Promise<MeasurementPhoto[]>{
+  const c=client();
+  const{data:rows,error}=await c.from('measurement_photo').select('storage_path,created_at').eq('opening_id',openingId).order('created_at',{ascending:false});
+  if(error)throw new CoreRepositoryError(error.message);
+  const paths=(rows??[]).map(row=>String(row.storage_path)).filter(Boolean);
+  if(!paths.length)return[];
+  const{data:signed,error:signError}=await c.storage.from('measurement-photos').createSignedUrls(paths,3600);
+  if(signError)throw new CoreRepositoryError(signError.message);
+  const signedByPath=new Map((signed??[]).map(item=>[item.path,item.signedUrl]));
+  return(rows??[]).map(row=>{const path=String(row.storage_path);return{path,signedUrl:signedByPath.get(path)??'',createdAt:row.created_at??new Date().toISOString(),size:null};}).filter(item=>!!item.signedUrl);
+}
 export async function removeMeasurementPhoto(measurementId:number,path:string):Promise<void>{const c=client();const{error:storageError}=await c.storage.from('measurement-photos').remove([path]);if(storageError)throw new CoreRepositoryError(storageError.message);const{error}=await c.from('measurement_photo').delete().eq('measurement_id',measurementId).eq('storage_path',path);if(error)throw new CoreRepositoryError(error.message);}
 
 export async function getMeasurementLinkedQuotation(measurementId:number):Promise<LinkedQuotationSummary|null>{

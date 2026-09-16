@@ -37,6 +37,7 @@ import { AddressLookup } from "../customers/AddressLookup";
 import type { AddressForm } from "../customers/types";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { MeasurementPhotos } from "./MeasurementPhotos";
+import { MeasurementOpeningsSection } from "./MeasurementOpeningsSection";
 import "./measurements.css";
 
 const statusMeta: Record<MeasurementStatus, { label: string; next: string }> = {
@@ -788,10 +789,16 @@ export function MeasurementDetail({
             </label>
           </section>
           {showPhotos && (
-            <MeasurementPhotos
-              measurementId={measurement.id}
-              canEdit={canEditPhotos}
-            />
+            <>
+              <MeasurementOpeningsSection
+                measurementId={measurement.id}
+                canEdit={canEditPhotos}
+              />
+              <MeasurementPhotos
+                measurementId={measurement.id}
+                canEdit={canEditPhotos}
+              />
+            </>
           )}
           {editing && (
             <div className="measurement-save-bar">
