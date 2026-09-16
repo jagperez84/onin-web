@@ -467,12 +467,23 @@ export function InstallationsAgenda() {
 
   async function confirmIfCrewBusy(crewId: number | null, date: string, excludeInstallationId?: number): Promise<boolean> {
     if (crewId == null) return true;
-    const clash = allInstallations.find((i) => i.id !== excludeInstallationId && i.crewId === crewId && i.scheduledDate === date);
+    // Comprueba tanto la propia cuadrilla como cualquier instalador que comparta con otra
+    // cuadrilla ya ocupada ese día (un mismo instalador puede pertenecer a varias cuadrillas).
+    const memberIds = new Set(crewInstallers(crewId).map((i) => i.id));
+    const clash = allInstallations.find((i) => {
+      if (i.id === excludeInstallationId || i.scheduledDate !== date || i.status === 'CANCELLED') return false;
+      if (i.crewId === crewId) return true;
+      return i.installers.some((inst) => memberIds.has(inst.id));
+    });
     if (!clash) return true;
     const crew = crews.find((c) => c.id === crewId);
+    const sameCrew = clash.crewId === crewId;
     return confirmDialog({
-      title: 'Cuadrilla ya ocupada ese día',
-      message: `${crew?.name || 'Esta cuadrilla'} ya tiene el montaje ${clash.salesOrderCode || `#${clash.salesOrderId}`} el ${formatDayLong(date)}. ¿Programar igualmente?`,
+      title: sameCrew ? 'Cuadrilla ya ocupada ese día' : 'Instalador ya ocupado ese día',
+      message: sameCrew
+        ? `${crew?.name || 'Esta cuadrilla'} ya tiene el montaje ${clash.salesOrderCode || `#${clash.salesOrderId}`} el ${formatDayLong(date)}. ¿Programar igualmente?`
+        : `Un instalador de ${crew?.name || 'esta cuadrilla'} ya está asignado al montaje ${clash.salesOrderCode || `#${clash.salesOrderId}`} el ${formatDayLong(date)}. ¿Programar igualmente?`,
+      danger: true,
       confirmLabel: 'Programar igualmente',
     });
   }
