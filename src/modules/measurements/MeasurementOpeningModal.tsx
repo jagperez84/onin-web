@@ -1,13 +1,13 @@
-// Diseño de UI para la captura de un "hueco" durante una medición — ver
-// ROADMAP.md y supabase/migrations/20260921340000_measurement_openings.sql.
-// Todavía no está wireado a datos reales: no existe measurementOpeningRepository.ts
-// ni la extensión de measurement_photo/measurementRepository para filtrar por
-// opening_id. Este componente recibe todo por props a propósito, para no
-// fingir una integración que aún no toca construir.
+// UI de captura de un "hueco" durante una medición — ver ROADMAP.md y
+// supabase/migrations/20260921340000_measurement_openings.sql. Wireado a
+// datos reales vía measurementOpeningRepository.ts /
+// MeasurementOpeningsSection.tsx.
 //
 // Pensado para el móvil en campo, no para oficina: pocos pasos, sin
 // desglose de precio ni despiece — eso ya existe en el configurador de
-// presupuestos y no pertenece aquí.
+// presupuestos y no pertenece aquí. Un hueco puede albergar más de un
+// producto (p. ej. dos toldos independientes en el mismo balcón), de ahí
+// draft.products en vez de un único otdId/dimensions por hueco.
 
 import { useState } from "react";
 import {
@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
   ImagePlus,
+  Plus,
   Ruler,
   Trash2,
   X,
@@ -26,6 +27,8 @@ export type OpeningDimensionField = {
   code: string;
   name: string;
   unitLabel: string | null;
+  unitId: number | null;
+  sortOrder: number;
   value: number | null;
 };
 
@@ -52,13 +55,106 @@ export type OpeningPhotoDraft = {
   previewUrl: string;
 };
 
-export type MeasurementOpeningDraft = {
-  label: string;
+export type OpeningProductDraft = {
+  key: string;
   otdId: number | null;
   dimensions: OpeningDimensionField[];
+};
+
+export type MeasurementOpeningDraft = {
+  label: string;
+  products: OpeningProductDraft[];
   conditions: InstallationConditionField[];
   observations: string;
 };
+
+export function newOpeningProductDraft(): OpeningProductDraft {
+  return { key: crypto.randomUUID(), otdId: null, dimensions: [] };
+}
+
+type ProductRowProps = {
+  index: number;
+  product: OpeningProductDraft;
+  otds: OpeningOtdOption[];
+  canRemove: boolean;
+  onChange: (next: OpeningProductDraft) => void;
+  onRemove: () => void;
+};
+
+function ProductRow({ index, product, otds, canRemove, onChange, onRemove }: ProductRowProps) {
+  const selectedOtd = otds.find((o) => o.id === product.otdId) ?? null;
+  const [classificationFilter, setClassificationFilter] = useState<string>(
+    selectedOtd ? selectedOtd.templateType ?? "" : "__all__",
+  );
+  const classifications = Array.from(new Set(otds.map((o) => o.templateType ?? "")));
+  const visibleOtds = classificationFilter === "__all__" ? otds : otds.filter((o) => (o.templateType ?? "") === classificationFilter);
+
+  function setDimensionValue(code: string, value: number | null) {
+    onChange({
+      ...product,
+      dimensions: product.dimensions.map((d) => (d.code === code ? { ...d, value } : d)),
+    });
+  }
+
+  return (
+    <div className="opening-product-card">
+      <div className="opening-product-head">
+        <strong>Producto {index + 1}</strong>
+        {canRemove && (
+          <button type="button" className="icon-link" onClick={onRemove} aria-label="Quitar este producto" title="Quitar este producto">
+            <Trash2 size={15} />
+          </button>
+        )}
+      </div>
+
+      <div className="opening-product-select-row">
+        <div className="form-group">
+          <label>Clasificación <span className="label-hint">para acotar la lista</span></label>
+          <select value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
+            <option value="__all__">Todas</option>
+            {classifications.map((c) => (
+              <option key={c} value={c}>{classificationLabels[c] ?? c}</option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Producto sugerido (OTD) <span className="label-hint">puedes dejarlo sin decidir</span></label>
+          <select
+            value={product.otdId ?? ""}
+            onChange={(e) => onChange({ ...product, otdId: e.target.value ? Number(e.target.value) : null })}
+          >
+            <option value="">Sin decidir todavía</option>
+            {visibleOtds.map((o) => (
+              <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {product.dimensions.length > 0 && (
+        <div className="opening-dimension-grid">
+          {product.dimensions.map((dim) => (
+            <div className="form-group" key={dim.code}>
+              <label>
+                {dim.name}
+                {dim.unitLabel && <span className="label-hint">({dim.unitLabel})</span>}
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                min="0"
+                placeholder="0.0"
+                value={dim.value ?? ""}
+                onChange={(e) => setDimensionValue(dim.code, e.target.value === "" ? null : Number(e.target.value))}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type Props = {
   isOpen: boolean;
@@ -90,23 +186,8 @@ export function MeasurementOpeningModal({
   onSave,
 }: Props) {
   const [conditionsExpanded, setConditionsExpanded] = useState(false);
-  const selectedOtd = otds.find((o) => o.id === draft.otdId) ?? null;
-  const [classificationFilter, setClassificationFilter] = useState<string>(
-    selectedOtd ? selectedOtd.templateType ?? "" : "__all__",
-  );
-  const classifications = Array.from(new Set(otds.map((o) => o.templateType ?? "")));
-  const visibleOtds = classificationFilter === "__all__" ? otds : otds.filter((o) => (o.templateType ?? "") === classificationFilter);
 
   if (!isOpen) return null;
-
-  function setDimensionValue(code: string, value: number | null) {
-    onChange({
-      ...draft,
-      dimensions: draft.dimensions.map((d) =>
-        d.code === code ? { ...d, value } : d,
-      ),
-    });
-  }
 
   function setConditionValue(
     code: string,
@@ -118,6 +199,18 @@ export function MeasurementOpeningModal({
         c.code === code ? { ...c, value } : c,
       ),
     });
+  }
+
+  function updateProduct(index: number, next: OpeningProductDraft) {
+    onChange({ ...draft, products: draft.products.map((p, i) => (i === index ? next : p)) });
+  }
+
+  function removeProduct(index: number) {
+    onChange({ ...draft, products: draft.products.filter((_, i) => i !== index) });
+  }
+
+  function addProduct() {
+    onChange({ ...draft, products: [...draft.products, newOpeningProductDraft()] });
   }
 
   async function removePhoto(path: string) {
@@ -133,7 +226,7 @@ export function MeasurementOpeningModal({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-card lg">
+      <div className="modal-card xl">
         <div className="modal-header">
           <div className="modal-title-wrap">
             <span className="modal-icon-badge primary">
@@ -141,7 +234,7 @@ export function MeasurementOpeningModal({
             </span>
             <div>
               <h3>Hueco {openingNumber} de {totalOpenings}</h3>
-              <p>Medidas, producto y condiciones de instalación de este punto.</p>
+              <p>Productos, medidas y condiciones de instalación de este punto.</p>
             </div>
           </div>
           <button type="button" className="close-btn" onClick={onCancel} aria-label="Cerrar">
@@ -160,67 +253,25 @@ export function MeasurementOpeningModal({
             />
           </div>
 
-          <div className="opening-dimension-grid">
-            <div className="form-group">
-              <label>Clasificación <span className="label-hint">para acotar la lista</span></label>
-              <select
-                value={classificationFilter}
-                onChange={(e) => setClassificationFilter(e.target.value)}
-              >
-                <option value="__all__">Todas</option>
-                {classifications.map((c) => (
-                  <option key={c} value={c}>{classificationLabels[c] ?? c}</option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Producto sugerido (OTD) <span className="label-hint">puedes dejarlo sin decidir</span></label>
-              <select
-                value={draft.otdId ?? ""}
-                onChange={(e) =>
-                  onChange({
-                    ...draft,
-                    otdId: e.target.value ? Number(e.target.value) : null,
-                  })
-                }
-              >
-                <option value="">Sin decidir todavía</option>
-                {visibleOtds.map((o) => (
-                  <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
-                ))}
-              </select>
-            </div>
+          <h4 className="opening-section-title">
+            Productos de este hueco <span className="label-hint">puede haber más de uno — p. ej. dos toldos</span>
+          </h4>
+          <div className="opening-product-list">
+            {draft.products.map((product, idx) => (
+              <ProductRow
+                key={product.key}
+                index={idx}
+                product={product}
+                otds={otds}
+                canRemove={draft.products.length > 1}
+                onChange={(next) => updateProduct(idx, next)}
+                onRemove={() => removeProduct(idx)}
+              />
+            ))}
           </div>
-
-          {draft.dimensions.length > 0 && (
-            <>
-              <h4 className="opening-section-title">Medidas reales</h4>
-              <div className="opening-dimension-grid">
-                {draft.dimensions.map((dim) => (
-                  <div className="form-group" key={dim.code}>
-                    <label>
-                      {dim.name}
-                      {dim.unitLabel && <span className="label-hint">({dim.unitLabel})</span>}
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      step="0.1"
-                      min="0"
-                      placeholder="0.0"
-                      value={dim.value ?? ""}
-                      onChange={(e) =>
-                        setDimensionValue(
-                          dim.code,
-                          e.target.value === "" ? null : Number(e.target.value),
-                        )
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          <button type="button" className="secondary-button opening-add-product-btn" onClick={addProduct}>
+            <Plus size={16} /> Añadir otro producto
+          </button>
 
           {draft.conditions.length > 0 && (
             <div className="opening-conditions-block">

@@ -11,12 +11,11 @@ import {
   listOtdDimensionSelections,
   markMeasurementOpeningForDeletion,
   replaceMeasurementOpeningConditions,
-  replaceMeasurementOpeningDimensions,
+  replaceMeasurementOpeningProducts,
   updateMeasurementOpening,
   type InstallationConditionType,
   type MeasurementOpeningCondition,
   type MeasurementOpeningFull,
-  type OtdDimensionSelection,
 } from "../../services/measurements/measurementOpeningRepository";
 import {
   listMeasurementOpeningPhotos,
@@ -25,6 +24,7 @@ import {
 } from "../../services/measurements/measurementRepository";
 import {
   MeasurementOpeningModal,
+  newOpeningProductDraft,
   type MeasurementOpeningDraft,
   type OpeningOtdOption,
   type OpeningPhotoDraft,
@@ -55,7 +55,6 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   const [activeOpeningId, setActiveOpeningId] = useState<number | null>(null);
   const [isNewOpening, setIsNewOpening] = useState(false);
   const [draft, setDraft] = useState<MeasurementOpeningDraft | null>(null);
-  const [dimensionDefs, setDimensionDefs] = useState<OtdDimensionSelection[]>([]);
   const [photos, setPhotos] = useState<OpeningPhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
@@ -98,8 +97,20 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   function buildDraftFromOpening(o: MeasurementOpeningFull): MeasurementOpeningDraft {
     return {
       label: o.label ?? "",
-      otdId: o.otd_id,
-      dimensions: o.dimensions.map((d) => ({ code: d.code, name: d.name, unitLabel: unitLabel(d.unit_id), value: d.value })),
+      products: o.products.length
+        ? o.products.map((p) => ({
+            key: `p${p.id}`,
+            otdId: p.otd_id,
+            dimensions: p.dimensions.map((d) => ({
+              code: d.code,
+              name: d.name,
+              unitLabel: unitLabel(d.unit_id),
+              unitId: d.unit_id,
+              sortOrder: d.sort_order,
+              value: d.value,
+            })),
+          }))
+        : [newOpeningProductDraft()],
       conditions: conditionTypes.map((ct) => {
         const existing = o.conditions.find((c) => c.condition_type_id === ct.id);
         const option = existing?.option_id != null ? ct.options.find((opt) => opt.id === existing.option_id) : null;
@@ -142,8 +153,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
       const id = await createMeasurementOpening(measurementId, openings.length + 1);
       setActiveOpeningId(id);
       setIsNewOpening(true);
-      setDimensionDefs([]);
-      setDraft({ label: "", otdId: null, dimensions: [], conditions: emptyConditionsFrom(conditionTypes), observations: "" });
+      setDraft({ label: "", products: [newOpeningProductDraft()], conditions: emptyConditionsFrom(conditionTypes), observations: "" });
       setPhotos([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear el hueco.");
@@ -155,7 +165,6 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   async function editOpening(o: MeasurementOpeningFull) {
     setActiveOpeningId(o.id);
     setIsNewOpening(false);
-    setDimensionDefs(o.dimensions.map((d) => ({ code: d.code, name: d.name, unit_id: d.unit_id, sort_order: d.sort_order })));
     setDraft(buildDraftFromOpening(o));
     void loadPhotosFor(o.id);
   }
@@ -163,7 +172,6 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   function closeModal() {
     setActiveOpeningId(null);
     setDraft(null);
-    setDimensionDefs([]);
     setPhotos([]);
   }
 
@@ -179,24 +187,49 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   }
 
   async function handleDraftChange(next: MeasurementOpeningDraft) {
-    const otdChanged = next.otdId !== draft?.otdId;
+    const prev = draft;
     setDraft(next);
-    if (!otdChanged) return;
-    if (next.otdId == null) {
-      setDimensionDefs([]);
-      setDraft((current) => (current ? { ...current, dimensions: [] } : current));
-      return;
-    }
-    try {
-      const dimensions = await listOtdDimensionSelections(next.otdId);
-      setDimensionDefs(dimensions);
-      setDraft((current) =>
-        current
-          ? { ...current, dimensions: dimensions.map((d) => ({ code: d.code, name: d.name, unitLabel: unitLabel(d.unit_id), value: null })) }
-          : current,
-      );
-    } catch {
-      setDimensionDefs([]);
+    if (!prev) return;
+    const prevByKey = new Map(prev.products.map((p) => [p.key, p]));
+    for (const product of next.products) {
+      const prevProduct = prevByKey.get(product.key);
+      const otdChanged = !prevProduct || prevProduct.otdId !== product.otdId;
+      if (!otdChanged) continue;
+      if (product.otdId == null) {
+        setDraft((current) =>
+          current
+            ? { ...current, products: current.products.map((p) => (p.key === product.key ? { ...p, dimensions: [] } : p)) }
+            : current,
+        );
+        continue;
+      }
+      try {
+        const dimensions = await listOtdDimensionSelections(product.otdId);
+        setDraft((current) =>
+          current
+            ? {
+                ...current,
+                products: current.products.map((p) =>
+                  p.key === product.key
+                    ? {
+                        ...p,
+                        dimensions: dimensions.map((d) => ({
+                          code: d.code,
+                          name: d.name,
+                          unitLabel: unitLabel(d.unit_id),
+                          unitId: d.unit_id,
+                          sortOrder: d.sort_order,
+                          value: null,
+                        })),
+                      }
+                    : p,
+                ),
+              }
+            : current,
+        );
+      } catch {
+        // El usuario puede reintentar volviendo a elegir el OTD.
+      }
     }
   }
 
@@ -236,14 +269,15 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
     try {
       await updateMeasurementOpening(activeOpeningId, {
         label: draft.label.trim() || null,
-        otd_id: draft.otdId,
         observations: draft.observations.trim() || null,
       });
-      const dimensionRows = draft.dimensions.map((d) => {
-        const def = dimensionDefs.find((x) => x.code === d.code);
-        return { code: d.code, name: d.name, value: d.value, unit_id: def?.unit_id ?? null, sort_order: def?.sort_order ?? 0 };
-      });
-      await replaceMeasurementOpeningDimensions(activeOpeningId, dimensionRows);
+      const products = draft.products
+        .filter((p) => p.otdId != null || p.dimensions.some((d) => d.value != null))
+        .map((p) => ({
+          otd_id: p.otdId,
+          dimensions: p.dimensions.map((d, idx) => ({ code: d.code, name: d.name, value: d.value, unit_id: d.unitId, sort_order: idx + 1 })),
+        }));
+      await replaceMeasurementOpeningProducts(activeOpeningId, products);
       const conditionRows = draft.conditions
         .map((cnd): MeasurementOpeningCondition | null => {
           const ct = conditionTypes.find((x) => x.code === cnd.code);
@@ -286,13 +320,18 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   }
 
   function openingSummary(o: MeasurementOpeningFull) {
-    const otd = otds.find((x) => x.id === o.otd_id);
-    const otdLabel = otd ? `${otd.code} · ${otd.name}` : undefined;
-    const dims = o.dimensions
-      .filter((d) => d.value != null)
-      .map((d) => `${d.value} ${unitLabel(d.unit_id) ?? ""}`.trim())
-      .join(" × ");
-    return [otdLabel, dims].filter(Boolean).join(" · ") || "Sin medidas todavía";
+    if (o.products.length === 0) return "Sin productos todavía";
+    return o.products
+      .map((p) => {
+        const otd = otds.find((x) => x.id === p.otd_id);
+        const otdLabel = otd ? `${otd.code} · ${otd.name}` : "Sin decidir";
+        const dims = p.dimensions
+          .filter((d) => d.value != null)
+          .map((d) => `${d.value} ${unitLabel(d.unit_id) ?? ""}`.trim())
+          .join(" × ");
+        return [otdLabel, dims].filter(Boolean).join(" · ");
+      })
+      .join(" + ");
   }
 
   if (loading) return <div className="loading-block">Cargando huecos…</div>;
@@ -302,7 +341,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
       <div className="panel-head">
         <div>
           <h2>Huecos medidos</h2>
-          <p>Cada punto a cubrir de esta visita, con sus medidas reales y condiciones de instalación.</p>
+          <p>Cada punto a cubrir de esta visita, con sus productos, medidas reales y condiciones de instalación.</p>
         </div>
         <Ruler size={19} />
       </div>

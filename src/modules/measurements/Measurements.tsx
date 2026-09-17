@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, MapPin, Plus, Ruler, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import {
   listMeasurements,
   type MeasurementListRow,
   type MeasurementSortField,
   type MeasurementStatus,
 } from "../../services/measurements/measurementRepository";
+import { getUserDisplayNames } from "../../services/core/coreRepository";
 import { MessageLog } from "../../components/ui/MessageLog";
 import "./measurements.css";
 import "../orders/sales-order.css";
@@ -33,7 +35,10 @@ function Badge({ status }: { status: MeasurementStatus }) {
 
 export function Measurements() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [rows, setRows] = useState<MeasurementListRow[]>([]);
+  const [userNames, setUserNames] = useState<Record<string, string>>({});
+  const [onlyMine, setOnlyMine] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<
     | "active"
@@ -60,7 +65,18 @@ export function Measurements() {
       setLoading(true);
       setError("");
       try {
-        setRows(await listMeasurements(search, status, sortBy, ascending));
+        const list = await listMeasurements(
+          search,
+          status,
+          sortBy,
+          ascending,
+          onlyMine ? user?.id ?? null : null,
+        );
+        setRows(list);
+        const ids = list
+          .map((r) => r.assigned_user_id)
+          .filter((v): v is string => Boolean(v));
+        if (ids.length) setUserNames(await getUserDisplayNames(ids));
       } catch (e) {
         reportError(
           e instanceof Error
@@ -72,7 +88,7 @@ export function Measurements() {
       }
     }, 250);
     return () => clearTimeout(timer);
-  }, [search, status, sortBy, ascending]);
+  }, [search, status, sortBy, ascending, onlyMine, user?.id]);
   return (
     <div className="module-page measurements-page">
       <div className="page-head">
@@ -115,6 +131,14 @@ export function Measurements() {
           <option value="cancelled">Canceladas</option>
           <option value="all">Todas</option>
         </select>
+        <label className="measurement-toolbar-toggle">
+          <input
+            type="checkbox"
+            checked={onlyMine}
+            onChange={(e) => setOnlyMine(e.target.checked)}
+          />
+          Asignadas a mí
+        </label>
         <div className="sales-order-sort">
           <label htmlFor="measurement-sort-field">Ordenar por</label>
           <select
@@ -193,7 +217,9 @@ export function Measurements() {
                   </td>
                   <td>{formatDate(row.measurement_date)}</td>
                   <td>
-                    {row.assigned_user_id ? "Usuario asignado" : "Sin asignar"}
+                    {row.assigned_user_id
+                      ? userNames[row.assigned_user_id] ?? "Usuario asignado"
+                      : "Sin asignar"}
                   </td>
                   <td>
                     <Badge status={row.status} />

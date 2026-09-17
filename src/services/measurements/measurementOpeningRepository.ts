@@ -5,11 +5,14 @@ import { markForDeletion } from '../core/softDeleteRepository';
 export type ConditionDataType = 'BOOLEAN' | 'TEXT' | 'NUMBER' | 'SELECT';
 export type InstallationConditionOption = { id: number; condition_type_id: number; code: string; name: string; sort_order: number };
 export type InstallationConditionType = { id: number; company_id: number; code: string; name: string; data_type: ConditionDataType; unit_id: number | null; sort_order: number; options: InstallationConditionOption[] };
-export type MeasurementOpening = { id: number; measurement_id: number; sort_order: number; label: string | null; otd_id: number | null; observations: string | null; active: boolean; deleted_at: string | null };
+export type MeasurementOpening = { id: number; measurement_id: number; sort_order: number; label: string | null; observations: string | null; active: boolean; deleted_at: string | null };
 export type OtdDimensionSelection = { code: string; name: string; unit_id: number | null; sort_order: number };
-export type MeasurementOpeningDimension = { id?: number; opening_id?: number; code: string; name: string; value: number | null; unit_id: number | null; sort_order: number };
+export type MeasurementOpeningProduct = { id: number; opening_id: number; sort_order: number; otd_id: number | null };
+export type MeasurementOpeningDimension = { id?: number; opening_product_id?: number; code: string; name: string; value: number | null; unit_id: number | null; sort_order: number };
 export type MeasurementOpeningCondition = { id?: number; opening_id?: number; condition_type_id: number; option_id: number | null; value_text: string | null; value_number: number | null; value_boolean: boolean | null };
-export type MeasurementOpeningFull = MeasurementOpening & { dimensions: MeasurementOpeningDimension[]; conditions: MeasurementOpeningCondition[] };
+export type MeasurementOpeningProductFull = MeasurementOpeningProduct & { dimensions: MeasurementOpeningDimension[] };
+export type MeasurementOpeningFull = MeasurementOpening & { products: MeasurementOpeningProductFull[]; conditions: MeasurementOpeningCondition[] };
+export type MeasurementOpeningProductInput = { otd_id: number | null; dimensions: MeasurementOpeningDimension[] };
 
 function client() { if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase; }
 
@@ -33,7 +36,7 @@ export async function listMeasurementOpenings(measurementId: number): Promise<Me
   const c = client();
   const { data, error } = await c
     .from('measurement_opening')
-    .select('*, dimensions:measurement_opening_dimension(*), conditions:measurement_opening_condition(*)')
+    .select('*, products:measurement_opening_product(*, dimensions:measurement_opening_dimension(*)), conditions:measurement_opening_condition(*)')
     .eq('measurement_id', measurementId)
     .eq('active', true)
     .is('deleted_at', null)
@@ -41,7 +44,12 @@ export async function listMeasurementOpenings(measurementId: number): Promise<Me
   if (error) throw new CoreRepositoryError(error.message);
   return ((data ?? []) as any[]).map((row) => ({
     ...row,
-    dimensions: (row.dimensions ?? []).sort((a: MeasurementOpeningDimension, b: MeasurementOpeningDimension) => a.sort_order - b.sort_order),
+    products: (row.products ?? [])
+      .map((p: MeasurementOpeningProductFull) => ({
+        ...p,
+        dimensions: (p.dimensions ?? []).sort((a: MeasurementOpeningDimension, b: MeasurementOpeningDimension) => a.sort_order - b.sort_order),
+      }))
+      .sort((a: MeasurementOpeningProduct, b: MeasurementOpeningProduct) => a.sort_order - b.sort_order),
   })) as MeasurementOpeningFull[];
 }
 
@@ -64,7 +72,7 @@ export async function createMeasurementOpening(measurementId: number, sortOrder:
   return Number(data.id);
 }
 
-export async function updateMeasurementOpening(id: number, changes: Partial<Pick<MeasurementOpening, 'label' | 'otd_id' | 'observations'>>): Promise<void> {
+export async function updateMeasurementOpening(id: number, changes: Partial<Pick<MeasurementOpening, 'label' | 'observations'>>): Promise<void> {
   const c = client();
   const { error } = await c.from('measurement_opening').update({ ...changes, updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw new CoreRepositoryError(error.message);
@@ -74,14 +82,34 @@ export async function markMeasurementOpeningForDeletion(id: number): Promise<voi
   await markForDeletion('measurement_opening', id);
 }
 
-export async function replaceMeasurementOpeningDimensions(openingId: number, dimensions: MeasurementOpeningDimension[]): Promise<void> {
+// Reemplaza todos los productos (OTD + medidas) de un hueco de una vez —
+// mismo patrón que replaceMeasurementOpeningConditions: se borra y se vuelve
+// a insertar, más simple que llevar el cuadre fino de altas/bajas/cambios
+// para una lista corta que el usuario reescribe entera desde el modal.
+export async function replaceMeasurementOpeningProducts(openingId: number, products: MeasurementOpeningProductInput[]): Promise<void> {
   const c = client();
-  const { error: delError } = await c.from('measurement_opening_dimension').delete().eq('opening_id', openingId);
+  const { error: delError } = await c.from('measurement_opening_product').delete().eq('opening_id', openingId);
   if (delError) throw new CoreRepositoryError(delError.message);
-  if (!dimensions.length) return;
-  const rows = dimensions.map((d, idx) => ({ opening_id: openingId, code: d.code, name: d.name, value: d.value, unit_id: d.unit_id, sort_order: idx + 1 }));
-  const { error: insError } = await c.from('measurement_opening_dimension').insert(rows);
-  if (insError) throw new CoreRepositoryError(insError.message);
+  for (let i = 0; i < products.length; i++) {
+    const product = products[i];
+    const { data, error: insError } = await c
+      .from('measurement_opening_product')
+      .insert({ opening_id: openingId, sort_order: i + 1, otd_id: product.otd_id })
+      .select('id')
+      .single();
+    if (insError) throw new CoreRepositoryError(insError.message);
+    if (!product.dimensions.length) continue;
+    const rows = product.dimensions.map((d, idx) => ({
+      opening_product_id: Number(data.id),
+      code: d.code,
+      name: d.name,
+      value: d.value,
+      unit_id: d.unit_id,
+      sort_order: idx + 1,
+    }));
+    const { error: dimError } = await c.from('measurement_opening_dimension').insert(rows);
+    if (dimError) throw new CoreRepositoryError(dimError.message);
+  }
 }
 
 export async function replaceMeasurementOpeningConditions(openingId: number, conditions: MeasurementOpeningCondition[]): Promise<void> {

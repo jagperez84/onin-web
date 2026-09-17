@@ -17,6 +17,7 @@ import { listActiveOtds } from "../../services/otd/otdCalculationService";
 import {
   listMeasurementOpenings,
   type MeasurementOpeningFull,
+  type MeasurementOpeningProductFull,
 } from "../../services/measurements/measurementOpeningRepository";
 import {
   getProductLineDefinition,
@@ -205,9 +206,8 @@ export function QuotationEdit() {
     string,
     string
   > | null>(null);
-  const [otdModalSourceOpeningId, setOtdModalSourceOpeningId] = useState<
-    number | null
-  >(null);
+  const [otdModalSourceOpeningProductId, setOtdModalSourceOpeningProductId] =
+    useState<number | null>(null);
 
   const calculationRequests = useRef<Record<number, number>>({});
 
@@ -310,27 +310,38 @@ export function QuotationEdit() {
     };
   }, [data?.measurement_id]);
 
-  const usedOpeningIds = useMemo(
+  const usedOpeningProductIds = useMemo(
     () =>
       new Set(
         lines
-          .map((l) => l.specific_data?.measurement_opening_id)
+          .map((l) => l.specific_data?.measurement_opening_product_id)
           .filter((v): v is number => typeof v === "number"),
       ),
     [lines],
   );
-  const pendingOpenings = useMemo(
-    () => openings.filter((o) => !usedOpeningIds.has(o.id)),
-    [openings, usedOpeningIds],
+  const pendingOpeningProducts = useMemo(
+    () =>
+      openings.flatMap((o) => {
+        const pending = o.products.filter((p) => !usedOpeningProductIds.has(p.id));
+        return pending.map((product, idx) => ({
+          opening: o,
+          product,
+          label:
+            pending.length > 1
+              ? `${o.label || "Hueco"} · Producto ${idx + 1}`
+              : o.label || "Hueco medido",
+        }));
+      }),
+    [openings, usedOpeningProductIds],
   );
 
-  function addLineFromOpening(o: MeasurementOpeningFull) {
+  function addLineFromOpeningProduct(product: MeasurementOpeningProductFull) {
     const initialValues = Object.fromEntries(
-      o.dimensions.filter((d) => d.value != null).map((d) => [d.code, String(d.value)]),
+      product.dimensions.filter((d) => d.value != null).map((d) => [d.code, String(d.value)]),
     );
-    setOtdModalSourceOpeningId(o.id);
+    setOtdModalSourceOpeningProductId(product.id);
     setOtdModalInitialValues(initialValues);
-    openOtdModal(null, o.otd_id);
+    openOtdModal(null, product.otd_id);
   }
 
   // Handle incoming OTD snapshot edit or addition
@@ -640,10 +651,10 @@ export function QuotationEdit() {
   };
 
   // Punto de entrada del botón "Añadir OTD" en blanco: a diferencia de
-  // addLineFromOpening, no viene de ningún hueco medido.
+  // addLineFromOpeningProduct, no viene de ningún hueco medido.
   const openBlankOtdModal = () => {
     setOtdModalInitialValues(null);
-    setOtdModalSourceOpeningId(null);
+    setOtdModalSourceOpeningProductId(null);
     openOtdModal(null);
   };
 
@@ -682,8 +693,8 @@ export function QuotationEdit() {
       characteristics: [],
       specific_data: {
         ...(existingLine?.specific_data || {}),
-        ...(!isUpdating && otdModalSourceOpeningId != null
-          ? { measurement_opening_id: otdModalSourceOpeningId }
+        ...(!isUpdating && otdModalSourceOpeningProductId != null
+          ? { measurement_opening_product_id: otdModalSourceOpeningProductId }
           : {}),
         configuration_snapshot: snap,
         otd_snapshot: snap,
@@ -720,7 +731,7 @@ export function QuotationEdit() {
       );
     }
     setOtdModalInitialValues(null);
-    setOtdModalSourceOpeningId(null);
+    setOtdModalSourceOpeningProductId(null);
   };
 
   const handleCustomerChange = async (newCustomerId: number | null) => {
@@ -1217,7 +1228,7 @@ export function QuotationEdit() {
             </div>
           </div>
 
-          {pendingOpenings.length > 0 && (
+          {pendingOpeningProducts.length > 0 && (
             <div style={{ marginBottom: "14px" }}>
               <p style={{ fontSize: "12.5px", color: "var(--muted)", margin: "0 0 8px" }}>
                 Huecos medidos en la visita de campo, pendientes de convertir en línea:
@@ -1225,23 +1236,23 @@ export function QuotationEdit() {
               {/* Reutiliza .opening-card(-list|-main) de measurements.css: el CSS es un
                   bundle global (ver CLAUDE.md), no hace falta duplicar estas reglas aquí. */}
               <div className="opening-card-list">
-                {pendingOpenings.map((o) => {
-                  const otdLabel = o.otd_id != null ? openingOtdLabels.get(o.otd_id) : undefined;
-                  const dims = o.dimensions
+                {pendingOpeningProducts.map(({ product, label }) => {
+                  const otdLabel = product.otd_id != null ? openingOtdLabels.get(product.otd_id) : undefined;
+                  const dims = product.dimensions
                     .filter((d) => d.value != null)
                     .map((d) => String(d.value))
                     .join(" × ");
                   return (
-                    <div className="opening-card" key={o.id}>
+                    <div className="opening-card" key={product.id}>
                       <div className="opening-card-main">
-                        <strong>{o.label || "Hueco medido"}</strong>
+                        <strong>{label}</strong>
                         <span>{[otdLabel, dims].filter(Boolean).join(" · ") || "Sin medidas capturadas"}</span>
                       </div>
                       <button
                         type="button"
                         className="secondary-button"
-                        title={o.otd_id == null ? "Sin OTD sugerido: se abre el selector para elegirlo" : undefined}
-                        onClick={() => addLineFromOpening(o)}
+                        title={product.otd_id == null ? "Sin OTD sugerido: se abre el selector para elegirlo" : undefined}
+                        onClick={() => addLineFromOpeningProduct(product)}
                       >
                         <Plus size={14} /> Añadir línea
                       </button>
@@ -1806,7 +1817,7 @@ export function QuotationEdit() {
           onClose={() => {
             setOtdModalOpen(false);
             setOtdModalInitialValues(null);
-            setOtdModalSourceOpeningId(null);
+            setOtdModalSourceOpeningProductId(null);
           }}
           onConfirm={handleOtdModalConfirm}
           initialOtdId={otdModalInitialOtdId}
