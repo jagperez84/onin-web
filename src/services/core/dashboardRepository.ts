@@ -7,6 +7,9 @@ export type BusinessDashboardMetrics = {
   ordersDueSoon: number;
   installationsScheduled: number;
   lowStockCount: number;
+  measurementsPending: number;
+  collectionsOverdueCount: number;
+  collectionsOverdueAmount: number;
 };
 
 function client() { if (!supabase) throw new CoreRepositoryError('Supabase no está configurado.'); return supabase; }
@@ -31,13 +34,17 @@ export async function getBusinessDashboardMetrics(): Promise<BusinessDashboardMe
   dueSoonDate.setDate(dueSoonDate.getDate() + 7);
   const dueSoonIso = dueSoonDate.toISOString().slice(0, 10);
 
-  const [openOrders, dueSoon, installations, warehouses] = await Promise.all([
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  const [openOrders, dueSoon, installations, warehouses, measurementsPending, overdueCollections] = await Promise.all([
     c.from('sales_order').select('total_amount').eq('company_id', cid).in('status', OPEN_ORDER_STATUSES),
     c.from('sales_order').select('id', { count: 'exact', head: true }).eq('company_id', cid).in('status', OPEN_ORDER_STATUSES).not('requested_delivery_date', 'is', null).lte('requested_delivery_date', dueSoonIso),
     c.from('installation').select('id', { count: 'exact', head: true }).eq('company_id', cid).eq('status', 'SCHEDULED'),
     c.from('warehouse').select('id').eq('company_id', cid).is('deleted_at', null),
+    c.from('measurement').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', ['PLANNED', 'ASSIGNED', 'IN_PROGRESS']),
+    c.from('invoice_installment').select('amount').eq('status', 'PENDING').lt('due_date', todayIso),
   ]);
-  for (const result of [openOrders, dueSoon, installations, warehouses]) if (result.error) throw new CoreRepositoryError(result.error.message);
+  for (const result of [openOrders, dueSoon, installations, warehouses, measurementsPending, overdueCollections]) if (result.error) throw new CoreRepositoryError(result.error.message);
 
   const warehouseIds = (warehouses.data ?? []).map((w: { id: number }) => w.id);
   let lowStockCount = 0;
@@ -56,5 +63,8 @@ export async function getBusinessDashboardMetrics(): Promise<BusinessDashboardMe
     ordersDueSoon: Number(dueSoon.count ?? 0),
     installationsScheduled: Number(installations.count ?? 0),
     lowStockCount,
+    measurementsPending: Number(measurementsPending.count ?? 0),
+    collectionsOverdueCount: (overdueCollections.data ?? []).length,
+    collectionsOverdueAmount: (overdueCollections.data ?? []).reduce((sum, row: { amount: number }) => sum + Number(row.amount || 0), 0),
   };
 }

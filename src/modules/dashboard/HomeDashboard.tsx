@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { FileText, CircleCheck, ShoppingCart, Truck, Hammer, PackageX } from "lucide-react";
+import { FileText, CircleCheck, ShoppingCart, Truck, Hammer, PackageX, Bell, Ruler, Wallet } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import {
   getQuotationDashboardMetrics,
   type QuotationDashboardMetrics,
@@ -9,6 +10,10 @@ import {
   getBusinessDashboardMetrics,
   type BusinessDashboardMetrics,
 } from "../../services/core/dashboardRepository";
+import {
+  listAssignedMeasurements,
+  type AssignedMeasurementRow,
+} from "../../services/measurements/measurementRepository";
 import "../quotations/quotation.css";
 
 const money = (n: number) =>
@@ -19,17 +24,24 @@ const money = (n: number) =>
   });
 
 export function HomeDashboard() {
+  const { user } = useAuth();
   const [quotation, setQuotation] = useState<QuotationDashboardMetrics | null>(null);
   const [business, setBusiness] = useState<BusinessDashboardMetrics | null>(null);
+  const [assigned, setAssigned] = useState<AssignedMeasurementRow[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-    Promise.all([getQuotationDashboardMetrics(), getBusinessDashboardMetrics()])
-      .then(([q, b]) => {
+    Promise.all([
+      getQuotationDashboardMetrics(),
+      getBusinessDashboardMetrics(),
+      user?.id ? listAssignedMeasurements(user.id) : Promise.resolve([]),
+    ])
+      .then(([q, b, a]) => {
         if (active) {
           setQuotation(q);
           setBusiness(b);
+          setAssigned(a);
         }
       })
       .catch((e) => {
@@ -43,7 +55,7 @@ export function HomeDashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.id]);
 
   if (error)
     return <div className="inline-error quotation-dashboard-error">{error}</div>;
@@ -148,6 +160,54 @@ export function HomeDashboard() {
             <span>Stock bajo mínimo</span>
             <strong>{business?.lowStockCount ?? "—"}</strong>
             <small>Referencias por debajo de su cantidad mínima.</small>
+          </div>
+        </NavLink>
+        <NavLink
+          to="/gestion/mediciones"
+          className={`quotation-kpi quotation-kpi-link ${assigned.length > 0 ? "quotation-kpi-warning" : ""}`}
+          aria-label="Ver mis mediciones asignadas"
+        >
+          <div className="quotation-kpi-icon">
+            <Bell size={18} />
+          </div>
+          <div>
+            <span>Mediciones asignadas a mí</span>
+            <strong>{assigned.length}</strong>
+            <small>
+              {assigned[0]
+                ? `Próxima: ${assigned[0].code}${assigned[0].site_city ? ` · ${assigned[0].site_city}` : ""}`
+                : "Sin pendientes de revisión."}
+            </small>
+          </div>
+        </NavLink>
+        <NavLink
+          to="/gestion/mediciones"
+          className="quotation-kpi quotation-kpi-link"
+          aria-label="Ver mediciones pendientes"
+        >
+          <div className="quotation-kpi-icon">
+            <Ruler size={18} />
+          </div>
+          <div>
+            <span>Mediciones pendientes</span>
+            <strong>{business?.measurementsPending ?? "—"}</strong>
+            <small>Planificadas, asignadas o en curso.</small>
+          </div>
+        </NavLink>
+        <NavLink
+          to="/facturacion/cobros"
+          className={`quotation-kpi quotation-kpi-link ${(business?.collectionsOverdueCount ?? 0) > 0 ? "quotation-kpi-warning" : ""}`}
+          aria-label="Ver cobros vencidos"
+        >
+          <div className="quotation-kpi-icon">
+            <Wallet size={18} />
+          </div>
+          <div>
+            <span>Cobros vencidos</span>
+            <strong>{business?.collectionsOverdueCount ?? "—"}</strong>
+            <small>
+              {business ? `${money(business.collectionsOverdueAmount)} pendientes de cobro` : "—"}
+            </small>
           </div>
         </NavLink>
       </div>
