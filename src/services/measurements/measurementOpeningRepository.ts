@@ -5,7 +5,8 @@ import { markForDeletion } from '../core/softDeleteRepository';
 export type ConditionDataType = 'BOOLEAN' | 'TEXT' | 'NUMBER' | 'SELECT';
 export type InstallationConditionOption = { id: number; condition_type_id: number; code: string; name: string; sort_order: number };
 export type InstallationConditionType = { id: number; company_id: number; code: string; name: string; data_type: ConditionDataType; unit_id: number | null; sort_order: number; options: InstallationConditionOption[] };
-export type MeasurementOpening = { id: number; measurement_id: number; sort_order: number; label: string | null; product_family_id: number | null; measurement_type_id: number | null; observations: string | null; active: boolean; deleted_at: string | null };
+export type MeasurementOpening = { id: number; measurement_id: number; sort_order: number; label: string | null; otd_id: number | null; observations: string | null; active: boolean; deleted_at: string | null };
+export type OtdDimensionSelection = { code: string; name: string; unit_id: number | null; sort_order: number };
 export type MeasurementOpeningDimension = { id?: number; opening_id?: number; code: string; name: string; value: number | null; unit_id: number | null; sort_order: number };
 export type MeasurementOpeningCondition = { id?: number; opening_id?: number; condition_type_id: number; option_id: number | null; value_text: string | null; value_number: number | null; value_boolean: boolean | null };
 export type MeasurementOpeningFull = MeasurementOpening & { dimensions: MeasurementOpeningDimension[]; conditions: MeasurementOpeningCondition[] };
@@ -44,6 +45,18 @@ export async function listMeasurementOpenings(measurementId: number): Promise<Me
   })) as MeasurementOpeningFull[];
 }
 
+export async function listOtdDimensionSelections(otdId: number): Promise<OtdDimensionSelection[]> {
+  const c = client();
+  const { data, error } = await c
+    .from('otd_selection')
+    .select('code,name,unit_id,sort_order')
+    .eq('otd_id', otdId)
+    .eq('is_dimension', true)
+    .order('sort_order');
+  if (error) throw new CoreRepositoryError(error.message);
+  return (data ?? []) as OtdDimensionSelection[];
+}
+
 export async function createMeasurementOpening(measurementId: number, sortOrder: number): Promise<number> {
   const c = client();
   const { data, error } = await c.from('measurement_opening').insert({ measurement_id: measurementId, sort_order: sortOrder }).select('id').single();
@@ -51,7 +64,7 @@ export async function createMeasurementOpening(measurementId: number, sortOrder:
   return Number(data.id);
 }
 
-export async function updateMeasurementOpening(id: number, changes: Partial<Pick<MeasurementOpening, 'label' | 'product_family_id' | 'measurement_type_id' | 'observations'>>): Promise<void> {
+export async function updateMeasurementOpening(id: number, changes: Partial<Pick<MeasurementOpening, 'label' | 'otd_id' | 'observations'>>): Promise<void> {
   const c = client();
   const { error } = await c.from('measurement_opening').update({ ...changes, updated_at: new Date().toISOString() }).eq('id', id);
   if (error) throw new CoreRepositoryError(error.message);

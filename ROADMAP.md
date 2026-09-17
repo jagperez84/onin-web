@@ -21,19 +21,22 @@ Es la evolución del módulo **Mediciones**, no un módulo nuevo. Dos frentes de
 4. Subida de fotos diferida, desacoplada de "la foto está en el móvil" vs. "ya subió a Storage".
 5. Indicador visible de "N mediciones/fotos pendientes de sincronizar".
 
-### 2. Captura estructurada que alimenta el configurador
+### 2. Captura estructurada que alimenta el configurador — implementado
 
-**Problema confirmado:** hoy la medición solo guarda cliente, dirección, contacto y `observations` en texto libre — cero campos de medida real. `generateQuotationFromMeasurement` crea un presupuesto en blanco, solo copiando dirección/contacto; nada de lo medido en la visita llega al presupuesto. Quien prepara el presupuesto vuelve a preguntar o re-mide de cero.
+**Problema que resolvía:** la medición solo guardaba cliente, dirección, contacto y `observations` en texto libre — cero campos de medida real. `generateQuotationFromMeasurement` creaba un presupuesto en blanco; nada de lo medido en la visita llegaba al presupuesto.
 
-**Lo reutilizable:** el sistema de "Tipos de medida" (`measurement_type` + `measurement_type_dimension`, en Configuración) ya define por familia de producto qué dimensiones hacen falta (ancho/alto/caída…) con su unidad — es el mismo motor que alimenta el configurador OTD al crear un presupuesto. Hoy es invisible durante la visita; solo se usa después, en oficina.
+**Modelo real (corregido):** el "producto sugerido" de un hueco es un **OTD** (`otd_id`), no una familia de artículo — el configurador que de verdad se usa para toldos/pérgolas es `OtdLineConfiguratorModal`, con sus propias selecciones (`otd_selection`), no el configurador genérico de familia/tipo de medida. Cada OTD tiene una **Clasificación** (`otd.template_type`: Toldo / Pérgola / Cortina·Estor / Genérico — campo reintroducido en el editor de OTD, antes solo de lectura) que acota la lista al elegir en campo.
 
-**Alcance:**
-1. Captura de medidas reales en la visita usando ese mismo motor de tipos de medida — varios huecos por visita, no una medida única.
-2. Selección manual del producto/familia que encaja, in situ (brazo invisible, punto recto, pérgola…) — sin motor de recomendación automática en v1, sería sobreingeniería.
-3. Checklist estructurado de condiciones de instalación (tipo de superficie de fijación, material del soporte, obstáculos, altura, accesibilidad, orientación/viento) — no texto libre, para que sirva también a planificación e instalación después.
-4. `generateQuotationFromMeasurement` crea la línea OTD ya prellenada con medidas y producto capturados, en vez de un presupuesto vacío — elimina la doble captura y los errores de transcripción entre "lo medido" y "lo presupuestado".
-5. Cada foto enlazada al hueco/línea concreto medido, no solo a la visita general.
+**Construido:**
+1. `measurement_opening` + `measurement_opening_dimension`: varios huecos por visita, cada uno con sus medidas reales — tomadas de las selecciones del OTD elegido con `is_dimension = true` (`listOtdDimensionSelections`).
+2. Selección manual del OTD sugerido, in situ, filtrable por Clasificación — sin motor de recomendación automática, sería sobreingeniería.
+3. Catálogo configurable de condiciones de instalación (`installation_condition_type`/`option`) — nace vacío, sin pantalla de alta todavía (pendiente).
+4. Puente real a presupuesto: desde `QuotationEdit`, "Huecos pendientes" abre `OtdLineConfiguratorModal` con el OTD preseleccionado y las medidas ya como `initialValues` — no un presupuesto en blanco ni una línea simulada.
+5. Fotos enlazadas al hueco concreto (`measurement_photo.opening_id`), no solo a la visita general.
+6. Bypass de admin: un administrador puede editar huecos/fotos de cualquier medición En curso, esté o no asignada a él.
 
-**Tamaño real:** proyecto de varias semanas por frente, no un parche. Requiere diseño explícito antes de empezar (esquema local y de datos, contrato de la cola de sincronización, qué llamadas necesitan idempotencia, cómo se modela "hueco" dentro de una medición).
+**Pendiente dentro de este frente:**
+- Pantalla para dar de alta condiciones de instalación (hoy solo vía SQL).
+- Migración aplicada en Supabase (`20260921340000_measurement_openings.sql` + `20260921350000_measurement_opening_otd.sql`) y verificación en navegador real.
 
-**Estado:** priorizado, no iniciado. Retomar cuando el ciclo comercial/producción esté estable y validado con la empresa fundadora.
+**Estado:** implementado en código, sin aplicar/probar contra Supabase todavía.

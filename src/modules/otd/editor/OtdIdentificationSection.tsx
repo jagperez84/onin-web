@@ -21,7 +21,7 @@ export function OtdIdentificationSection({
           <p>Definición y datos maestros del artículo compuesto.</p>
         </div>
       </div>
-      <div className="otd-grid three">
+      <div className="otd-grid four">
         <label>
           Código *
           <input
@@ -37,6 +37,21 @@ export function OtdIdentificationSection({
             onChange={(e) => onChange({ ...otd, name: e.target.value })}
             placeholder="Ej. Toldo Stor a Medida"
           />
+        </label>
+        <label>
+          Clasificación
+          <span className="label-hint">Qué tipo de producto es — se usa, entre otras cosas, para sugerirlo al medir en campo.</span>
+          <select
+            value={otd.template_type ?? ""}
+            onChange={(e) =>
+              onChange({ ...otd, template_type: e.target.value })
+            }
+          >
+            <option value="TOLDO">Toldo</option>
+            <option value="PERGOLA">Pérgola</option>
+            <option value="CORTINA">Cortina / Estor</option>
+            <option value="">Genérico</option>
+          </select>
         </label>
         <label>
           Unidad de Trabajo del OTD

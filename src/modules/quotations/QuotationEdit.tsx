@@ -12,8 +12,8 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { Toast } from "../../components/ui/Toast";
 import { EntitySearchField } from "../../components/ui/EntitySearchField";
-import { CoreRepositoryError, getCurrentCompanyId } from "../../services/core/coreRepository";
-import { listCatalog } from "../../services/catalog/catalogRepository";
+import { CoreRepositoryError } from "../../services/core/coreRepository";
+import { listActiveOtds } from "../../services/otd/otdCalculationService";
 import {
   listMeasurementOpenings,
   type MeasurementOpeningFull,
@@ -69,7 +69,7 @@ type EditLine = Omit<QuotationEditLine, "comments"> & {
   comments: CommentItem[];
   configuration_snapshot?: QuotationLineSnapshot | any | null;
 };
-type Option = { id: number; label: string; code?: string; price?: number; familyId?: number | null };
+type Option = { id: number; label: string; code?: string; price?: number };
 
 function blankLine(): EditLine {
   return {
@@ -136,8 +136,7 @@ export function QuotationEdit() {
   const [opts, setOpts] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [openings, setOpenings] = useState<MeasurementOpeningFull[]>([]);
-  const [openingFamilyNames, setOpeningFamilyNames] = useState<Map<number, string>>(new Map());
-  const [lineFamilyFilter, setLineFamilyFilter] = useState<Record<number, number | null>>({});
+  const [openingOtdLabels, setOpeningOtdLabels] = useState<Map<number, string>>(new Map());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loadingDefinition, setLoadingDefinition] = useState<number | null>(
@@ -201,6 +200,13 @@ export function QuotationEdit() {
   >(null);
   const [otdModalInitialSnapshot, setOtdModalInitialSnapshot] = useState<
     any | null
+  >(null);
+  const [otdModalInitialValues, setOtdModalInitialValues] = useState<Record<
+    string,
+    string
+  > | null>(null);
+  const [otdModalSourceOpeningId, setOtdModalSourceOpeningId] = useState<
+    number | null
   >(null);
 
   const calculationRequests = useRef<Record<number, number>>({});
@@ -285,18 +291,17 @@ export function QuotationEdit() {
     let active = true;
     (async () => {
       try {
-        const cid = await getCurrentCompanyId();
-        const [ops, families] = await Promise.all([
+        const [ops, otds] = await Promise.all([
           listMeasurementOpenings(measurementId),
-          listCatalog("families", cid),
+          listActiveOtds(),
         ]);
         if (!active) return;
         setOpenings(ops);
-        setOpeningFamilyNames(new Map(families.map((f: any) => [f.id, f.name])));
+        setOpeningOtdLabels(new Map(otds.map((o) => [o.id, `${o.code} · ${o.name}`])));
       } catch {
         if (active) {
           setOpenings([]);
-          setOpeningFamilyNames(new Map());
+          setOpeningOtdLabels(new Map());
         }
       }
     })();
@@ -319,33 +324,13 @@ export function QuotationEdit() {
     [openings, usedOpeningIds],
   );
 
-  function getLineProducts(i: number): Option[] {
-    const all = (opts?.products ?? []) as Option[];
-    const familyId = lineFamilyFilter[i];
-    if (!familyId) return all;
-    const filtered = all.filter((p) => p.familyId === familyId);
-    return filtered.length ? filtered : all;
-  }
-
   function addLineFromOpening(o: MeasurementOpeningFull) {
-    const newIndex = lines.length;
-    const newLine: EditLine = {
-      ...blankLine(),
-      line_no: newIndex + 1,
-      description: o.label || "Hueco medido",
-      dimensions: o.dimensions.map((d, i) => ({
-        code: d.code,
-        name: d.name,
-        value: d.value,
-        unit_id: d.unit_id,
-        sort_order: i,
-      })),
-      specific_data: { measurement_opening_id: o.id },
-    };
-    setLines((xs) => [...xs, newLine]);
-    if (o.product_family_id != null) {
-      setLineFamilyFilter((prev) => ({ ...prev, [newIndex]: o.product_family_id }));
-    }
+    const initialValues = Object.fromEntries(
+      o.dimensions.filter((d) => d.value != null).map((d) => [d.code, String(d.value)]),
+    );
+    setOtdModalSourceOpeningId(o.id);
+    setOtdModalInitialValues(initialValues);
+    openOtdModal(null, o.otd_id);
   }
 
   // Handle incoming OTD snapshot edit or addition
@@ -654,6 +639,14 @@ export function QuotationEdit() {
     setOtdModalOpen(true);
   };
 
+  // Punto de entrada del botón "Añadir OTD" en blanco: a diferencia de
+  // addLineFromOpening, no viene de ningún hueco medido.
+  const openBlankOtdModal = () => {
+    setOtdModalInitialValues(null);
+    setOtdModalSourceOpeningId(null);
+    openOtdModal(null);
+  };
+
   const handleOtdModalConfirm = async (
     snap: OtdConfigurationSnapshot,
     lineData: {
@@ -689,6 +682,9 @@ export function QuotationEdit() {
       characteristics: [],
       specific_data: {
         ...(existingLine?.specific_data || {}),
+        ...(!isUpdating && otdModalSourceOpeningId != null
+          ? { measurement_opening_id: otdModalSourceOpeningId }
+          : {}),
         configuration_snapshot: snap,
         otd_snapshot: snap,
         is_otd: true,
@@ -723,6 +719,8 @@ export function QuotationEdit() {
         `Configuración OTD "${snap.otd_name}" añadida como línea de presupuesto.${discountSuffix}`,
       );
     }
+    setOtdModalInitialValues(null);
+    setOtdModalSourceOpeningId(null);
   };
 
   const handleCustomerChange = async (newCustomerId: number | null) => {
@@ -1202,7 +1200,7 @@ export function QuotationEdit() {
               <button
                 type="button"
                 className="primary-button"
-                onClick={() => openOtdModal(null)}
+                onClick={() => openBlankOtdModal()}
                 style={{
                   background: "#5c7a74",
                   borderColor: "#5c7a74",
@@ -1228,8 +1226,7 @@ export function QuotationEdit() {
                   bundle global (ver CLAUDE.md), no hace falta duplicar estas reglas aquí. */}
               <div className="opening-card-list">
                 {pendingOpenings.map((o) => {
-                  const familyName =
-                    o.product_family_id != null ? openingFamilyNames.get(o.product_family_id) : undefined;
+                  const otdLabel = o.otd_id != null ? openingOtdLabels.get(o.otd_id) : undefined;
                   const dims = o.dimensions
                     .filter((d) => d.value != null)
                     .map((d) => String(d.value))
@@ -1238,9 +1235,14 @@ export function QuotationEdit() {
                     <div className="opening-card" key={o.id}>
                       <div className="opening-card-main">
                         <strong>{o.label || "Hueco medido"}</strong>
-                        <span>{[familyName, dims].filter(Boolean).join(" · ") || "Sin medidas capturadas"}</span>
+                        <span>{[otdLabel, dims].filter(Boolean).join(" · ") || "Sin medidas capturadas"}</span>
                       </div>
-                      <button type="button" className="secondary-button" onClick={() => addLineFromOpening(o)}>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        title={o.otd_id == null ? "Sin OTD sugerido: se abre el selector para elegirlo" : undefined}
+                        onClick={() => addLineFromOpening(o)}
+                      >
                         <Plus size={14} /> Añadir línea
                       </button>
                     </div>
@@ -1375,7 +1377,7 @@ export function QuotationEdit() {
                               compact
                               matchExactCode
                               portal
-                              options={getLineProducts(i)}
+                              options={opts?.products ?? []}
                               value={(opts?.products ?? []).find((p: Option) => p.id === line.product_id) ?? null}
                               onChange={(opt) => {
                                 void selectProduct(i, opt?.id ?? null);
@@ -1801,10 +1803,15 @@ export function QuotationEdit() {
       {otdModalOpen && (
         <OtdLineConfiguratorModal
           isOpen={otdModalOpen}
-          onClose={() => setOtdModalOpen(false)}
+          onClose={() => {
+            setOtdModalOpen(false);
+            setOtdModalInitialValues(null);
+            setOtdModalSourceOpeningId(null);
+          }}
           onConfirm={handleOtdModalConfirm}
           initialOtdId={otdModalInitialOtdId}
           initialSnapshot={otdModalInitialSnapshot}
+          initialValues={otdModalInitialValues ?? undefined}
           initialQuantity={
             otdModalLineIndex !== null ? lines[otdModalLineIndex]?.quantity : 1
           }

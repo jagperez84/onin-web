@@ -38,7 +38,14 @@ export type InstallationConditionField = {
   value: string | number | boolean | null;
 };
 
-export type OpeningProductFamilyOption = { id: number; name: string };
+export type OpeningOtdOption = { id: number; code: string; name: string; templateType: string | null };
+
+const classificationLabels: Record<string, string> = {
+  TOLDO: "Toldo",
+  PERGOLA: "Pérgola",
+  CORTINA: "Cortina / Estor",
+  "": "Genérico",
+};
 
 export type OpeningPhotoDraft = {
   path: string;
@@ -47,7 +54,7 @@ export type OpeningPhotoDraft = {
 
 export type MeasurementOpeningDraft = {
   label: string;
-  productFamilyId: number | null;
+  otdId: number | null;
   dimensions: OpeningDimensionField[];
   conditions: InstallationConditionField[];
   observations: string;
@@ -58,7 +65,7 @@ type Props = {
   openingNumber: number;
   totalOpenings: number;
   draft: MeasurementOpeningDraft;
-  productFamilies: OpeningProductFamilyOption[];
+  otds: OpeningOtdOption[];
   photos: OpeningPhotoDraft[];
   saving: boolean;
   onChange: (draft: MeasurementOpeningDraft) => void;
@@ -73,7 +80,7 @@ export function MeasurementOpeningModal({
   openingNumber,
   totalOpenings,
   draft,
-  productFamilies,
+  otds,
   photos,
   saving,
   onChange,
@@ -83,6 +90,12 @@ export function MeasurementOpeningModal({
   onSave,
 }: Props) {
   const [conditionsExpanded, setConditionsExpanded] = useState(false);
+  const selectedOtd = otds.find((o) => o.id === draft.otdId) ?? null;
+  const [classificationFilter, setClassificationFilter] = useState<string>(
+    selectedOtd ? selectedOtd.templateType ?? "" : "__all__",
+  );
+  const classifications = Array.from(new Set(otds.map((o) => o.templateType ?? "")));
+  const visibleOtds = classificationFilter === "__all__" ? otds : otds.filter((o) => (o.templateType ?? "") === classificationFilter);
 
   if (!isOpen) return null;
 
@@ -147,22 +160,36 @@ export function MeasurementOpeningModal({
             />
           </div>
 
-          <div className="form-group">
-            <label>Producto sugerido <span className="label-hint">puedes dejarlo sin decidir</span></label>
-            <select
-              value={draft.productFamilyId ?? ""}
-              onChange={(e) =>
-                onChange({
-                  ...draft,
-                  productFamilyId: e.target.value ? Number(e.target.value) : null,
-                })
-              }
-            >
-              <option value="">Sin decidir todavía</option>
-              {productFamilies.map((f) => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
+          <div className="opening-dimension-grid">
+            <div className="form-group">
+              <label>Clasificación <span className="label-hint">para acotar la lista</span></label>
+              <select
+                value={classificationFilter}
+                onChange={(e) => setClassificationFilter(e.target.value)}
+              >
+                <option value="__all__">Todas</option>
+                {classifications.map((c) => (
+                  <option key={c} value={c}>{classificationLabels[c] ?? c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Producto sugerido (OTD) <span className="label-hint">puedes dejarlo sin decidir</span></label>
+              <select
+                value={draft.otdId ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    ...draft,
+                    otdId: e.target.value ? Number(e.target.value) : null,
+                  })
+                }
+              >
+                <option value="">Sin decidir todavía</option>
+                {visibleOtds.map((o) => (
+                  <option key={o.id} value={o.id}>{o.code} · {o.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {draft.dimensions.length > 0 && (

@@ -2,16 +2,13 @@ import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { Edit3, Plus, Ruler, Trash2 } from "lucide-react";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { getCurrentCompanyId } from "../../services/core/coreRepository";
-import { listCatalog } from "../../services/catalog/catalogRepository";
 import { listUnits } from "../../services/catalog/unitRepository";
-import {
-  resolveEffectiveDimensions,
-  type MeasurementDimension,
-} from "../../services/catalog/measurementTypeRepository";
+import { listActiveOtds, type OtdSummary } from "../../services/otd/otdCalculationService";
 import {
   createMeasurementOpening,
   listInstallationConditionTypes,
   listMeasurementOpenings,
+  listOtdDimensionSelections,
   markMeasurementOpeningForDeletion,
   replaceMeasurementOpeningConditions,
   replaceMeasurementOpeningDimensions,
@@ -19,6 +16,7 @@ import {
   type InstallationConditionType,
   type MeasurementOpeningCondition,
   type MeasurementOpeningFull,
+  type OtdDimensionSelection,
 } from "../../services/measurements/measurementOpeningRepository";
 import {
   listMeasurementOpeningPhotos,
@@ -28,12 +26,11 @@ import {
 import {
   MeasurementOpeningModal,
   type MeasurementOpeningDraft,
+  type OpeningOtdOption,
   type OpeningPhotoDraft,
 } from "./MeasurementOpeningModal";
 import { compressImage } from "./MeasurementPhotos";
 import "./measurements.css";
-
-type FamilyOption = { id: number; name: string; measurement_type_id: number | null };
 
 function emptyConditionsFrom(types: InstallationConditionType[]): MeasurementOpeningDraft["conditions"] {
   return types.map((ct) => ({
@@ -50,7 +47,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [companyId, setCompanyId] = useState<number | null>(null);
-  const [families, setFamilies] = useState<FamilyOption[]>([]);
+  const [otds, setOtds] = useState<OtdSummary[]>([]);
   const [conditionTypes, setConditionTypes] = useState<InstallationConditionType[]>([]);
   const [unitLabelById, setUnitLabelById] = useState<Map<number, string>>(new Map());
   const [openings, setOpenings] = useState<MeasurementOpeningFull[]>([]);
@@ -58,7 +55,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   const [activeOpeningId, setActiveOpeningId] = useState<number | null>(null);
   const [isNewOpening, setIsNewOpening] = useState(false);
   const [draft, setDraft] = useState<MeasurementOpeningDraft | null>(null);
-  const [dimensionDefs, setDimensionDefs] = useState<MeasurementDimension[]>([]);
+  const [dimensionDefs, setDimensionDefs] = useState<OtdDimensionSelection[]>([]);
   const [photos, setPhotos] = useState<OpeningPhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const cameraInput = useRef<HTMLInputElement>(null);
@@ -73,13 +70,13 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
     try {
       const cid = await getCurrentCompanyId();
       setCompanyId(cid);
-      const [familyRows, condTypes, units, ops] = await Promise.all([
-        listCatalog("families", cid),
+      const [otdRows, condTypes, units, ops] = await Promise.all([
+        listActiveOtds(),
         listInstallationConditionTypes(cid),
         listUnits(cid),
         listMeasurementOpenings(measurementId),
       ]);
-      setFamilies(familyRows.map((f) => ({ id: f.id, name: f.name, measurement_type_id: f.measurement_type_id ?? null })));
+      setOtds(otdRows);
       setConditionTypes(condTypes);
       setUnitLabelById(new Map(units.map((u) => [u.id, u.symbol || u.code])));
       setOpenings(ops);
@@ -94,10 +91,14 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
     return unitId != null ? unitLabelById.get(unitId) ?? null : null;
   }
 
+  function otdOptions(): OpeningOtdOption[] {
+    return otds.map((o) => ({ id: o.id, code: o.code, name: o.name, templateType: o.template_type }));
+  }
+
   function buildDraftFromOpening(o: MeasurementOpeningFull): MeasurementOpeningDraft {
     return {
       label: o.label ?? "",
-      productFamilyId: o.product_family_id,
+      otdId: o.otd_id,
       dimensions: o.dimensions.map((d) => ({ code: d.code, name: d.name, unitLabel: unitLabel(d.unit_id), value: d.value })),
       conditions: conditionTypes.map((ct) => {
         const existing = o.conditions.find((c) => c.condition_type_id === ct.id);
@@ -142,7 +143,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
       setActiveOpeningId(id);
       setIsNewOpening(true);
       setDimensionDefs([]);
-      setDraft({ label: "", productFamilyId: null, dimensions: [], conditions: emptyConditionsFrom(conditionTypes), observations: "" });
+      setDraft({ label: "", otdId: null, dimensions: [], conditions: emptyConditionsFrom(conditionTypes), observations: "" });
       setPhotos([]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo crear el hueco.");
@@ -151,10 +152,10 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
     }
   }
 
-  function editOpening(o: MeasurementOpeningFull) {
+  async function editOpening(o: MeasurementOpeningFull) {
     setActiveOpeningId(o.id);
     setIsNewOpening(false);
-    setDimensionDefs(o.dimensions.map((d) => ({ code: d.code, name: d.name, unit_id: d.unit_id, decimals: 2, dimension_number: d.sort_order })));
+    setDimensionDefs(o.dimensions.map((d) => ({ code: d.code, name: d.name, unit_id: d.unit_id, sort_order: d.sort_order })));
     setDraft(buildDraftFromOpening(o));
     void loadPhotosFor(o.id);
   }
@@ -178,16 +179,20 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   }
 
   async function handleDraftChange(next: MeasurementOpeningDraft) {
-    const familyChanged = next.productFamilyId !== draft?.productFamilyId;
+    const otdChanged = next.otdId !== draft?.otdId;
     setDraft(next);
-    if (!familyChanged) return;
-    const family = families.find((f) => f.id === next.productFamilyId) ?? null;
+    if (!otdChanged) return;
+    if (next.otdId == null) {
+      setDimensionDefs([]);
+      setDraft((current) => (current ? { ...current, dimensions: [] } : current));
+      return;
+    }
     try {
-      const { dimensions } = await resolveEffectiveDimensions(family?.measurement_type_id ?? null);
+      const dimensions = await listOtdDimensionSelections(next.otdId);
       setDimensionDefs(dimensions);
       setDraft((current) =>
         current
-          ? { ...current, dimensions: dimensions.map((d) => ({ code: d.code, name: d.name, unitLabel: unitLabel(d.unit_id ?? null), value: null })) }
+          ? { ...current, dimensions: dimensions.map((d) => ({ code: d.code, name: d.name, unitLabel: unitLabel(d.unit_id), value: null })) }
           : current,
       );
     } catch {
@@ -229,16 +234,14 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
     setSaving(true);
     setError("");
     try {
-      const family = families.find((f) => f.id === draft.productFamilyId) ?? null;
       await updateMeasurementOpening(activeOpeningId, {
         label: draft.label.trim() || null,
-        product_family_id: draft.productFamilyId,
-        measurement_type_id: family?.measurement_type_id ?? null,
+        otd_id: draft.otdId,
         observations: draft.observations.trim() || null,
       });
       const dimensionRows = draft.dimensions.map((d) => {
         const def = dimensionDefs.find((x) => x.code === d.code);
-        return { code: d.code, name: d.name, value: d.value, unit_id: def?.unit_id ?? null, sort_order: def?.dimension_number ?? 0 };
+        return { code: d.code, name: d.name, value: d.value, unit_id: def?.unit_id ?? null, sort_order: def?.sort_order ?? 0 };
       });
       await replaceMeasurementOpeningDimensions(activeOpeningId, dimensionRows);
       const conditionRows = draft.conditions
@@ -283,12 +286,13 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
   }
 
   function openingSummary(o: MeasurementOpeningFull) {
-    const family = families.find((f) => f.id === o.product_family_id)?.name;
+    const otd = otds.find((x) => x.id === o.otd_id);
+    const otdLabel = otd ? `${otd.code} · ${otd.name}` : undefined;
     const dims = o.dimensions
       .filter((d) => d.value != null)
       .map((d) => `${d.value} ${unitLabel(d.unit_id) ?? ""}`.trim())
       .join(" × ");
-    return [family, dims].filter(Boolean).join(" · ") || "Sin medidas todavía";
+    return [otdLabel, dims].filter(Boolean).join(" · ") || "Sin medidas todavía";
   }
 
   if (loading) return <div className="loading-block">Cargando huecos…</div>;
@@ -324,7 +328,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
               </div>
               {canEdit && (
                 <div className="opening-card-actions">
-                  <button type="button" title="Editar hueco" onClick={() => editOpening(o)}>
+                  <button type="button" title="Editar hueco" onClick={() => void editOpening(o)}>
                     <Edit3 size={15} />
                   </button>
                   <button type="button" title="Eliminar hueco" onClick={() => void deleteOpening(o)}>
@@ -345,7 +349,7 @@ export function MeasurementOpeningsSection({ measurementId, canEdit }: { measure
           openingNumber={isNewOpening ? openings.length + 1 : openings.findIndex((o) => o.id === activeOpeningId) + 1}
           totalOpenings={isNewOpening ? openings.length + 1 : openings.length}
           draft={draft}
-          productFamilies={families}
+          otds={otdOptions()}
           photos={photos}
           saving={saving}
           onChange={(next) => void handleDraftChange(next)}
