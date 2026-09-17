@@ -556,7 +556,7 @@ export function MeasurementDetail({
                 />
               </label>
               <label>
-                Teléfono
+                Teléfono 1
                 <input
                   disabled={hasCustomer || !editing}
                   value={current.customer_phone_snapshot || ""}
@@ -569,7 +569,7 @@ export function MeasurementDetail({
                 />
               </label>
               <label>
-                Móvil
+                Teléfono 2
                 <input
                   disabled={hasCustomer || !editing}
                   value={current.customer_mobile_snapshot || ""}

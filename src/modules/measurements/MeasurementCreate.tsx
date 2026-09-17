@@ -234,7 +234,7 @@ export function MeasurementCreate() {
               />
             </label>
             <label>
-              Teléfono
+              Teléfono 1
               <input
                 value={contact.phone}
                 readOnly={hasCustomer}
@@ -245,7 +245,7 @@ export function MeasurementCreate() {
               />
             </label>
             <label>
-              Móvil
+              Teléfono 2
               <input
                 value={contact.mobile}
                 readOnly={hasCustomer}
