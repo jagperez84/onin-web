@@ -59,7 +59,7 @@ begin
     -- en la versión anterior): crear un producto "sin decidir" para no
     -- perder las medidas ya capturadas.
     insert into public.measurement_opening_product (opening_id, sort_order, otd_id, created_at, updated_at)
-    select distinct d.opening_id, 1, null, now(), now()
+    select distinct d.opening_id, 1, null::bigint, now(), now()
     from public.measurement_opening_dimension d
     where d.opening_product_id is null
       and not exists (select 1 from public.measurement_opening_product p where p.opening_id = d.opening_id);
