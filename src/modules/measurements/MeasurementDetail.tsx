@@ -102,7 +102,7 @@ export function MeasurementDetail({
   const params = useParams<{ id: string }>();
   const measurementId = propId ?? Number(params.id);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [measurement, setMeasurement] = useState<Measurement | null>(null);
   const [activities, setActivities] = useState<MeasurementActivity[]>([]);
   const [customerSearch, setCustomerSearch] = useState("");
@@ -374,8 +374,9 @@ export function MeasurementDetail({
   const hasCustomer = !!current.customer_id;
   const canEditPhotos =
     measurement.status === "IN_PROGRESS" &&
-    measurement.assigned_mode === "USER" &&
-    measurement.assigned_user_id === user?.id;
+    (isAdmin ||
+      (measurement.assigned_mode === "USER" &&
+        measurement.assigned_user_id === user?.id));
   const showPhotos = !["PLANNED", "ASSIGNED"].includes(measurement.status);
   const actionPanel = (
     <section className="panel measurement-next measurement-actions-panel">
