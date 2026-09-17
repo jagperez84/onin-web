@@ -45,7 +45,11 @@ alter table public.measurement_opening drop column if exists product_family_id;
 alter table public.measurement_opening drop column if exists measurement_type_id;
 
 -- measurement_opening_dimension: pasar de colgar de opening_id a colgar de
--- opening_product_id (un producto puede tener sus propias medidas).
+-- opening_product_id (un producto puede tener sus propias medidas). Hay que
+-- retirar antes la política RLS anterior: depende de la columna opening_id
+-- y bloquearía su DROP.
+drop policy if exists measurement_opening_dimension_company_access on public.measurement_opening_dimension;
+
 do $$
 begin
   if exists (
@@ -94,7 +98,6 @@ create policy measurement_opening_product_company_access on public.measurement_o
   using (exists(select 1 from public.measurement_opening o join public.measurement m on m.id=o.measurement_id where o.id=opening_id and m.company_id=public.current_company_id()))
   with check (exists(select 1 from public.measurement_opening o join public.measurement m on m.id=o.measurement_id where o.id=opening_id and m.company_id=public.current_company_id()));
 
-drop policy if exists measurement_opening_dimension_company_access on public.measurement_opening_dimension;
 create policy measurement_opening_dimension_company_access on public.measurement_opening_dimension for all
   using (exists(select 1 from public.measurement_opening_product p join public.measurement_opening o on o.id=p.opening_id join public.measurement m on m.id=o.measurement_id where p.id=opening_product_id and m.company_id=public.current_company_id()))
   with check (exists(select 1 from public.measurement_opening_product p join public.measurement_opening o on o.id=p.opening_id join public.measurement m on m.id=o.measurement_id where p.id=opening_product_id and m.company_id=public.current_company_id()));
