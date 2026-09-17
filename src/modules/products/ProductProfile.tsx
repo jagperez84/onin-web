@@ -112,7 +112,7 @@ export function ProductProfile() {
         />
         {!isNew && (
           <>
-            <ProductInheritedMeasurement />
+            <ProductInheritedMeasurement refreshKey={refreshKey} />
             <div className="product-profile-section-wrap">
               <ProductInheritedMeasurementPanel
                 productId={Number(id)}

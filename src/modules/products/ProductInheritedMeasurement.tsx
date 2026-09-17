@@ -11,7 +11,7 @@ function findTarget() {
   );
 }
 
-export function ProductInheritedMeasurement() {
+export function ProductInheritedMeasurement({ refreshKey }: { refreshKey?: number }) {
   const { id } = useParams<{ id: string }>();
   const [value, setValue] = useState<MeasurementRef | null>(null);
   const [target, setTarget] = useState<HTMLElement | null>(null);
@@ -75,7 +75,7 @@ export function ProductInheritedMeasurement() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, refreshKey]);
 
   if (!id || id === "nuevo" || !target || !value) return null;
 
