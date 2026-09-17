@@ -6,6 +6,10 @@
 -- dependen de ella para resolver el personal de campo.
 -- Mismos tipos que list_measurement_users (20260921260000), que sí están
 -- confirmados contra el esquema real vía pg_get_functiondef.
+-- create or replace no vale para cambiar los tipos OUT de una función ya
+-- existente (42P13): hay que dropearla primero.
+drop function if exists public.list_field_staff();
+
 create or replace function public.list_field_staff()
 returns table (id bigint, username character varying, display_name character varying, role_code character varying, can_measure boolean)
 language plpgsql stable security definer set search_path = public as $$
