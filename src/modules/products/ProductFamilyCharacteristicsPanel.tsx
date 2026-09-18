@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { Edit3, Palette, Plus, Save, Trash2, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Edit3, Palette, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
 import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
@@ -211,7 +211,10 @@ export function ProductFamilyCharacteristicsPanel({
         if (!found) throw new Error("No se pudo personalizar la característica.");
         target = found;
       } catch (e) {
-        setModalError(
+        // El error ocurre antes de abrir la fila expandida (donde se pinta
+        // modalError), así que aquí toca reportarlo al aviso general de la
+        // página o el fallo queda invisible: el usuario ve que "no pasa nada".
+        onError(
           e instanceof Error ? e.message : "No se pudo personalizar la característica.",
         );
         setModalBusy(false);
@@ -472,8 +475,9 @@ export function ProductFamilyCharacteristicsPanel({
                     ) : (
                       <button
                         type="button"
-                        className="secondary-button compact"
+                        className="secondary-button compact price-colors-toggle"
                         disabled={readOnly || modalBusy}
+                        aria-expanded={priceModalFor?.attribute_id === row.attribute_id}
                         onClick={() =>
                           priceModalFor?.attribute_id === row.attribute_id
                             ? closePriceModal()
@@ -485,6 +489,11 @@ export function ProductFamilyCharacteristicsPanel({
                             : "Gestionar colores y precio de esta característica"
                         }
                       >
+                        {priceModalFor?.attribute_id === row.attribute_id ? (
+                          <ChevronDown size={13} />
+                        ) : (
+                          <ChevronRight size={13} />
+                        )}
                         <Palette size={13} />
                         {row.source === "family"
                           ? "Heredado · Personalizar"
