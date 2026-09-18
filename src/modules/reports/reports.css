@@ -1,0 +1,122 @@
+.report-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.report-tab {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.report-tab:hover {
+  color: var(--text);
+  border-color: var(--primary);
+}
+.report-tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.report-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.report-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.report-filters input[type="date"] {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.report-section-title {
+  margin: 28px 0 12px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.report-section-title:first-child {
+  margin-top: 0;
+}
+
+.report-bars {
+  padding: 6px 20px;
+}
+.report-bar-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 90px 76px;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--canvas-stripe);
+  font-size: 13px;
+}
+.report-bar-row:last-child {
+  border-bottom: none;
+}
+.report-bar-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.report-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--canvas-stripe);
+  overflow: hidden;
+}
+.report-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+}
+.report-bar-fill.info {
+  background: var(--status-info-fg);
+}
+.report-bar-fill.success {
+  background: var(--status-success-fg);
+}
+.report-bar-fill.warning {
+  background: var(--status-warning-fg);
+}
+.report-bar-fill.danger {
+  background: var(--status-danger-fg);
+}
+.report-bar-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  font-weight: 600;
+}
+.report-bar-count {
+  text-align: right;
+  color: var(--muted);
+}
+
+@media (max-width: 720px) {
+  .report-bar-row {
+    grid-template-columns: 90px 1fr 76px;
+  }
+  .report-bar-count {
+    display: none;
+  }
+}
