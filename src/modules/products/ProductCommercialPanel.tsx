@@ -27,6 +27,7 @@ import {
   loadMasterProductConfiguration,
   type MasterProductConfiguration,
 } from "../../services/catalog/productConfigurationService";
+import { listProductCharacteristicConfiguration } from "../../services/catalog/productAttributeRepository";
 import { supabase } from "../../lib/supabase";
 
 type Props = {
@@ -97,6 +98,7 @@ export function ProductCommercialPanel({
   const [scaleProduct, setScaleProduct] = useState<
     MasterProductConfiguration["product"] | null
   >(null);
+  const [hasCharacteristics, setHasCharacteristics] = useState(false);
   const [supplierEditing, setSupplierEditing] = useState<number | null>(null);
   const [scaleEditing, setScaleEditing] = useState<number | null>(null);
   const [productScaled, setProductScaled] = useState(scaled);
@@ -117,17 +119,20 @@ export function ProductCommercialPanel({
     try {
       const companies = await getActiveCompanies();
       const companyId = companies[0]?.id;
-      const [sr, cr, sc, suppliersData, configuration] = await Promise.all([
-        listProductSuppliers(productId),
-        listProductCharacteristics(productId, "active"),
-        listProductScales(productId),
-        companyId ? loadSuppliers(companyId) : Promise.resolve([]),
-        loadMasterProductConfiguration(productId, companyId),
-      ]);
+      const [sr, cr, sc, suppliersData, configuration, characteristicConfig] =
+        await Promise.all([
+          listProductSuppliers(productId),
+          listProductCharacteristics(productId, "active"),
+          listProductScales(productId),
+          companyId ? loadSuppliers(companyId) : Promise.resolve([]),
+          loadMasterProductConfiguration(productId, companyId),
+          listProductCharacteristicConfiguration(productId),
+        ]);
       setSupplierRows(sr);
       setCharacteristics(cr);
       setScaleRows(sc);
       setSuppliers(suppliersData);
+      setHasCharacteristics(characteristicConfig.some((c) => !c.excluded));
       setScaleProduct(configuration.product);
       setScaleDimensions(
         configuration.dimensions.map((d) => ({
@@ -507,6 +512,7 @@ export function ProductCommercialPanel({
                   <td>
                     {editable && !r.active && (
                       <button
+                        type="button"
                         className="icon-action"
                         onClick={() =>
                           restoreProductSupplier(r.id)
@@ -526,12 +532,14 @@ export function ProductCommercialPanel({
                     {editable && r.active && (
                       <>
                         <button
+                          type="button"
                           className="icon-action"
                           onClick={() => startSupplier(r)}
                         >
                           <Edit3 size={15} />
                         </button>
                         <button
+                          type="button"
                           className="icon-action danger"
                           onClick={() =>
                             markProductSupplierForDeletion(r.id)
@@ -556,27 +564,31 @@ export function ProductCommercialPanel({
           </tbody>
         </table>
       </div>
-      <div className="panel-head commercial-subhead">
-        <div>
-          <h3>Escalados</h3>
-          <p>
-            {productScaled
-              ? scaleDimensions.length
-                ? `El escalado se adapta automáticamente a las ${scaleDimensions.length} dimensiones del Tipo de medida.`
-                : "El Tipo de medida no tiene dimensiones configuradas."
-              : "Activa «Escalado» en el artículo para poder crear escalados."}
-          </p>
-        </div>
-        {editable && productScaled && scaleDimensions.length > 0 && (
-          <button
-            className="secondary-button compact"
-            type="button"
-            onClick={() => startScale()}
-          >
-            <Plus size={15} /> Añadir escalado
-          </button>
-        )}
-      </div>
+      {!hasCharacteristics && (
+      <CollapsibleSection
+        id="producto-precios-escalados"
+        title="Escalados"
+        description={
+          productScaled
+            ? scaleDimensions.length
+              ? `El escalado se adapta automáticamente a las ${scaleDimensions.length} dimensiones del Tipo de medida.`
+              : "El Tipo de medida no tiene dimensiones configuradas."
+            : "Activa «Escalado» en el artículo para poder crear escalados."
+        }
+        defaultOpen={false}
+        className="nested-section"
+        headerExtra={
+          editable && productScaled && scaleDimensions.length > 0 ? (
+            <button
+              className="secondary-button compact"
+              type="button"
+              onClick={() => startScale()}
+            >
+              <Plus size={15} /> Añadir escalado
+            </button>
+          ) : undefined
+        }
+      >
       {scaleEditing !== null && editable && productScaled && (
         <div className="characteristic-inline-editor">
           <div className="form-grid">
@@ -713,12 +725,14 @@ export function ProductCommercialPanel({
                     {editable && (
                       <>
                         <button
+                          type="button"
                           className="icon-action"
                           onClick={() => startScale(r)}
                         >
                           <Edit3 size={15} />
                         </button>
                         <button
+                          type="button"
                           className="icon-action danger"
                           onClick={() =>
                             markProductScaleForDeletion(r.id)
@@ -743,6 +757,8 @@ export function ProductCommercialPanel({
           </tbody>
         </table>
       </div>
+      </CollapsibleSection>
+      )}
     </CollapsibleSection>
   );
 }

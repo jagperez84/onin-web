@@ -186,6 +186,21 @@
   margin-top: 4px;
   font-size: 13px;
 }
+.product-commercial-panel .nested-section {
+  margin-top: 10px;
+  padding: 14px 16px;
+  background: var(--canvas-stripe);
+  box-shadow: none;
+}
+.product-commercial-panel .nested-section .collapsible-section-head {
+  margin-bottom: 0;
+}
+.product-commercial-panel .nested-section .collapsible-section-title h2 {
+  font-size: 16px;
+}
+.product-commercial-panel .nested-section .collapsible-section-body {
+  margin-top: 14px;
+}
 .product-commercial-panel .table-panel {
   margin-top: 0;
 }
