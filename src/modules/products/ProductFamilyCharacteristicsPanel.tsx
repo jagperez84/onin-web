@@ -28,6 +28,7 @@ import {
   type AttributeColor,
 } from "../../services/catalog/attributeColorRepository";
 import { getProductLineDefinition } from "../../services/catalog/productDefinitionRepository";
+import { countProductScales, deleteAllProductScales } from "../../services/catalog/productCommercialRepository";
 
 type Props = {
   productId: number;
@@ -110,6 +111,20 @@ export function ProductFamilyCharacteristicsPanel({
     if (readOnly || !selected) return;
     setSaving(true);
     try {
+      const scaleCount = await countProductScales(productId);
+      if (scaleCount > 0) {
+        const ok = await confirmDialog({
+          title: "¿Añadir característica?",
+          message: `Este artículo tiene ${scaleCount} escalado${scaleCount === 1 ? "" : "s"} por dimensión definido${scaleCount === 1 ? "" : "s"}. Se eliminará${scaleCount === 1 ? "" : "n"} al añadir la característica.`,
+          danger: true,
+          confirmLabel: "Añadir y eliminar escalados",
+        });
+        if (!ok) {
+          setSaving(false);
+          return;
+        }
+        await deleteAllProductScales(productId);
+      }
       await assignProductAttribute(productId, selected, required, rows.length);
       setSelected(null);
       setRequired(false);
