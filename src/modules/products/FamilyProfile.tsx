@@ -27,6 +27,10 @@ import {
   type MeasurementType,
 } from "../../services/catalog/measurementTypeRepository";
 import {
+  countProductsWithScalesInFamily,
+  deleteAllProductScalesInFamily,
+} from "../../services/catalog/productCommercialRepository";
+import {
   listFamilyAttributeAssignments,
   listAvailableFamilyAttributes,
   assignFamilyAttribute,
@@ -438,6 +442,20 @@ function FamilyEditor({
     setAssigning(true);
     setError("");
     try {
+      const affected = await countProductsWithScalesInFamily(familyId);
+      if (affected > 0) {
+        const ok = await confirmDialog({
+          title: "¿Añadir característica a la familia?",
+          message: `${affected} artículo${affected === 1 ? "" : "s"} de esta familia tiene${affected === 1 ? "" : "n"} escalados por dimensión definidos. Se eliminarán al añadir esta característica.`,
+          danger: true,
+          confirmLabel: "Añadir y eliminar escalados",
+        });
+        if (!ok) {
+          setAssigning(false);
+          return;
+        }
+        await deleteAllProductScalesInFamily(familyId);
+      }
       await assignFamilyAttribute(familyId, selectedAttrId, attrRequired, assignments.length);
       setSelectedAttrId(null);
       setAttrRequired(false);
