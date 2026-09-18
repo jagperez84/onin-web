@@ -27,6 +27,9 @@ export const AUDIT_TABLES = [
   'customer',
   'user_account',
   'user_module_permission',
+  'product',
+  'product_supplier',
+  'product_scale',
 ] as const;
 export type AuditTable = (typeof AUDIT_TABLES)[number];
 
@@ -41,6 +44,9 @@ export const AUDIT_TABLE_LABELS: Record<AuditTable, string> = {
   customer: 'Cliente',
   user_account: 'Usuario',
   user_module_permission: 'Permiso',
+  product: 'Artículo',
+  product_supplier: 'Precio de proveedor',
+  product_scale: 'Precio por escalado',
 };
 
 export type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE';
@@ -85,6 +91,7 @@ function inlineLabel(tableName: string, data: Record<string, any> | null): strin
     case 'invoice':
     case 'production_work_sheet':
     case 'delivery_note':
+    case 'product':
       return data.code ?? null;
     case 'user_account':
       return data.display_name || data.username || data.email || null;
@@ -164,6 +171,41 @@ async function resolveJoinedLabels(
           for (const row of (data ?? []) as any[]) {
             const u = one(row.user_account);
             labels.set(`user_module_permission:${row.id}`, `${u?.display_name || u?.username || 'Usuario'} · ${row.route_key}`);
+          }
+        }),
+    );
+  }
+
+  const supplierPriceIds = idsByTable.get('product_supplier');
+  if (supplierPriceIds?.length) {
+    tasks.push(
+      c
+        .from('product_supplier')
+        .select('id,product:product_id(code),supplier:supplier_party_id(legal_name,trade_name)')
+        .in('id', supplierPriceIds)
+        .then(({ data }) => {
+          for (const row of (data ?? []) as any[]) {
+            const product = one(row.product);
+            labels.set(
+              `product_supplier:${row.id}`,
+              product?.code ? `${product.code} · ${partyName(row.supplier)}` : `Precio proveedor #${row.id}`,
+            );
+          }
+        }),
+    );
+  }
+
+  const scalePriceIds = idsByTable.get('product_scale');
+  if (scalePriceIds?.length) {
+    tasks.push(
+      c
+        .from('product_scale')
+        .select('id,product:product_id(code)')
+        .in('id', scalePriceIds)
+        .then(({ data }) => {
+          for (const row of (data ?? []) as any[]) {
+            const product = one(row.product);
+            labels.set(`product_scale:${row.id}`, product?.code ? `Escalado ${product.code}` : `Escalado #${row.id}`);
           }
         }),
     );
