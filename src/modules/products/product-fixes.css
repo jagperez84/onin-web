@@ -28,6 +28,21 @@
   text-decoration: underline;
 }
 
+.product-page .field-view-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  width: fit-content;
+}
+
+.product-page .field-view-link:hover {
+  text-decoration: underline;
+}
+
 .product-profile-save-actions {
   position: sticky;
   top: 12px;

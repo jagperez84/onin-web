@@ -1,8 +1,9 @@
 import { FormEvent, ReactNode, useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   Edit3,
+  ExternalLink,
   Package,
   Plus,
   RotateCcw,
@@ -672,6 +673,15 @@ function ProductEditor({
                   </option>
                 ))}
               </select>
+              {readOnly && form.family_id != null && (
+                <Link
+                  to={`/ventas/articulos/familias/${form.family_id}`}
+                  className="field-view-link"
+                  title="Ir a la ficha de la familia"
+                >
+                  Ver familia <ExternalLink size={12} />
+                </Link>
+              )}
             </label>
             <label>
               Tipo de producto
