@@ -709,6 +709,7 @@ function ProductEditor({
               Proveedor habitual
               <EntitySearchField
                 variant="modal"
+                disabled={readOnly}
                 title="Buscar proveedor"
                 placeholder="Seleccionar proveedor…"
                 options={(refs?.suppliers ?? []).map((s) => ({ id: s.id, label: s.name }))}
