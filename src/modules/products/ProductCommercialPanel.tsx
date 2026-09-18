@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Edit3, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { EntitySearchField } from "../../components/ui/EntitySearchField";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import {
   listProductCharacteristics,
@@ -296,23 +297,13 @@ export function ProductCommercialPanel({
       .filter(Boolean)
       .join(" · ") || "General";
   return (
-    <section
+    <CollapsibleSection
       id="producto-precios"
-      className="panel product-commercial-panel product-profile-anchor"
+      title="Proveedores y precios"
+      description="Proveedores, precios de compra y escalados comerciales del artículo."
+      className="product-commercial-panel"
     >
-      <div className="panel-head">
-        <div>
-          <h2>Proveedores y precios</h2>
-          <p>
-            Proveedores, precios de compra y escalados comerciales del artículo.
-          </p>
-        </div>
-      </div>
       <div className="commercial-summary">
-        <div>
-          <span>Precio venta</span>
-          <strong>Se gestiona en Datos comerciales</strong>
-        </div>
         <div>
           <span>Proveedores</span>
           <strong>{supplierRows.length}</strong>
@@ -752,6 +743,6 @@ export function ProductCommercialPanel({
           </tbody>
         </table>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }

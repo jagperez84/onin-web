@@ -10,13 +10,26 @@ import {
   CheckCircle2,
   AlertCircle,
   Hash,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
 import {
   loadMasterProductConfiguration,
   type MasterProductConfiguration,
 } from "../../services/catalog/productConfigurationService";
+import type { ProductLineBehavior } from "../../services/catalog/productRepository";
 import "./product.css";
 import "./product-fixes.css";
+
+const LINE_BEHAVIOR_FLAGS: Array<{ key: keyof ProductLineBehavior; label: string }> = [
+  { key: "quantity_enabled", label: "Cantidad" },
+  { key: "price_enabled", label: "Precio" },
+  { key: "discount_enabled", label: "Descuento" },
+  { key: "dimensions_enabled", label: "Dimensiones" },
+  { key: "configuration_enabled", label: "Configuración" },
+  { key: "characteristics_enabled", label: "Características" },
+];
 
 type Props = {
   productId: number;
@@ -27,6 +40,7 @@ type Props = {
 export function ProductInheritedMeasurementPanel({ productId, refreshKey, onError }: Props) {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<MasterProductConfiguration | null>(null);
+  const [behaviorExpanded, setBehaviorExpanded] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!productId || isNaN(productId)) return;
@@ -61,6 +75,7 @@ export function ProductInheritedMeasurementPanel({ productId, refreshKey, onErro
 
   const isDirect = Boolean(product?.measurement_type_id);
   const isInheritedFromFamily = Boolean(!isDirect && family?.measurement_type_id);
+  const lineBehavior = config?.lineBehavior;
 
   const unitLabel = (unitId?: number | null) => {
     if (!unitId || !unitsMap) return "Sin unidad";
@@ -69,71 +84,64 @@ export function ProductInheritedMeasurementPanel({ productId, refreshKey, onErro
     return u.name && u.name !== u.code ? `${u.code} · ${u.name}` : u.code;
   };
 
+  const headerExtra = (
+    <>
+      {measurementType && (
+        <>
+          {isDirect ? (
+            <span className="tag-badge info" title="Asignación directa">
+              <Sliders size={12} style={{ marginRight: "4px" }} />
+              Asignado al artículo
+            </span>
+          ) : isInheritedFromFamily ? (
+            <span
+              className="tag-badge info"
+              title={`Heredado de la familia ${family?.code} · ${family?.name}`}
+            >
+              <Layers size={12} style={{ marginRight: "4px" }} />
+              Heredado de Familia: {family?.code}
+            </span>
+          ) : null}
+
+          <span
+            className={`status ${measurementType.active ? "active" : "inactive"}`}
+            style={{ fontSize: "11px", padding: "3px 8px" }}
+          >
+            {measurementType.active ? "Tipo Activo" : "Tipo Inactivo"}
+          </span>
+        </>
+      )}
+
+      <Link
+        to="/configuracion/tipos-medida"
+        className="secondary-button compact"
+        title="Ir a gestión de Tipos de Medida"
+        style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
+      >
+        <Sliders size={13} /> Tipos de medida <ExternalLink size={12} />
+      </Link>
+
+      <button
+        type="button"
+        className="secondary-button compact"
+        onClick={() => void loadData()}
+        title="Recargar configuración de medidas"
+        disabled={loading}
+        style={{ padding: "6px 8px" }}
+      >
+        <RotateCcw size={13} className={loading ? "spin" : ""} />
+      </button>
+    </>
+  );
+
   return (
-    <section
+    <CollapsibleSection
       id="producto-dimensiones"
-      className="panel product-profile-anchor product-inherited-measurement-panel"
+      title="Dimensiones heredadas"
+      description="Estructura dimensional y variables heredadas desde Tipo de Medida asociadas al artículo o su familia."
+      headerExtra={headerExtra}
+      className="product-inherited-measurement-panel"
     >
-      <div className="panel-head">
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Ruler size={18} className="text-primary" />
-            <h2 style={{ margin: 0 }}>Dimensiones heredadas</h2>
-          </div>
-          <p>
-            Estructura dimensional y variables heredadas desde Tipo de Medida
-            asociadas al artículo o su familia.
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          {measurementType && (
-            <>
-              {isDirect ? (
-                <span className="tag-badge primary" title="Asignación directa">
-                  <Sliders size={12} style={{ marginRight: "4px" }} />
-                  Asignado al artículo
-                </span>
-              ) : isInheritedFromFamily ? (
-                <span
-                  className="tag-badge info"
-                  title={`Heredado de la familia ${family?.code} · ${family?.name}`}
-                >
-                  <Layers size={12} style={{ marginRight: "4px" }} />
-                  Heredado de Familia: {family?.code}
-                </span>
-              ) : null}
-
-              <span
-                className={`status ${measurementType.active ? "active" : "inactive"}`}
-                style={{ fontSize: "11px", padding: "3px 8px" }}
-              >
-                {measurementType.active ? "Tipo Activo" : "Tipo Inactivo"}
-              </span>
-            </>
-          )}
-
-          <Link
-            to="/configuracion/tipos-medida"
-            className="secondary-button compact"
-            title="Ir a gestión de Tipos de Medida"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "12px" }}
-          >
-            <Sliders size={13} /> Tipos de medida <ExternalLink size={12} />
-          </Link>
-
-          <button
-            type="button"
-            className="secondary-button compact"
-            onClick={() => void loadData()}
-            title="Recargar configuración de medidas"
-            disabled={loading}
-            style={{ padding: "6px 8px" }}
-          >
-            <RotateCcw size={13} className={loading ? "spin" : ""} />
-          </button>
-        </div>
-      </div>
-
       {loading ? (
         <div className="empty-notice" style={{ padding: "24px" }}>
           <p>Cargando información dimensional…</p>
@@ -357,8 +365,39 @@ export function ProductInheritedMeasurementPanel({ productId, refreshKey, onErro
               </div>
             )}
           </div>
+
+          {lineBehavior && (
+            <div className="product-behavior-block">
+              <button
+                type="button"
+                className="opening-section-toggle"
+                onClick={() => setBehaviorExpanded((v) => !v)}
+              >
+                {behaviorExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                Comportamiento de línea heredado
+                <span className="label-hint">
+                  {family ? `de la familia ${family.code}` : lineBehavior.name}
+                </span>
+              </button>
+              {behaviorExpanded && (
+                <div className="product-behavior-grid">
+                  {LINE_BEHAVIOR_FLAGS.map((flag) => {
+                    const enabled = Boolean(lineBehavior[flag.key]);
+                    return (
+                      <span
+                        key={flag.key}
+                        className={`status-pill ${enabled ? "success" : "neutral"}`}
+                      >
+                        {flag.label}: {enabled ? "habilitado" : "deshabilitado"}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

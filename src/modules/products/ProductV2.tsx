@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
 import {
   createProduct,
   createProductDraft,
@@ -35,6 +36,10 @@ type ProductV2Props = {
   onEditModeChange?: (editing: boolean) => void;
   onScaledChange?: (scaled: boolean) => void;
   onProductChanged?: () => void;
+  /** Contenido a insertar justo después de "Datos generales" — huecos heredados/características. */
+  afterGeneralDataSlot?: ReactNode;
+  /** Contenido a insertar justo después de "Información comercial" — proveedores. */
+  afterCommercialSlot?: ReactNode;
 };
 
 const emptyProduct = (): ProductForm => ({
@@ -88,6 +93,8 @@ export function ProductV2({
   onEditModeChange,
   onScaledChange,
   onProductChanged,
+  afterGeneralDataSlot,
+  afterCommercialSlot,
 }: ProductV2Props) {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -169,6 +176,8 @@ export function ProductV2({
         onEditModeChange={onEditModeChange}
         onScaledChange={onScaledChange}
         onProductChanged={onProductChanged}
+        afterGeneralDataSlot={afterGeneralDataSlot}
+        afterCommercialSlot={afterCommercialSlot}
       />
     );
   return (
@@ -318,6 +327,8 @@ function ProductEditor({
   onEditModeChange,
   onScaledChange,
   onProductChanged,
+  afterGeneralDataSlot,
+  afterCommercialSlot,
 }: {
   companyId: number | null;
   productId: number | null;
@@ -329,6 +340,8 @@ function ProductEditor({
   onEditModeChange?: (editing: boolean) => void;
   onScaledChange?: (scaled: boolean) => void;
   onProductChanged?: () => void;
+  afterGeneralDataSlot?: ReactNode;
+  afterCommercialSlot?: ReactNode;
 }) {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
@@ -559,17 +572,12 @@ function ProductEditor({
         onSubmit={save}
         className="product-detail-grid"
       >
-        <section
+        <CollapsibleSection
           id="producto-datos-generales"
-          className="panel product-profile-anchor"
+          title="Datos generales"
+          description="Identificación y clasificación del artículo."
+          headerExtra={product && !draftMode && <ProductStatusBadge product={product} />}
         >
-          <div className="panel-head">
-            <div>
-              <h2>Datos generales</h2>
-              <p>Identificación y clasificación del artículo.</p>
-            </div>
-            {product && !draftMode && <ProductStatusBadge product={product} />}
-          </div>
           <div className="form-grid">
             <label>
               ID
@@ -729,21 +737,15 @@ function ProductEditor({
               </select>
             </label>
           </div>
-        </section>
-        <section
+        </CollapsibleSection>
+        {afterGeneralDataSlot}
+        <CollapsibleSection
           id="producto-comercial"
-          className="panel product-profile-anchor"
+          title="Información comercial"
+          description="Precios y datos comerciales básicos; la gestión avanzada de precios queda para la siguiente fase."
         >
-          <div className="panel-head">
-            <div>
-              <h2>Información comercial</h2>
-              <p>
-                Precios y datos comerciales básicos; la gestión avanzada de
-                precios queda para la siguiente fase.
-              </p>
-            </div>
-          </div>
           <div className="form-grid">
+            {!form.scaled && (
             <label>
               Precio venta
               <input
@@ -759,6 +761,12 @@ function ProductEditor({
                 }
               />
             </label>
+            )}
+            {form.scaled && (
+              <div className="hint" style={{ gridColumn: "1 / -1" }}>
+                El precio de venta se define por escalado (más abajo, en Proveedores y precios).
+              </div>
+            )}
             <label>
               Precio compra
               <input
@@ -802,133 +810,137 @@ function ProductEditor({
               />
             </label>
           </div>
-        </section>
-        <section id="producto-stock" className="panel product-profile-anchor">
-          <div className="panel-head">
-            <div>
-              <h2>Gestión de stock</h2>
-              <p>
-                Configuración del artículo; las existencias y movimientos se
-                implementarán en la fase de Stock.
-              </p>
+        </CollapsibleSection>
+        {afterCommercialSlot}
+        <CollapsibleSection
+          id="producto-stock"
+          title="Gestión de stock"
+          description="Configuración del artículo; las existencias y movimientos se implementarán en la fase de Stock."
+        >
+          <div className="stock-subgroup">
+            <h3 className="stock-subgroup-title">Existencias</h3>
+            <div className="form-grid">
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.stock_enabled}
+                  disabled={readOnly}
+                  onChange={(e) => update("stock_enabled", e.target.checked)}
+                />
+                <span>
+                  <strong>Actualizar stock</strong>
+                  <small>
+                    El artículo participa en la gestión de existencias.
+                  </small>
+                </span>
+              </label>
+              <label>
+                Stock mínimo
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  readOnly={readOnly || !form.stock_enabled}
+                  value={form.stock_minimum ?? 0}
+                  onChange={(e) =>
+                    update("stock_minimum", Number(e.target.value))
+                  }
+                />
+              </label>
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.allow_negative_stock}
+                  disabled={readOnly || !form.stock_enabled}
+                  onChange={(e) =>
+                    update("allow_negative_stock", e.target.checked)
+                  }
+                />
+                <span>
+                  <strong>Permitir stock negativo</strong>
+                  <small>Disponible sólo cuando se gestiona stock.</small>
+                </span>
+              </label>
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.include_measurements_in_stock}
+                  disabled={readOnly || !form.stock_enabled}
+                  onChange={(e) =>
+                    update("include_measurements_in_stock", e.target.checked)
+                  }
+                />
+                <span>
+                  <strong>Incluir medidas en stock</strong>
+                </span>
+              </label>
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.include_stock_by_color}
+                  disabled={readOnly || !form.stock_enabled}
+                  onChange={(e) =>
+                    update("include_stock_by_color", e.target.checked)
+                  }
+                />
+                <span>
+                  <strong>Incluir stock por color</strong>
+                </span>
+              </label>
             </div>
           </div>
-          <div className="form-grid">
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.stock_enabled}
-                disabled={readOnly}
-                onChange={(e) => update("stock_enabled", e.target.checked)}
-              />
-              <span>
-                <strong>Actualizar stock</strong>
-                <small>
-                  El artículo participa en la gestión de existencias.
-                </small>
-              </span>
-            </label>
-            <label>
-              Stock mínimo
-              <input
-                type="number"
-                step="1"
-                min="0"
-                readOnly={readOnly || !form.stock_enabled}
-                value={form.stock_minimum ?? 0}
-                onChange={(e) =>
-                  update("stock_minimum", Number(e.target.value))
-                }
-              />
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.allow_negative_stock}
-                disabled={readOnly || !form.stock_enabled}
-                onChange={(e) =>
-                  update("allow_negative_stock", e.target.checked)
-                }
-              />
-              <span>
-                <strong>Permitir stock negativo</strong>
-                <small>Disponible sólo cuando se gestiona stock.</small>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.include_measurements_in_stock}
-                disabled={readOnly || !form.stock_enabled}
-                onChange={(e) =>
-                  update("include_measurements_in_stock", e.target.checked)
-                }
-              />
-              <span>
-                <strong>Incluir medidas en stock</strong>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.include_stock_by_color}
-                disabled={readOnly || !form.stock_enabled}
-                onChange={(e) =>
-                  update("include_stock_by_color", e.target.checked)
-                }
-              />
-              <span>
-                <strong>Incluir stock por color</strong>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.scaled}
-                disabled={readOnly}
-                onChange={(e) => update("scaled", e.target.checked)}
-              />
-              <span>
-                <strong>Escalado</strong>
-                <small>
-                  Las relaciones de escalado se habilitan inmediatamente al
-                  activar esta opción.
-                </small>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.scaled_by_characteristic}
-                disabled={readOnly || !form.scaled}
-                onChange={(e) =>
-                  update("scaled_by_characteristic", e.target.checked)
-                }
-              />
-              <span>
-                <strong>Escalado por característica</strong>
-                <small>Requiere escalado.</small>
-              </span>
-            </label>
-            <label className="check-card">
-              <input
-                type="checkbox"
-                checked={form.smooth_cut}
-                disabled={readOnly}
-                onChange={(e) => update("smooth_cut", e.target.checked)}
-              />
-              <span>
-                <strong>Corte liso</strong>
-              </span>
-            </label>
-          </div>
-        </section>
-        <section className="panel">
-          <div className="panel-head">
-            <div>
-              <h2>Observaciones</h2>
+          <div className="stock-subgroup">
+            <h3 className="stock-subgroup-title">Escalado</h3>
+            <div className="form-grid">
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.scaled}
+                  disabled={readOnly}
+                  onChange={(e) => update("scaled", e.target.checked)}
+                />
+                <span>
+                  <strong>Escalado</strong>
+                  <small>
+                    Las relaciones de escalado se habilitan inmediatamente al
+                    activar esta opción.
+                  </small>
+                </span>
+              </label>
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.scaled_by_characteristic}
+                  disabled={readOnly || !form.scaled}
+                  onChange={(e) =>
+                    update("scaled_by_characteristic", e.target.checked)
+                  }
+                />
+                <span>
+                  <strong>Escalado por característica</strong>
+                  <small>Requiere escalado.</small>
+                </span>
+              </label>
             </div>
           </div>
+          <div className="stock-subgroup">
+            <h3 className="stock-subgroup-title">Corte</h3>
+            <div className="form-grid">
+              <label className="check-card">
+                <input
+                  type="checkbox"
+                  checked={form.smooth_cut}
+                  disabled={readOnly}
+                  onChange={(e) => update("smooth_cut", e.target.checked)}
+                />
+                <span>
+                  <strong>Corte liso</strong>
+                </span>
+              </label>
+            </div>
+          </div>
+        </CollapsibleSection>
+        <CollapsibleSection title="Observaciones">
           <label className="wide-label">
             Notas
             <textarea
@@ -937,7 +949,7 @@ function ProductEditor({
               onChange={(e) => update("notes", e.target.value || null)}
             />
           </label>
-        </section>
+        </CollapsibleSection>
       </form>
     </div>
   );

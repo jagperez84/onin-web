@@ -3,7 +3,6 @@ import { useParams } from "react-router-dom";
 import { ProductV2 } from "./ProductV2";
 import { ProductFamilyCharacteristicsPanel } from "./ProductFamilyCharacteristicsPanel";
 import { ProductCommercialPanel } from "./ProductCommercialPanel";
-import { ProductInheritedMeasurement } from "./ProductInheritedMeasurement";
 import { ProductInheritedMeasurementPanel } from "./ProductInheritedMeasurementPanel";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { ProfileSaveBar } from "../../components/ui/ProfileSaveBar";
@@ -109,29 +108,25 @@ export function ProductProfile() {
           onEditModeChange={setEditing}
           onScaledChange={setScaled}
           onProductChanged={() => setRefreshKey((k) => k + 1)}
-        />
-        {!isNew && (
-          <>
-            <ProductInheritedMeasurement refreshKey={refreshKey} />
-            <div className="product-profile-section-wrap">
-              <ProductInheritedMeasurementPanel
-                productId={Number(id)}
-                refreshKey={refreshKey}
-                onError={reportError}
-              />
-            </div>
-            <div className="product-profile-section-wrap">
-              <ProductFamilyCharacteristicsPanel
-                productId={Number(id)}
-                readOnly={!editing}
-                refreshKey={refreshKey}
-                onError={reportError}
-              />
-            </div>
-            <div
-              id="producto-precios"
-              className="product-profile-section-wrap product-profile-anchor"
-            >
+          afterGeneralDataSlot={
+            !isNew && (
+              <>
+                <ProductInheritedMeasurementPanel
+                  productId={Number(id)}
+                  refreshKey={refreshKey}
+                  onError={reportError}
+                />
+                <ProductFamilyCharacteristicsPanel
+                  productId={Number(id)}
+                  readOnly={!editing}
+                  refreshKey={refreshKey}
+                  onError={reportError}
+                />
+              </>
+            )
+          }
+          afterCommercialSlot={
+            !isNew && (
               <ProductCommercialPanel
                 productId={Number(id)}
                 editable={editing}
@@ -139,9 +134,9 @@ export function ProductProfile() {
                 refreshKey={refreshKey}
                 onError={reportError}
               />
-            </div>
-          </>
-        )}
+            )
+          }
+        />
       </div>
       {editing && <ProfileSaveBar onSave={saveProfile} />}
     </div>

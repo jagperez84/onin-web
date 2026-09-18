@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Edit3, Palette, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { getActiveCompanies } from "../../services/core/coreRepository";
 import { confirmDialog } from "../../components/ui/ConfirmDialog";
+import { CollapsibleSection } from "../../components/ui/CollapsibleSection";
 import {
   assignProductAttribute,
   listAvailableProductAttributes,
@@ -351,22 +352,16 @@ export function ProductFamilyCharacteristicsPanel({
   const scaleDim2 = dimensions.find((d) => d.dimension_number === 2) ?? null;
 
   return (
-    <section
+    <CollapsibleSection
       id="producto-caracteristicas"
-      className="panel product-profile-anchor"
-    >
-      <div className="panel-head">
-        <div>
-          <h2>Características</h2>
-          <p>
-            Se heredan de la familia. Puedes añadir, excluir y modificar
-            características sin cambiar la definición de la familia.
-          </p>
-        </div>
+      title="Características"
+      description="Se heredan de la familia. Puedes añadir, excluir y modificar características sin cambiar la definición de la familia."
+      headerExtra={
         <span className="result-count">
           {rows.filter((r) => !r.excluded).length} configuradas
         </span>
-      </div>
+      }
+    >
       {!readOnly && (
         <div className="characteristic-inline-editor">
           <div className="form-grid">
@@ -727,6 +722,6 @@ export function ProductFamilyCharacteristicsPanel({
           </tbody>
         </table>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
