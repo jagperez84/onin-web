@@ -519,6 +519,7 @@ export function ProductFamilyCharacteristicsPanel({
                   <td>
                     {!readOnly && row.excluded ? (
                       <button
+                        type="button"
                         className="icon-action"
                         title="Recuperar característica heredada"
                         onClick={() => restore(row)}
@@ -528,6 +529,7 @@ export function ProductFamilyCharacteristicsPanel({
                     ) : (
                       !readOnly && (
                         <button
+                          type="button"
                           className="icon-action danger"
                           title={
                             row.source === "family"
@@ -713,6 +715,7 @@ export function ProductFamilyCharacteristicsPanel({
                               <td>
                                 <div className="item-actions">
                                   <button
+                                    type="button"
                                     className="icon-action"
                                     title="Editar"
                                     onClick={() => startModalScale(s)}
@@ -720,6 +723,7 @@ export function ProductFamilyCharacteristicsPanel({
                                     <Edit3 size={14} />
                                   </button>
                                   <button
+                                    type="button"
                                     className="icon-action danger"
                                     title="Eliminar"
                                     onClick={() => removeModalScale(s.id)}

@@ -1233,10 +1233,11 @@ function FamilyEditor({
                                                 <td>{s.price.toFixed(2)} €</td>
                                                 <td>
                                                   <div className="item-actions">
-                                                    <button className="icon-action" title="Editar" onClick={() => startExpScale(s)}>
+                                                    <button type="button" className="icon-action" title="Editar" onClick={() => startExpScale(s)}>
                                                       <Edit3 size={14} />
                                                     </button>
                                                     <button
+                                                      type="button"
                                                       className="icon-action danger"
                                                       title="Eliminar"
                                                       onClick={() => removeExpScale(s.id)}
