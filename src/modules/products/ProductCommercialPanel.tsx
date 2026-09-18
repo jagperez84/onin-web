@@ -507,6 +507,7 @@ export function ProductCommercialPanel({
                   <td>
                     {editable && !r.active && (
                       <button
+                        type="button"
                         className="icon-action"
                         onClick={() =>
                           restoreProductSupplier(r.id)
@@ -526,12 +527,14 @@ export function ProductCommercialPanel({
                     {editable && r.active && (
                       <>
                         <button
+                          type="button"
                           className="icon-action"
                           onClick={() => startSupplier(r)}
                         >
                           <Edit3 size={15} />
                         </button>
                         <button
+                          type="button"
                           className="icon-action danger"
                           onClick={() =>
                             markProductSupplierForDeletion(r.id)
@@ -713,12 +716,14 @@ export function ProductCommercialPanel({
                     {editable && (
                       <>
                         <button
+                          type="button"
                           className="icon-action"
                           onClick={() => startScale(r)}
                         >
                           <Edit3 size={15} />
                         </button>
                         <button
+                          type="button"
                           className="icon-action danger"
                           onClick={() =>
                             markProductScaleForDeletion(r.id)
