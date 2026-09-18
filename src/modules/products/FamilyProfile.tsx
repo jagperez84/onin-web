@@ -1115,7 +1115,7 @@ function FamilyEditor({
                                             <input
                                               type="checkbox"
                                               checked={!excluded}
-                                              disabled={expBusy}
+                                              disabled={readOnly || expBusy}
                                               onChange={() => toggleExpColor(ac.color_id)}
                                             />
                                             <span>
@@ -1138,7 +1138,7 @@ function FamilyEditor({
                                   <input
                                     type="checkbox"
                                     checked={expScaled}
-                                    disabled={expBusy}
+                                    disabled={readOnly || expBusy}
                                     onChange={(e) => toggleExpScaled(e.target.checked)}
                                   />
                                   <span>Escalado por cantidad</span>
@@ -1154,22 +1154,27 @@ function FamilyEditor({
                                           step="0.01"
                                           min="0"
                                           value={expPvp}
+                                          disabled={readOnly}
                                           onChange={(e) => setExpPvp(e.target.value)}
                                         />
-                                        <button type="button" className="secondary-button" disabled={expBusy} onClick={saveExpPvp}>
-                                          Guardar
-                                        </button>
+                                        {!readOnly && (
+                                          <button type="button" className="secondary-button" disabled={expBusy} onClick={saveExpPvp}>
+                                            Guardar
+                                          </button>
+                                        )}
                                       </div>
                                     </label>
                                   </div>
                                 ) : (
                                   <>
-                                    <div style={{ display: "flex", justifyContent: "flex-end", margin: "10px 0" }}>
-                                      <button type="button" className="secondary-button compact" onClick={() => startExpScale()}>
-                                        <Plus size={13} /> Añadir tramo
-                                      </button>
-                                    </div>
-                                    {expScaleForm && (
+                                    {!readOnly && (
+                                      <div style={{ display: "flex", justifyContent: "flex-end", margin: "10px 0" }}>
+                                        <button type="button" className="secondary-button compact" onClick={() => startExpScale()}>
+                                          <Plus size={13} /> Añadir tramo
+                                        </button>
+                                      </div>
+                                    )}
+                                    {expScaleForm && !readOnly && (
                                       <div className="form-grid" style={{ marginBottom: "10px" }}>
                                         <label>
                                           {scaleDim1?.name || "Dimensión 1"}
@@ -1233,17 +1238,21 @@ function FamilyEditor({
                                                 <td>{s.price.toFixed(2)} €</td>
                                                 <td>
                                                   <div className="item-actions">
-                                                    <button type="button" className="icon-action" title="Editar" onClick={() => startExpScale(s)}>
-                                                      <Edit3 size={14} />
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      className="icon-action danger"
-                                                      title="Eliminar"
-                                                      onClick={() => removeExpScale(s.id)}
-                                                    >
-                                                      <Trash2 size={14} />
-                                                    </button>
+                                                    {!readOnly && (
+                                                      <>
+                                                        <button type="button" className="icon-action" title="Editar" onClick={() => startExpScale(s)}>
+                                                          <Edit3 size={14} />
+                                                        </button>
+                                                        <button
+                                                          type="button"
+                                                          className="icon-action danger"
+                                                          title="Eliminar"
+                                                          onClick={() => removeExpScale(s.id)}
+                                                        >
+                                                          <Trash2 size={14} />
+                                                        </button>
+                                                      </>
+                                                    )}
                                                   </div>
                                                 </td>
                                               </tr>
