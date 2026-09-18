@@ -205,12 +205,12 @@ export function CustomerDetail() {
           <p>{data.party.trade_name || data.party.legal_name}</p>
         </div>
         <div className="actions">
-          <Link className="secondary-button" to="/ventas/clientes">
+          <Link className="secondary-button compact" to="/ventas/clientes">
             ← Volver al listado
           </Link>
           {!deleted && !editing && (
             <button
-              className="primary-button"
+              className="primary-button compact"
               type="button"
               onClick={() => setEditing(true)}
             >
@@ -219,7 +219,7 @@ export function CustomerDetail() {
           )}
           {editing && deleted && (
             <button
-              className="secondary-button"
+              className="secondary-button compact"
               type="button"
               onClick={restore}
             >
@@ -228,7 +228,7 @@ export function CustomerDetail() {
           )}
           {!deleted && !editing && (
             <button
-              className="danger-button"
+              className="danger-button compact"
               type="button"
               onClick={markDeleted}
             >

@@ -522,7 +522,7 @@ function ProductEditor({
         </div>
         <div className="product-head-actions">
           <button
-            className="secondary-button"
+            className="secondary-button compact"
             type="button"
             onClick={draftMode ? cancel : () => navigate("/ventas/articulos")}
           >
@@ -530,7 +530,7 @@ function ProductEditor({
           </button>
           {productId !== null && !draftMode && !isDeleted && !editing && (
             <button
-              className="primary-button"
+              className="primary-button compact"
               type="button"
               onClick={() => setEditing(true)}
             >
@@ -541,14 +541,14 @@ function ProductEditor({
             !draftMode &&
             (isDeleted ? (
               <button
-                className="secondary-button"
+                className="secondary-button compact"
                 type="button"
                 onClick={restore}
               >
                 <Undo2 size={15} /> Recuperar
               </button>
             ) : !editing ? (
-              <button className="danger-button" type="button" onClick={mark}>
+              <button className="danger-button compact" type="button" onClick={mark}>
                 <Trash2 size={15} /> Marcar para borrado
               </button>
             ) : null)}

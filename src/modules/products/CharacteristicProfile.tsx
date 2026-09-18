@@ -378,25 +378,25 @@ function CharacteristicEditor({
         </div>
         <div className="product-head-actions">
           <button
-            className="secondary-button"
+            className="secondary-button compact"
             type="button"
             onClick={() => navigate("/ventas/articulos/caracteristicas")}
           >
             <ArrowLeft size={15} /> Volver al listado
           </button>
           {characteristicId !== null && !deleted && !editing && (
-            <button className="primary-button" type="button" onClick={() => setEditing(true)}>
+            <button className="primary-button compact" type="button" onClick={() => setEditing(true)}>
               <Edit3 size={15} /> Editar
             </button>
           )}
           {characteristicId !== null &&
             (deleted ? (
-              <button className="secondary-button" type="button" onClick={restore}>
+              <button className="secondary-button compact" type="button" onClick={restore}>
                 <Undo2 size={15} /> Recuperar
               </button>
             ) : (
               !editing && (
-                <button className="danger-button" type="button" onClick={mark}>
+                <button className="danger-button compact" type="button" onClick={mark}>
                   <Trash2 size={15} /> Marcar para borrado
                 </button>
               )
