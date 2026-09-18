@@ -67,12 +67,6 @@ export function ProductInheritedMeasurementPanel({ productId, refreshKey, onErro
   const product = config?.product;
   const unitsMap = config?.unitsMap;
 
-  // Resolving result unit
-  const resultUnit =
-    measurementType?.result_unit_id && unitsMap
-      ? unitsMap.get(measurementType.result_unit_id)
-      : null;
-
   const isDirect = Boolean(product?.measurement_type_id);
   const isInheritedFromFamily = Boolean(!isDirect && family?.measurement_type_id);
   const lineBehavior = config?.lineBehavior;
@@ -182,41 +176,6 @@ export function ProductInheritedMeasurementPanel({ productId, refreshKey, onErro
               <span>TIPO DE MEDIDA</span>
               <strong title={measurementType.name}>
                 {measurementType.code} · {measurementType.name}
-              </strong>
-            </div>
-
-            <div>
-              <span>Nº DE DIMENSIONES</span>
-              <strong>
-                {measurementType.dimension_count || dimensions.length}{" "}
-                {(measurementType.dimension_count || dimensions.length) === 1
-                  ? "dimensión"
-                  : "dimensiones"}
-              </strong>
-            </div>
-
-            <div>
-              <span>CÁLCULO / FÓRMULA</span>
-              <strong>
-                {measurementType.formula ? (
-                  <code style={{ fontSize: "12px", color: "var(--primary)" }}>
-                    fx: {measurementType.formula}
-                  </code>
-                ) : (
-                  measurementType.calculation_type || "Estándar"
-                )}
-              </strong>
-            </div>
-
-            <div>
-              <span>UNIDAD DE RESULTADO</span>
-              <strong>
-                {resultUnit
-                  ? `${resultUnit.code} · ${resultUnit.name}`
-                  : "Sin unidad de resultado"}{" "}
-                <small style={{ color: "var(--muted)", fontWeight: "normal" }}>
-                  ({measurementType.result_decimals ?? 2} dec.)
-                </small>
               </strong>
             </div>
           </div>
