@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { ProductV2 } from "./ProductV2";
 import { ProductFamilyCharacteristicsPanel } from "./ProductFamilyCharacteristicsPanel";
 import { ProductCommercialPanel } from "./ProductCommercialPanel";
+import { ProductStockPanel } from "./ProductStockPanel";
 import { ProductInheritedMeasurementPanel } from "./ProductInheritedMeasurementPanel";
 import { MessageLog } from "../../components/ui/MessageLog";
 import { ProfileSaveBar } from "../../components/ui/ProfileSaveBar";
@@ -87,6 +88,13 @@ export function ProductProfile() {
             Stock
           </a>
           <a
+            href="#producto-existencias"
+            data-section-label="Existencias"
+            data-section-target="producto-existencias"
+          >
+            Existencias
+          </a>
+          <a
             href="#producto-caracteristicas"
             data-section-label="Características"
             data-section-target="producto-caracteristicas"
@@ -111,6 +119,11 @@ export function ProductProfile() {
           afterGeneralDataSlot={
             !isNew && (
               <>
+                <ProductStockPanel
+                  productId={Number(id)}
+                  refreshKey={refreshKey}
+                  onError={reportError}
+                />
                 <ProductInheritedMeasurementPanel
                   productId={Number(id)}
                   refreshKey={refreshKey}
