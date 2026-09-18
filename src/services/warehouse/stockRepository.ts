@@ -411,6 +411,22 @@ export async function listStockBalances(companyId: number, warehouseId?: number,
   return term ? rows.filter(r => `${r.product?.code ?? ''} ${r.product?.commercial_description ?? ''} ${r.characteristic?.code ?? ''} ${r.characteristic?.description ?? ''}`.toLowerCase().includes(term)) : rows;
 }
 
+/** Existencias de un artículo concreto en todos los almacenes, desglosadas por característica/color. */
+export async function listStockBalancesForProduct(productId: number): Promise<StockBalance[]> {
+  const c = client();
+  const { data, error } = await c
+    .from('warehouse_stock')
+    .select('id,warehouse_id,product_id,characteristic_id,color_id,quantity,reserved_quantity,updated_at,warehouse:warehouse(code,name),color:color(code,name,hex)')
+    .eq('product_id', productId)
+    .order('warehouse_id');
+  if (error) throw new CoreRepositoryError(error.message);
+  const charLabels = await fetchCharacteristicLabels(c, (data ?? []).map((r: any) => r.characteristic_id));
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    characteristic: r.characteristic_id != null ? charLabels.get(Number(r.characteristic_id)) ?? null : null,
+  })) as unknown as StockBalance[];
+}
+
 export async function listStockMovements(companyId: number, filters: { warehouseId?: number; productId?: number; from?: string; to?: string } = {}): Promise<StockMovement[]> {
   const c = client();
   let q = c
