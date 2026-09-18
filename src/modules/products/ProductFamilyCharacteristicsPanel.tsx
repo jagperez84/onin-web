@@ -476,7 +476,12 @@ export function ProductFamilyCharacteristicsPanel({
                       <button
                         type="button"
                         className="secondary-button compact price-colors-toggle"
-                        disabled={readOnly || modalBusy}
+                        // Abrir para ver precio/colores es una simple lectura y debe
+                        // funcionar también fuera de modo edición; solo se bloquea
+                        // cuando la característica es heredada de familia, porque ahí
+                        // abrir el panel dispara una escritura (materializar una copia
+                        // propia del artículo) que sí requiere estar editando.
+                        disabled={(readOnly && row.source === "family") || modalBusy}
                         aria-expanded={priceModalFor?.attribute_id === row.attribute_id}
                         onClick={() =>
                           priceModalFor?.attribute_id === row.attribute_id
@@ -570,7 +575,7 @@ export function ProductFamilyCharacteristicsPanel({
                           <input
                             type="checkbox"
                             checked={!excluded}
-                            disabled={modalBusy}
+                            disabled={readOnly || modalBusy}
                             onChange={() => toggleModalColor(ac.color_id)}
                           />
                           <span>
@@ -593,7 +598,7 @@ export function ProductFamilyCharacteristicsPanel({
                 <input
                   type="checkbox"
                   checked={modalScaled}
-                  disabled={modalBusy}
+                  disabled={readOnly || modalBusy}
                   onChange={(e) => toggleModalScaled(e.target.checked)}
                 />
                 <span>Escalado por cantidad</span>
@@ -609,33 +614,38 @@ export function ProductFamilyCharacteristicsPanel({
                         step="0.01"
                         min="0"
                         value={modalPvp}
+                        disabled={readOnly}
                         onChange={(e) => setModalPvp(e.target.value)}
                       />
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        disabled={modalBusy}
-                        onClick={saveModalPvp}
-                      >
-                        Guardar
-                      </button>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          disabled={modalBusy}
+                          onClick={saveModalPvp}
+                        >
+                          Guardar
+                        </button>
+                      )}
                     </div>
                   </label>
                 </div>
               ) : (
                 <>
-                  <div
-                    style={{ display: "flex", justifyContent: "flex-end", margin: "10px 0" }}
-                  >
-                    <button
-                      type="button"
-                      className="secondary-button compact"
-                      onClick={() => startModalScale()}
+                  {!readOnly && (
+                    <div
+                      style={{ display: "flex", justifyContent: "flex-end", margin: "10px 0" }}
                     >
-                      <Plus size={13} /> Añadir tramo
-                    </button>
-                  </div>
-                  {modalScaleForm && (
+                      <button
+                        type="button"
+                        className="secondary-button compact"
+                        onClick={() => startModalScale()}
+                      >
+                        <Plus size={13} /> Añadir tramo
+                      </button>
+                    </div>
+                  )}
+                  {modalScaleForm && !readOnly && (
                     <div className="form-grid" style={{ marginBottom: "10px" }}>
                       <label>
                         {scaleDim1?.name || "Dimensión 1"}
@@ -714,6 +724,8 @@ export function ProductFamilyCharacteristicsPanel({
                               <td>{s.price.toFixed(2)} €</td>
                               <td>
                                 <div className="item-actions">
+                                  {!readOnly && (
+                                    <>
                                   <button
                                     type="button"
                                     className="icon-action"
@@ -730,6 +742,8 @@ export function ProductFamilyCharacteristicsPanel({
                                   >
                                     <Trash2 size={14} />
                                   </button>
+                                    </>
+                                  )}
                                 </div>
                               </td>
                             </tr>
